@@ -122,13 +122,6 @@ class Snarler(object):
                     longdata=msg.Timeout)
 
     def hideMessage(self, msg):
-        if msg.ID == 0:
-            m = Message()
-            m.Title = 'Snarler error'
-            m.Text = 'Unable to hide message. Message has not been displayed.'
-            self.showMessage(m)
-            return
-
         self._sendCommand(Snarler.SNARL_CMD_HIDE, id=msg.ID)
         msg.ID = 0
 
@@ -146,7 +139,7 @@ class Snarler(object):
 
         return self._app_path
 
-    def getIconsPath(self):
+    def getIconPath(self):
         if self._icon_path == '':
             app_path = self.getAppPath()
             if app_path != '':
@@ -173,11 +166,11 @@ class Snarler(object):
         return self._sendCommand(Snarler.SNARL_CMD_REVOKE_CONFIG_WINDOW, id=0,
             longdata=app.Handle)
 
-    def registerAlert(self, app_title, alert_title):
+    def registerNotification(self, app_title, alert_title):
         return self._sendCommand(Snarler.SNARL_CMD_REGISTER_ALERT,
             title=app_title, text=alert_title)
 
-    def revokeAlert(self, alert):
+    def revokeNotification(self, alert):
         raise NotImplementedError()
 
     def _getVersion(self):
@@ -198,25 +191,15 @@ class Snarler(object):
     def _sendCommand(self, command, id=0, timeout=0, longdata=0, title='', text='', icon='',
                      class_=None, extra=None, extra2=None, reserved1=None, reserved2=None):
 
-        if type(text) == types.StringType:
-            text_fmt = 'B'
-        else:
-            text_fmt = 'u'
-
-        if type(title) == types.StringType:
-            title_fmt = 'B'
-        else:
-            title_fmt = 'u'
+        if type(title) == types.UnicodeType or type(text) == types.UnicodeType:
+            title = title.encode('utf-8')
+            text = text.encode('utf-8')
 
         if class_ is None and extra is None and extra2 is None and reserved1 is None and reserved2 is None:
             command = struct.pack(Snarler.SNARL_STRUCT,
-                              command,
-                              id,
-                              timeout,
-                              longdata,
-                              array.array(title_fmt, title).tostring(),
-                              array.array(text_fmt, text).tostring(),
-                              array.array('B', icon).tostring())
+                                  command, id,
+                                  timeout, longdata,
+                                  title, text, icon)
         else:
             if class_ is None:
                 class_ = 0
@@ -225,29 +208,25 @@ class Snarler(object):
             if reserved2 is None:
                 reserved2 = 0
             if extra is None:
-                extra = ""
+                extra = ''
             if extra2 is None:
-                extra2 = ""
+                extra2 = ''
 
             command = struct.pack(SNARL_STRUCT_EX,
-                                  command,
-                                  id,
-                                  timeout,
-                                  longdata,
-                                  array.array(title_fmt, title).tostring(),
-                                  array.array(text_fmt, text).tostring(),
-                                  array.array('B', icon).tostring(),
+                                  command, id,
+                                  timeout, longdata,
+                                  title, text, icon,
                                   array.array('B', class_).tostring(),
                                   array.array('B', extra).tostring(),
                                   array.array('B', extra2).tostring(),
                                   reserved1,
                                   reserved2)
 
-        command_pack = array.array("B", command)
+        command_pack = array.array('B', command)
         command_info = command_pack.buffer_info()
 
-        cd = struct.pack("LLP", 2, command_info[1], command_info[0])
-        cd_pack = array.array("B", cd)
+        cd = struct.pack('LLP', 2, command_info[1], command_info[0])
+        cd_pack = array.array('B', cd)
         cd_info = cd_pack.buffer_info()
 
         return self._u32.SendMessageA(self._hwnd, WM_COPYDATA, 0, cd_info[0])

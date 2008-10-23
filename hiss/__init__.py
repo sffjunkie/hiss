@@ -1,16 +1,28 @@
 # Copyright 2008, Simon Kennedy, sdk@sffjunkie.co.uk.
 # Distributed under the terms of the MIT License.
 
-# The Python Snarl and Growl bindings
+# The Python Snarl library
 
 import os
+import os.path
+import sys
+import traceback
 
 import snarler
 import growler
 
+from enum import *
 from exception import *
 
 __all__ = ['Message', 'Application', 'Sid']
+
+MessagePriority = Enum('Priority',
+    [('VeryLow', -2),
+     ('Moderate', -1),
+     ('Normal', 0),
+     ('High', 1),
+     ('Emergency', 2)
+    ])
 
 class Message(object):
     def __init__(self):
@@ -20,6 +32,7 @@ class Message(object):
         self._icon = ''
         self._sound = ''
         self._timeout = 0
+        self._priority = MessagePriority.Normal
 
         self._handler = None
 
@@ -85,6 +98,14 @@ class Message(object):
 
     Timeout = property(_get_timeout, _set_timeout)
 
+    def _get_priority(self):
+        return self._priority
+
+    def _set_priority(self, priority):
+        self._priority = priority
+
+    Priority = property(_get_priority, _set_priority)
+
     def Show(self, timeout=0):
         if self._handler is None:
             raise HandlerError('No handler set.')
@@ -109,11 +130,11 @@ class Message(object):
 
 
 class Application(object):
-    def __init__(self):
+    def __init__(self, notifications=[]):
         self._handle = 0
         self._title = ''
         self._icon = ''
-        self._alerts = []
+        self._notifications = notifications
 
     def _get_handle(self):
         return self._handle
@@ -139,12 +160,12 @@ class Application(object):
 
     Icon = property(_get_icon, _set_icon)
 
-    def RegisterAlert(self, title, handler):
+    def RegisterAlerts(self, title, handler):
         if title not in self._alerts:
             handler.registerAlert(self._title, title)
             self._alerts.append(title)
 
-    def RevokeAlert(self, title, handler):
+    def RevokeAlerts(self, title, handler):
         if title in self._alerts:
             handler.revokeAlert(self._title, title)
             self._alerts.remove(title)
@@ -171,7 +192,7 @@ class Sid(object):
     HandlerName = property(lambda self: self._handler.Name)
     HandlerVersion = property(lambda self: self._handler.Version)
     HandlerPath = property(lambda self: self._handler.getAppPath())
-    IconPath = property(lambda self: self._handler.getIconsPath())
+    IconPath = property(lambda self: self._handler.getIconPath())
 
     def ShowMessage(self, msg, timeout=0):
         msg.Handler = self._handler
@@ -187,9 +208,14 @@ class Sid(object):
     def RevokeApp(self, app):
         self._handler.revokeConfig(app)
 
-    def RegisterAlert(self, app, title):
-        app.RegisterAlert(title, self._handler)
+    def ShowException(self, timeout=0):
+        m = Message()
+        i = sys.exc_info()
 
-    def RevokeAlert(self, app, title):
-        app.RevokeAlert(title, self._handler)
+        if i != (None, None, None):
+            m.Title = str(i[1])
+            m.Text = traceback.format_exc()
+            m.Icon = os.path.join(self.IconPath, 'critical.png')
+            m.Timeout = timeout
+            self.ShowMessage(m)
 
