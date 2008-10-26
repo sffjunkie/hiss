@@ -1,6 +1,9 @@
+README.txt
 setup.py
 hiss\__init__.py
+hiss\enum.py
 hiss\exception.py
 hiss\growler.py
-hiss\hiss.py
 hiss\snarler.py
+test\testNotification.py
+test\testUTF8.py

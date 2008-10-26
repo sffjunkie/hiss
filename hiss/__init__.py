@@ -1,22 +1,24 @@
 # Copyright 2008, Simon Kennedy, sdk@sffjunkie.co.uk.
 # Distributed under the terms of the MIT License.
 
-# The Python Snarl library
+# The Python notification library
 
 import os
 import os.path
 import sys
+import types
 import traceback
 
 import snarler
 import growler
+import expeller
 
 from enum import *
 from exception import *
 
-__all__ = ['Message', 'Application', 'Sid']
+__all__ = ['Priority', 'Notification', 'Application']
 
-MessagePriority = Enum('Priority',
+Priority = Enum('Notification Priority',
     [('VeryLow', -2),
      ('Moderate', -1),
      ('Normal', 0),
@@ -24,17 +26,17 @@ MessagePriority = Enum('Priority',
      ('Emergency', 2)
     ])
 
-class Message(object):
-    def __init__(self):
+class Notification(object):
+    def __init__(self, title='', text=''):
         self._id = 0
-        self._title = ''
-        self._text = ''
+        self._title = title.encode('utf-8')
+        self._text = text.encode('utf-8')
         self._icon = ''
         self._sound = ''
         self._timeout = 0
-        self._priority = MessagePriority.Normal
-
-        self._handler = None
+        self._sticky = False
+        self._priority = Priority.Normal
+        self._notifier = _notifier
 
     def _get_id(self):
         return self._id
@@ -51,7 +53,7 @@ class Message(object):
         if len(title) > 1024:
             raise ValueError('Maximum title length (1024) exceeded')
 
-        self._title = title
+        self._title = title.encode('utf-8')
 
     Title = property(_get_title, _set_title)
 
@@ -59,7 +61,7 @@ class Message(object):
         return self._text
 
     def _set_text(self, text):
-        self._text = text
+        self._text = text.encode('utf-8')
 
     Text = property(_get_text, _set_text)
 
@@ -67,6 +69,10 @@ class Message(object):
         return self._icon
 
     def _set_icon(self, icon):
+        icon_path = self._notifier.IconPath
+        if icon_path != '' and not icon.startswith(icon_path):
+            icon = os.path.join(icon_path, icon)
+
         self._icon = icon
 
     Icon = property(_get_icon, _set_icon)
@@ -79,22 +85,11 @@ class Message(object):
 
     Sound = property(_get_sound, _set_sound)
 
-    def _get_handler(self):
-        return self._handler
-
-    def _set_handler(self, handler):
-        self._handler = handler
-
-    Handler = property(_get_handler, _set_handler)
-
     def _get_timeout(self):
         return self._timeout
 
     def _set_timeout(self, timeout):
-        self._timeout = timeout
-
-        if self._handler is not None and self._handler != 0:
-            self._handler.setTimeout(self)
+        self._timeout = int(timeout)
 
     Timeout = property(_get_timeout, _set_timeout)
 
@@ -106,35 +101,77 @@ class Message(object):
 
     Priority = property(_get_priority, _set_priority)
 
-    def Show(self, timeout=0):
-        if self._handler is None:
-            raise HandlerError('No handler set.')
+    def _get_sticky(self):
+        return self._sticky
 
-        self._handler.showMessage(self)
+    def _set_sticky(self, sticky):
+        self._sticky = bool(sticky)
+
+    Sticky = property(_get_sticky, _set_sticky)
+
+    def Show(self):
+        if self._notifier is None:
+            raise NotifierError('No notifier available.')
+
+        return self._notifier.showNotification(self)
+
+    def Update(self):
+        if self._notifier is None:
+            raise NotifierError('No notifier available.')
+
+        return self._notifier.updateNotification(self)
 
     def Hide(self):
-        if self._handler is None:
-            raise HandlerError('No handler set.')
+        if self._notifier is None:
+            raise NotifierError('No notifier available.')
 
-        self._handler.hideMessage(self)
+        return self._notifier.hideNotification(self)
 
     IsValid = property(lambda self: self._title != '' and self._text != '')
 
     def _get_is_visible(self):
-        if self._handler is None:
-            raise HandlerError('No handler set.')
+        if self._notifier is None:
+            raise NotifierError('No notifier available.')
 
-        return self._handler.msgIsVisible(self)
+        return self._notifier.notificationIsVisible(self)
 
     IsVisible = property(_get_is_visible)
 
 
 class Application(object):
-    def __init__(self, notifications=[]):
+    def __init__(self, title='', notifications=[]):
         self._handle = 0
-        self._title = ''
+        self._title = title.encode('utf-8')
         self._icon = ''
-        self._notifications = notifications
+        self._icon_path = ''
+        self._count = 0
+        self._enabled_count = 0
+        self._notifier = _notifier
+
+        self._notifications = {}
+        if len(notifications) != 0:
+            self._set_notifications(notifications)
+
+    def _set_notifications(self, notifications):
+        for item in notifications:
+            if type(item) == types.TupleType:
+                name = item[0].encode('utf-8')
+                enabled = item[1]
+            else:
+                name = item.encode('utf-8')
+                enabled = False
+
+            if name not in self._notifications:
+                self._notifications[name] = enabled
+
+            if enabled:
+                self._enabled_count += 1
+
+            self._count += 1
+
+    Notifications = property(lambda self: self._notifications)
+    NotificationCount = property(lambda self: self._count)
+    NotificationEnabledCount = property(lambda self: self._enabled_count)
 
     def _get_handle(self):
         return self._handle
@@ -148,30 +185,44 @@ class Application(object):
         return self._title
 
     def _set_title(self, title):
-        self._title = title
+        self._title = title.encode('utf-8')
 
     Title = property(_get_title, _set_title)
+
+    def _get_icon_path(self):
+        if self._icon_path == '':
+            self._icon_path = self._notifier.IconPath
+
+        return self._icon_path
+
+    def _set_icon_path(self, icon_path):
+        self._icon_path = icon_path
+
+    IconPath = property(_get_icon_path, _set_icon_path)
 
     def _get_icon(self):
         return self._icon
 
     def _set_icon(self, icon):
+        if not self._icon.startswith(self._icon_path):
+            self._icon = os.path.join(self._icon_path, icon)
+
         self._icon = icon
 
     Icon = property(_get_icon, _set_icon)
 
-    def RegisterAlerts(self, title, handler):
-        if title not in self._alerts:
-            handler.registerAlert(self._title, title)
-            self._alerts.append(title)
+    Notifications = property(lambda self: self._notifications)
 
-    def RevokeAlerts(self, title, handler):
-        if title in self._alerts:
-            handler.revokeAlert(self._title, title)
-            self._alerts.remove(title)
+    def register(self):
+        self._notifier.registerApp(self)
+        for name, enabled in self._notifications.iteritems():
+            self._notifier.registerNotification(self._title, name, enabled)
+
+    def deregister(self):
+        self._notifier.deregisterApp(self)
 
 
-class Sid(object):
+class Notifier(object):
     def __init__(self, handler=None):
         if handler is None:
             if os.name == 'osx':
@@ -194,22 +245,27 @@ class Sid(object):
     HandlerPath = property(lambda self: self._handler.getAppPath())
     IconPath = property(lambda self: self._handler.getIconPath())
 
-    def ShowMessage(self, msg, timeout=0):
+    def showNotification(self, msg):
         msg.Handler = self._handler
-        msg.Timeout = timeout
-        msg.Show()
+        self._handler.showNotification(msg)
 
-    def HideMessage(self, msg):
-        msg.Hide()
+    def updateNotification(self, msg):
+        self._handler.updateNotification(msg)
 
-    def RegisterApp(self, app):
-        self._handler.registerConfig(app)
+    def hideNotification(self, msg):
+        self._handler.hideNotification(msg)
 
-    def RevokeApp(self, app):
-        self._handler.revokeConfig(app)
+    def registerApp(self, app):
+        self._handler.registerApp(app)
 
-    def ShowException(self, timeout=0):
-        m = Message()
+    def deregisterApp(self, app):
+        self._handler.deregisterApp(app)
+
+    def registerNotification(self, app, name):
+        pass
+
+    def showException(self, timeout=10):
+        m = Notification()
         i = sys.exc_info()
 
         if i != (None, None, None):
@@ -217,5 +273,11 @@ class Sid(object):
             m.Text = traceback.format_exc()
             m.Icon = os.path.join(self.IconPath, 'critical.png')
             m.Timeout = timeout
-            self.ShowMessage(m)
+            self.showNotification(m)
+
+global _notifier
+_notifier = Notifier()
+
+def getNotifier():
+    return _notifier
 

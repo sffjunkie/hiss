@@ -1,0 +1,3 @@
+include test/testNotification.py
+include test/testUTF8.py
+
