@@ -1,9 +1,9 @@
 from hiss import *
 
 n = Notification()
-n.Title = u'Hiss\u00a9'
-n.Text = u'\ufebd\n\u0429'
-n.Icon = 'about.png'
-n.Timeout = 10
-n.Show()
+n.title = u'Hiss\u00a9'
+n.text = u'\ufebd\n\u0429'
+n.icon = 'about.png'
+n.timeout = 10
+n.show()
 

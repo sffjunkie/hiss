@@ -14,10 +14,10 @@ from exception import *
 WM_COPYDATA = 74
 
 SnarlCommand = Enum('SnarlCommand',
-    [('Show', 0x01),
-     ('Hide', 0x02),
-     ('Update', 0x03),
-     ('IsVisible', 0x04),
+    [('show', 0x01),
+     ('hide', 0x02),
+     ('update', 0x03),
+     ('is_visible', 0x04),
      ('GetVersion', 0x05),
      ('RegisterConfigWindow', 0x06),
      ('RevokeConfigWindow', 0x07),
@@ -25,12 +25,12 @@ SnarlCommand = Enum('SnarlCommand',
      ('RevokeAlert', 0x09),
      ('RegisterConfigWindow2', 0x0A),
      ('GetVersionEx', 0x0B),
-     ('SetTimeout', 0x0C),
-     ('ShowEx', 0x20)
+     ('Settimeout', 0x0C),
+     ('showEx', 0x20)
     ])
 
 SnarlEvent = Enum('SnarlEvent',
-    [('Launched', 1), ('Quit', 2), ('AskAppletVer', 3), ('ShowAppUI', 4)])
+    [('Launched', 1), ('Quit', 2), ('AskAppletVer', 3), ('showAppUI', 4)])
 
 SnarlNotification = Enum('SnarlNotification',
     [('Clicked', 32),
@@ -79,9 +79,9 @@ class Snarler(object):
         if not self._hwnd:
             raise NotifierError('Unable to create Snarl handler.')
 
-    Name = property(lambda self: 'snarl')
-    Ready = property(lambda self: self._hwnd != 0)
-    Handle = property(lambda self: self._hwnd)
+    name = property(lambda self: 'snarl')
+    ready = property(lambda self: self._hwnd != 0)
+    handle = property(lambda self: self._hwnd)
 
     def Version():
         doc = """The current version of Snarl as a tuple (Major, Minor)"""
@@ -102,18 +102,18 @@ class Snarler(object):
 
         self._application = app
 
-        if (self.Version == (1, 6) or self.Version[0] >= 2) and app.Icon != '':
+        if (self.Version == (1, 6) or self.Version[0] >= 2) and app.icon != '':
             command = SnarlCommand.RegisterConfigWindow2
         else:
             command = SnarlCommand.RegisterConfigWindow
 
         ret = self._send_command(command, id=reply,
-            longdata=app.Handle, title=app.Title, icon=app.Icon)
+            longdata=app.Handle, title=app.title, icon=app.icon)
 
         if ret != SnarlResult.OK:
             return ret
 
-        for name, enabled in app.Notifications.iteritems():
+        for name, enabled in app.notifications.iteritems():
             ret = self.register_notification(self._title, name, enabled)
 
             if ret != SnarlResult.OK:
@@ -132,53 +132,53 @@ class Snarler(object):
         return ret
 
     def show_notification(self, notification):
-        if notification.Sticky:
+        if notification.sticky:
             timeout = 0
         else:
-            timeout = notification.Timeout
+            timeout = notification.timeout
 
         if self._application is None:
             handle = 0
         else:
             handle = self._application.Handle
 
-        if notification.Sound != '':
-            notification._id = self._send_command(SnarlCommand.ShowEx, id=0,
+        if notification.sound != '':
+            notification._id = self._send_command(SnarlCommand.showEx, id=0,
                 timeout=timeout,
                 longdata=handle,
-                title=notification.Title, text=notification.Text,
-                icon=notification.Icon, extra=notification.Sound)
+                title=notification.title, text=notification.text,
+                icon=notification.icon, extra=notification.sound)
         else:
-            notification._id = self._send_command(SnarlCommand.Show, id=0,
+            notification._id = self._send_command(SnarlCommand.show, id=0,
                 timeout=timeout,
                 longdata=handle,
-                title=notification.Title, text=notification.Text,
-                icon=notification.Icon)
+                title=notification.title, text=notification.text,
+                icon=notification.icon)
 
         return notification._id
 
     def update_notification(self, notification):
         if notification._id != 0:
-            ret = self._send_command(SnarlCommand.Update, id=notification._id,
-                        title=notification.Title, text=notification.Text,
-                        icon=notification.Icon)
+            ret = self._send_command(SnarlCommand.update, id=notification._id,
+                        title=notification.title, text=notification.text,
+                        icon=notification.icon)
 
             return ret
         else:
             return SnarlResult.NotFound
 
     def set_timeout(self, notification):
-        self._send_command(SnarlCommand.SetTimeout, id=notification._id,
-                    longdata=notification.Timeout)
+        self._send_command(SnarlCommand.Settimeout, id=notification._id,
+                    longdata=notification.timeout)
 
     def hide_notification(self, notification):
-        ret = self._send_command(SnarlCommand.Hide, id=notification._id)
+        ret = self._send_command(SnarlCommand.hide, id=notification._id)
         notification._id = 0
 
         return ret
 
     def notification_is_visible(self, notification):
-        return self._send_command(SnarlCommand.IsVisible, id=notification._id) == -1
+        return self._send_command(SnarlCommand.is_visible, id=notification._id) == -1
 
     def get_app_path(self):
         if self._app_path == '':

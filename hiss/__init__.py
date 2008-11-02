@@ -16,9 +16,9 @@ import expeller
 from enum import *
 from exception import *
 
-__all__ = ['Priority', 'Notification', 'Application', 'getNotifier', 'setNotifier']
+__all__ = ['priority', 'Notification', 'Application', 'getNotifier', 'setNotifier']
 
-Priority = Enum('Notification Priority',
+priority = Enum('Notification priority',
     [('VeryLow', -2),
      ('Moderate', -1),
      ('Normal', 0),
@@ -35,7 +35,7 @@ class Notification(object):
         self._sound = ''
         self._timeout = 0
         self._sticky = False
-        self._priority = Priority.Normal
+        self._priority = priority.Normal
 
         global _notifier
         self._notifier = _notifier
@@ -44,122 +44,138 @@ class Notification(object):
         def fget(self):
             return self._nid
 
-        def fset(self, nid):
-            self._nid = nid
+        def fset(self, value):
+            self._nid = value
 
         return locals()
 
     _id = property(**_id())
 
-    def Title():
+    def title():
         doc = """The title of the displayed notification."""
 
         def fget(self):
             return self._title
 
-        def fset(self, title):
-            if len(title) > 1024:
+        def fset(self, value):
+            if len(value) > 1024:
                 raise ValueError('Maximum title length (1024) exceeded')
 
-            self._title = title.encode('utf-8')
+            self._title = value.encode('utf-8')
 
         return locals()
 
-    Title = property(**Title())
+    title = property(**title())
 
-    def Text():
+    def text():
+        doc = """The text displayed below the title."""
+
         def fget(self):
             return self._text
 
-        def fset(self, text):
-            self._text = text.encode('utf-8')
+        def fset(self, value):
+            self._text = value.encode('utf-8')
 
         return locals()
 
-    Text = property(**Text())
+    text = property(**text())
 
-    def Icon():
+    def icon():
+        doc = """The filename of the icon to display."""
+
         def fget(self):
             return self._icon
 
-        def fset(self, icon):
-            icon_path = self._notifier.IconPath
-            if icon_path != '' and not icon.startswith(icon_path):
-                icon = os.path.join(icon_path, icon)
+        def fset(self, value):
+            icon_path = self._notifier.icon_path
+            if icon_path != '' and not value.startswith(icon_path):
+                icon = os.path.join(icon_path, value)
 
             self._icon = icon
 
         return locals()
 
-    Icon = property(**Icon())
+    icon = property(**icon())
 
-    def Sound():
+    def sound():
+        doc = """A sound to play when displaying the notification."""
+
         def fget(self):
             return self._sound
 
-        def fset(self, sound):
-            self._sound = sound
+        def fset(self, value):
+            self._sound = value
 
         return locals()
 
-    Sound = property(**Sound())
+    sound = property(**sound())
 
-    def Timeout():
+    def timeout():
+        doc = """Timeout before the notification is hidden."""
+
         def fget(self):
             return self._timeout
 
-        def fset(self, timeout):
-            self._timeout = int(timeout)
+        def fset(self, value):
+            self._timeout = int(value)
 
         return locals()
 
-    Timeout = property(**Timeout())
+    timeout = property(**timeout())
 
-    def Priority():
+    def priority():
+        doc = """The priority of the notification."""
         def fget(self):
             return self._priority
 
-        def fset(self, priority):
-            self._priority = priority
+        def fset(self, value):
+            self._priority = value
 
         return locals()
 
-    Priority = property(**Priority())
+    priority = property(**priority())
 
-    def Sticky():
+    def sticky():
+        """The 'stickiness' of the notification. A sticky message has an infinite timeout."""
         def fget(self):
             return self._sticky
 
-        def fset(self, sticky):
-            self._sticky = bool(sticky)
+        def fset(self, value):
+            self._sticky = bool(value)
 
         return locals()
 
-    Sticky = property(**Sticky())
+    sticky = property(**sticky())
 
-    IsValid = property(lambda self: self._title != '' and self._text != '')
+    def is_visible():
+        doc = """Determine if the notification is currently being displayed."""
 
-    def IsVisible():
         def fget(self):
             return self._notifier.notification_is_visible(self)
 
         return locals()
 
-    IsVisible = property(**IsVisible())
+    is_visible = property(**is_visible())
 
-    def Show(self):
+    def show(self):
+        """Show the notification."""
+
         if self._notifier is None:
             setNotifier()
 
         return self._notifier.show_notification(self)
 
-    def Update(self):
+    def update(self):
+        """Update the title and text of an existing notification."""
+
         if self._notifier is None:
             setNotifier()
 
         return self._notifier.update_notification(self)
 
-    def Hide(self):
+    def hide(self):
+        """Hide the notification"""
+
         if self._notifier is None:
             setNotifier()
 
@@ -172,75 +188,107 @@ class Application(object):
         self._title = title.encode('utf-8')
         self._icon = ''
         self._icon_path = ''
-        self._count = 0
-        self._enabled_count = 0
         self._notifier = _notifier
 
-        self._notifications = {}
-        if len(notifications) != 0:
-            self._set_notifications(notifications)
+        self._notifications = self.Notifications(notifications)
 
-    def _set_notifications(self, notifications):
-        for item in notifications:
-            self.add_notification(item)
+    class Notifications(object):
+        def __init__(self, items):
+            self._items = []
 
-    def add_notification(self, notification):
-        if type(notification) == types.TupleType:
-            name = notification[0].encode('utf-8')
-            enabled = notification[1]
-        else:
-            name = notification.encode('utf-8')
-            enabled = True
+            for item in items:
+                self.append(item)
 
-        if name not in self._notifications:
-            self._notifications[name] = enabled
+        def __setitem__(self, notification, enabled):
+            for item in self._items:
+                if item[0] == notification:
+                    item[1] = enabled
+                    return
 
-            if enabled:
-                self._enabled_count += 1
+            self._items.append((notification, enabled))
 
-            self._count += 1
+        def __getitem__(self, notification):
+            for name, enabled in self._items:
+                if name == notification:
+                    return enabled
 
-    Notifications = property(lambda self: self._notifications)
-    NotificationCount = property(lambda self: self._count)
-    NotificationEnabledCount = property(lambda self: self._enabled_count)
+            raise KeyError('Unable to find notification')
 
-    def _get_handle(self):
-        return self._handle
+        def iteritems():
+            return self._items.iteritems()
 
-    def _set_handle(self, handle):
-        self._handle = handle
+        def append(self, item):
+            if type(item) == types.TupleType:
+                name = item[0].encode('utf-8')
+                enabled = bool(item[1])
+            else:
+                name = item.encode('utf-8')
+                enabled = True
 
-    Handle = property(_get_handle, _set_handle)
+            self._items.append((name, enabled))
 
-    def _get_title(self):
-        return self._title
+        def count(self):
+            return len(self._items)
 
-    def _set_title(self, title):
-        self._title = title.encode('utf-8')
+        def enabled_count(self):
+            count = 0
+            for name, enabled in self._items:
+                if enabled:
+                    count += 1
 
-    Title = property(_get_title, _set_title)
+            return count
 
-    def _get_icon_path(self):
-        if self._icon_path == '':
-            self._icon_path = self._notifier.IconPath
+    notifications = property(lambda self: self._notifications)
 
-        return self._icon_path
+    def handle():
+        def fget(self):
+            return self._handle
 
-    def _set_icon_path(self, icon_path):
-        self._icon_path = icon_path
+        def fset(self, handle):
+            self._handle = handle
 
-    IconPath = property(_get_icon_path, _set_icon_path)
+        return locals()
 
-    def _get_icon(self):
-        return self._icon
+    handle = property(**handle())
 
-    def _set_icon(self, icon):
-        if not self._icon.startswith(self._icon_path):
-            self._icon = os.path.join(self._icon_path, icon)
+    def title():
+        def fget(self):
+            return self._title
 
-        self._icon = icon
+        def fset(self, title):
+            self._title = title.encode('utf-8')
 
-    Icon = property(_get_icon, _set_icon)
+        return locals()
+
+    title = property(**title())
+
+    def icon_path():
+        def fget(self):
+            if self._icon_path == '':
+                self._icon_path = self._notifier.iconPath
+
+            return self._icon_path
+
+        def fset(self, icon_path):
+            self._icon_path = icon_path
+
+        return locals()
+
+    icon_path = property(**icon_path())
+
+    def icon():
+        def fget(self):
+            return self._icon
+
+        def fset(self, icon):
+            if not self._icon.startswith(self._icon_path):
+                self._icon = os.path.join(self._icon_path, icon)
+
+            self._icon = icon
+
+        return locals()
+
+    icon = property(**icon())
 
     def register(self):
         self._notifier.register_app(self)
@@ -268,11 +316,11 @@ class Notifier(object):
 
         self._backend_name = backend
 
-    BackEnd = property(lambda self: self._backend)
-    BackEndName = property(lambda self: self._backend.Name)
-    BackEndVersion = property(lambda self: self._backend.Version)
-    BackEndPath = property(lambda self: self._backend.get_app_path())
-    IconPath = property(lambda self: self._backend.get_icon_path())
+    backend = property(lambda self: self._backend)
+    backend_name = property(lambda self: self._backend.name)
+    backend_version = property(lambda self: self._backend.Version)
+    backend_path = property(lambda self: self._backend.get_app_path())
+    icon_path = property(lambda self: self._backend.get_icon_path())
 
     def show_notification(self, notification):
         return self._backend.show_notification(notification)
@@ -294,10 +342,10 @@ class Notifier(object):
         i = sys.exc_info().copy()
 
         if i != (None, None, None):
-            m.Title = str(i[1])
-            m.Text = traceback.format_exc()
-            m.Icon = os.path.join(self.IconPath, 'critical.png')
-            m.Timeout = timeout
+            m.title = str(i[1])
+            m.text = traceback.format_exc()
+            m.icon = os.path.join(self.iconPath, 'critical.png')
+            m.timeout = timeout
             self.show_notification(m)
 
 global _notifier
