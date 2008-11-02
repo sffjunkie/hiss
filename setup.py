@@ -1,9 +1,14 @@
+# Copyright 2008, Simon Kennedy, sdk@sffjunkie.co.uk.
+# Distributed under the terms of the MIT License.
+
+# Part of 'hiss' the Python notification library
+
 from distutils.core import setup
 
 long_description="""
-hiss will be a Python interface to various notification frameworks.
+hiss is/will be a Python interface to various notification frameworks.
 Currently only interfaces to the Snarl application on the local machine.
-Growl and xPL support will be added later.
+Growl support will be added later.
 """
 
 setup(name='hiss',

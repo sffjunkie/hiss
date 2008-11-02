@@ -1,7 +1,7 @@
 # Copyright 2008, Simon Kennedy, sdk@sffjunkie.co.uk.
 # Distributed under the terms of the MIT License.
 
-# The Python notification library
+# Part of 'hiss' the Python notification library
 
 import os
 import os.path
@@ -16,7 +16,7 @@ import expeller
 from enum import *
 from exception import *
 
-__all__ = ['Priority', 'Notification', 'Application']
+__all__ = ['Priority', 'Notification', 'Application', 'getNotifier', 'setNotifier']
 
 Priority = Enum('Notification Priority',
     [('VeryLow', -2),
@@ -28,7 +28,7 @@ Priority = Enum('Notification Priority',
 
 class Notification(object):
     def __init__(self, title='', text=''):
-        self._id = 0
+        self._nid = 0
         self._title = title.encode('utf-8')
         self._text = text.encode('utf-8')
         self._icon = ''
@@ -36,106 +36,134 @@ class Notification(object):
         self._timeout = 0
         self._sticky = False
         self._priority = Priority.Normal
+
+        global _notifier
         self._notifier = _notifier
 
-    def _get_id(self):
-        return self._id
+    def _id():
+        def fget(self):
+            return self._nid
 
-    def _set_id(self, id):
-        self._id = id
+        def fset(self, nid):
+            self._nid = nid
 
-    ID = property(_get_id, _set_id)
+        return locals()
 
-    def _get_title(self):
-        return self._title
+    _id = property(**_id())
 
-    def _set_title(self, title):
-        if len(title) > 1024:
-            raise ValueError('Maximum title length (1024) exceeded')
+    def Title():
+        doc = """The title of the displayed notification."""
 
-        self._title = title.encode('utf-8')
+        def fget(self):
+            return self._title
 
-    Title = property(_get_title, _set_title)
+        def fset(self, title):
+            if len(title) > 1024:
+                raise ValueError('Maximum title length (1024) exceeded')
 
-    def _get_text(self):
-        return self._text
+            self._title = title.encode('utf-8')
 
-    def _set_text(self, text):
-        self._text = text.encode('utf-8')
+        return locals()
 
-    Text = property(_get_text, _set_text)
+    Title = property(**Title())
 
-    def _get_icon(self):
-        return self._icon
+    def Text():
+        def fget(self):
+            return self._text
 
-    def _set_icon(self, icon):
-        icon_path = self._notifier.IconPath
-        if icon_path != '' and not icon.startswith(icon_path):
-            icon = os.path.join(icon_path, icon)
+        def fset(self, text):
+            self._text = text.encode('utf-8')
 
-        self._icon = icon
+        return locals()
 
-    Icon = property(_get_icon, _set_icon)
+    Text = property(**Text())
 
-    def _get_sound(self):
-        return self._sound
+    def Icon():
+        def fget(self):
+            return self._icon
 
-    def _set_sound(self, sound):
-        self._sound = sound
+        def fset(self, icon):
+            icon_path = self._notifier.IconPath
+            if icon_path != '' and not icon.startswith(icon_path):
+                icon = os.path.join(icon_path, icon)
 
-    Sound = property(_get_sound, _set_sound)
+            self._icon = icon
 
-    def _get_timeout(self):
-        return self._timeout
+        return locals()
 
-    def _set_timeout(self, timeout):
-        self._timeout = int(timeout)
+    Icon = property(**Icon())
 
-    Timeout = property(_get_timeout, _set_timeout)
+    def Sound():
+        def fget(self):
+            return self._sound
 
-    def _get_priority(self):
-        return self._priority
+        def fset(self, sound):
+            self._sound = sound
 
-    def _set_priority(self, priority):
-        self._priority = priority
+        return locals()
 
-    Priority = property(_get_priority, _set_priority)
+    Sound = property(**Sound())
 
-    def _get_sticky(self):
-        return self._sticky
+    def Timeout():
+        def fget(self):
+            return self._timeout
 
-    def _set_sticky(self, sticky):
-        self._sticky = bool(sticky)
+        def fset(self, timeout):
+            self._timeout = int(timeout)
 
-    Sticky = property(_get_sticky, _set_sticky)
+        return locals()
 
-    def Show(self):
-        if self._notifier is None:
-            raise NotifierError('No notifier available.')
+    Timeout = property(**Timeout())
 
-        return self._notifier.showNotification(self)
+    def Priority():
+        def fget(self):
+            return self._priority
 
-    def Update(self):
-        if self._notifier is None:
-            raise NotifierError('No notifier available.')
+        def fset(self, priority):
+            self._priority = priority
 
-        return self._notifier.updateNotification(self)
+        return locals()
 
-    def Hide(self):
-        if self._notifier is None:
-            raise NotifierError('No notifier available.')
+    Priority = property(**Priority())
 
-        return self._notifier.hideNotification(self)
+    def Sticky():
+        def fget(self):
+            return self._sticky
+
+        def fset(self, sticky):
+            self._sticky = bool(sticky)
+
+        return locals()
+
+    Sticky = property(**Sticky())
 
     IsValid = property(lambda self: self._title != '' and self._text != '')
 
-    def _get_is_visible(self):
+    def IsVisible():
+        def fget(self):
+            return self._notifier.notification_is_visible(self)
+
+        return locals()
+
+    IsVisible = property(**IsVisible())
+
+    def Show(self):
         if self._notifier is None:
-            raise NotifierError('No notifier available.')
+            setNotifier()
 
-        return self._notifier.notificationIsVisible(self)
+        return self._notifier.show_notification(self)
 
-    IsVisible = property(_get_is_visible)
+    def Update(self):
+        if self._notifier is None:
+            setNotifier()
+
+        return self._notifier.update_notification(self)
+
+    def Hide(self):
+        if self._notifier is None:
+            setNotifier()
+
+        return self._notifier.hide_notification(self)
 
 
 class Application(object):
@@ -154,15 +182,18 @@ class Application(object):
 
     def _set_notifications(self, notifications):
         for item in notifications:
-            if type(item) == types.TupleType:
-                name = item[0].encode('utf-8')
-                enabled = item[1]
-            else:
-                name = item.encode('utf-8')
-                enabled = False
+            self.add_notification(item)
 
-            if name not in self._notifications:
-                self._notifications[name] = enabled
+    def add_notification(self, notification):
+        if type(notification) == types.TupleType:
+            name = notification[0].encode('utf-8')
+            enabled = notification[1]
+        else:
+            name = notification.encode('utf-8')
+            enabled = True
+
+        if name not in self._notifications:
+            self._notifications[name] = enabled
 
             if enabled:
                 self._enabled_count += 1
@@ -211,73 +242,74 @@ class Application(object):
 
     Icon = property(_get_icon, _set_icon)
 
-    Notifications = property(lambda self: self._notifications)
-
     def register(self):
-        self._notifier.registerApp(self)
-        for name, enabled in self._notifications.iteritems():
-            self._notifier.registerNotification(self._title, name, enabled)
+        self._notifier.register_app(self)
 
     def deregister(self):
-        self._notifier.deregisterApp(self)
+        self._notifier.deregister_app(self)
 
 
 class Notifier(object):
-    def __init__(self, handler=None):
-        if handler is None:
+    def __init__(self, backend=None):
+        if backend is None:
             if os.name == 'osx':
-                handler = 'growl'
+                backend = 'growl'
             else:
-                handler = 'snarl'
+                backend = 'snarl'
 
-        if handler == 'snarl':
-            self._handler = snarler.Snarler()
-        elif handler == 'growl':
-            self._handler = growler.Growler()
+        if backend == 'snarl':
+            self._backend = snarler.Snarler()
+        elif backend == 'growl':
+            self._backend = growler.Growler()
+        elif backend == 'expel':
+            self._backend = expeller.Expeller()
         else:
-            raise ValueError('Unknown handler %s specified' % handler)
+            raise ValueError('Unknown backend %s specified' % backend)
 
-        self._handler_name = handler
+        self._backend_name = backend
 
-    Handler = property(lambda self: self._handler)
-    HandlerName = property(lambda self: self._handler.Name)
-    HandlerVersion = property(lambda self: self._handler.Version)
-    HandlerPath = property(lambda self: self._handler.getAppPath())
-    IconPath = property(lambda self: self._handler.getIconPath())
+    BackEnd = property(lambda self: self._backend)
+    BackEndName = property(lambda self: self._backend.Name)
+    BackEndVersion = property(lambda self: self._backend.Version)
+    BackEndPath = property(lambda self: self._backend.get_app_path())
+    IconPath = property(lambda self: self._backend.get_icon_path())
 
-    def showNotification(self, msg):
-        msg.Handler = self._handler
-        self._handler.showNotification(msg)
+    def show_notification(self, notification):
+        return self._backend.show_notification(notification)
 
-    def updateNotification(self, msg):
-        self._handler.updateNotification(msg)
+    def update_notification(self, notification):
+        return self._backend.update_notification(notification)
 
-    def hideNotification(self, msg):
-        self._handler.hideNotification(msg)
+    def hide_notification(self, notification):
+        return self._backend.hide_notification(notification)
 
-    def registerApp(self, app):
-        self._handler.registerApp(app)
+    def register_app(self, app):
+        return self._backend.register_app(app)
 
-    def deregisterApp(self, app):
-        self._handler.deregisterApp(app)
+    def deregister_app(self, app):
+        return self._backend.deregister_app(app)
 
-    def registerNotification(self, app, name):
-        pass
-
-    def showException(self, timeout=10):
+    def show_exception(self, timeout=10):
         m = Notification()
-        i = sys.exc_info()
+        i = sys.exc_info().copy()
 
         if i != (None, None, None):
             m.Title = str(i[1])
             m.Text = traceback.format_exc()
             m.Icon = os.path.join(self.IconPath, 'critical.png')
             m.Timeout = timeout
-            self.showNotification(m)
+            self.show_notification(m)
 
 global _notifier
 _notifier = Notifier()
 
 def getNotifier():
+    global _notifier
     return _notifier
+
+def setNotifier(name=None):
+    global _notifier
+    if name is not None and _notifier.Handler.Name != name:
+        del _notifier
+        _notifier = Notifier(name)
 

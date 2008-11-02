@@ -3,7 +3,9 @@ setup.py
 hiss\__init__.py
 hiss\enum.py
 hiss\exception.py
+hiss\expeller.py
 hiss\growler.py
 hiss\snarler.py
+test\testApplication.py
 test\testNotification.py
 test\testUTF8.py

@@ -30,7 +30,7 @@ class Growler(object):
         self._handler = 0
         self._hostname = hostname
         self._password = password
-        self._socket = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+        self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
     Name = property(lambda self: 'growl')
     Ready = property(lambda self: self._handler != 0)
@@ -74,13 +74,16 @@ class Growler(object):
     def deregisterApp(self, app):
         pass
 
-    def showNotification(self, msg):
+    def showNotification(self, notification):
         pass
 
-    def updateNotification(self, msg):
+    def updateNotification(self, notification):
         pass
 
-    def notificationIsVisible(self, msg):
+    def hideNotification(self, notification):
+        pass
+
+    def notificationIsVisible(self, notification):
         pass
 
     def getAppPath(self):
@@ -91,8 +94,4 @@ class Growler(object):
 
     def send(self, data):
         self._socket.sendto(data, (self._hostname, GROWL_UDP_PORT))
-
-
-
-
 
