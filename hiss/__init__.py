@@ -11,12 +11,15 @@ import traceback
 
 import snarler
 import growler
+import boxer
 import expeller
 
 from enum import *
 from exception import *
 
 __all__ = ['priority', 'Notification', 'Application', 'getNotifier', 'setNotifier']
+
+DEFAULT_NOTIFIER = 'snarler'
 
 priority = Enum('Notification priority',
     [('VeryLow', -2),
@@ -136,7 +139,7 @@ class Notification(object):
     priority = property(**priority())
 
     def sticky():
-        """The 'stickiness' of the notification. A sticky message has an infinite timeout."""
+        doc = """The 'stickiness' of the notification. A sticky message has an infinite timeout."""
         def fget(self):
             return self._sticky
 
@@ -188,51 +191,33 @@ class Application(object):
         self._title = title.encode('utf-8')
         self._icon = ''
         self._icon_path = ''
+        
+        global _notifier
         self._notifier = _notifier
 
-        self._notifications = self.Notifications(notifications)
+        self._notifications = self._Notifications(notifications)
 
-    class Notifications(object):
+    class _Notifications(dict):
         def __init__(self, items):
-            self._items = []
-
             for item in items:
-                self.append(item)
+                if type(item) == types.TupleType:
+                    name = item[0].encode('utf-8')
+                    enabled = bool(item[1])
+                else:
+                    name = item.encode('utf-8')
+                    enabled = True
+    
+                self[name] = enabled
 
-        def __setitem__(self, notification, enabled):
-            for item in self._items:
-                if item[0] == notification:
-                    item[1] = enabled
-                    return
+        def enable(self, notification):
+            self[notification] = True
+            
+        def disable(self, notification):
+            self[notification] = False
 
-            self._items.append((notification, enabled))
-
-        def __getitem__(self, notification):
-            for name, enabled in self._items:
-                if name == notification:
-                    return enabled
-
-            raise KeyError('Unable to find notification')
-
-        def iteritems():
-            return self._items.iteritems()
-
-        def append(self, item):
-            if type(item) == types.TupleType:
-                name = item[0].encode('utf-8')
-                enabled = bool(item[1])
-            else:
-                name = item.encode('utf-8')
-                enabled = True
-
-            self._items.append((name, enabled))
-
-        def count(self):
-            return len(self._items)
-
-        def enabled_count(self):
+        def enable_count(self):
             count = 0
-            for name, enabled in self._items:
+            for name, enabled in self.iteritems():
                 if enabled:
                     count += 1
 
@@ -298,28 +283,38 @@ class Application(object):
 
 
 class Notifier(object):
-    def __init__(self, backend=None):
-        if backend is None:
+    def __init__(self, name=None):
+        if name is None:
             if os.name == 'osx':
-                backend = 'growl'
+                name = 'growl'
             else:
-                backend = 'snarl'
+                name = 'snarl'
 
-        if backend == 'snarl':
-            self._backend = snarler.Snarler()
-        elif backend == 'growl':
-            self._backend = growler.Growler()
-        elif backend == 'expel':
-            self._backend = expeller.Expeller()
-        else:
-            raise ValueError('Unknown backend %s specified' % backend)
+        self.backend = name
 
-        self._backend_name = backend
+    def backend():
+        def fget(self):
+            return self._backend
 
-    backend = property(lambda self: self._backend)
+        def fset(self, name):
+            if name == 'snarl':
+                self._backend = snarler.Snarler()
+            elif name == 'growl':
+                self._backend = growler.Growler()
+            elif name == 'xbox':
+                self._backend = boxer.Boxer()
+            elif name == 'xpl':
+                self._backend = expeller.Expeller()
+            else:
+                raise ValueError("Unknown backend '%s' requested." % name)
+
+        return locals()
+
+    backend = property(**backend())
+
     backend_name = property(lambda self: self._backend.name)
-    backend_version = property(lambda self: self._backend.Version)
-    backend_path = property(lambda self: self._backend.get_app_path())
+    backend_version = property(lambda self: self._backend.version)
+
     icon_path = property(lambda self: self._backend.get_icon_path())
 
     def show_notification(self, notification):
@@ -348,7 +343,6 @@ class Notifier(object):
             m.timeout = timeout
             self.show_notification(m)
 
-global _notifier
 _notifier = Notifier()
 
 def getNotifier():
@@ -357,7 +351,7 @@ def getNotifier():
 
 def setNotifier(name=None):
     global _notifier
-    if name is not None and _notifier.Handler.Name != name:
+    if name is not None and _notifier.backend_name != name:
         del _notifier
         _notifier = Notifier(name)
 

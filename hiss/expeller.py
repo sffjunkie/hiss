@@ -11,9 +11,9 @@ class Expeller(object):
         self.vendor = 'sffj'
         self.device = 'expeller'
 
-    Name = property(lambda self: 'expel')
-    Ready = property(lambda self: self._handle != 0)
-    Handle = property(lambda self: self._handle)
+    name = property(lambda self: 'expel')
+    ready = property(lambda self: self._handle != 0)
+    handle = property(lambda self: self._handle)
 
     Version = property(lambda self: (0, 0))
 

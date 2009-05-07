@@ -32,9 +32,9 @@ class Growler(object):
         self._password = password
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    Name = property(lambda self: 'growl')
-    Ready = property(lambda self: self._handler != 0)
-    Handle = property(lambda self: self._handler)
+    name = property(lambda self: 'growl')
+    ready = property(lambda self: self._handler != 0)
+    handle = property(lambda self: self._handler)
 
     def _get_version(self):
         """Get the current version of Growl as a tuple (Major, Minor)"""
@@ -43,7 +43,7 @@ class Growler(object):
 
         return self._version
 
-    Version = property(_get_version)
+    version = property(_get_version)
 
     def registerApp(self, app):
         packet = struct.pack('!BBHBB',

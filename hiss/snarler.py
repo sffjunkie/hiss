@@ -14,10 +14,10 @@ from exception import *
 WM_COPYDATA = 74
 
 SnarlCommand = Enum('SnarlCommand',
-    [('show', 0x01),
-     ('hide', 0x02),
-     ('update', 0x03),
-     ('is_visible', 0x04),
+    [('Show', 0x01),
+     ('Hide', 0x02),
+     ('Update', 0x03),
+     ('IsVisible', 0x04),
      ('GetVersion', 0x05),
      ('RegisterConfigWindow', 0x06),
      ('RevokeConfigWindow', 0x07),
@@ -26,7 +26,7 @@ SnarlCommand = Enum('SnarlCommand',
      ('RegisterConfigWindow2', 0x0A),
      ('GetVersionEx', 0x0B),
      ('Settimeout', 0x0C),
-     ('showEx', 0x20)
+     ('ShowEx', 0x20)
     ])
 
 SnarlEvent = Enum('SnarlEvent',
@@ -59,7 +59,8 @@ class Snarler(object):
         35: (1, 1),
         36: (1, 5),
         37: (1, 6),
-        38: (2, 0)
+        38: (2, 0),
+        39: (2, 1)
     }
 
     SNARL_GLOBAL_MSG = 'SnarlGlobalEvent'
@@ -69,21 +70,38 @@ class Snarler(object):
 
     def __init__(self):
         self._u32 = windll.user32
-        self._hwnd = self._u32.FindWindowA(None, 'Snarl')
+        self._target = 'Snarl'
+        self._handle = 0
+
         self._global_msg = 0
         self._version = None
         self._app_path = ''
         self._icon_path = ''
         self._application = None
 
-        if not self._hwnd:
-            raise NotifierError('Unable to create Snarl handler.')
+        self.name = 'snarler'
 
-    name = property(lambda self: 'snarl')
-    ready = property(lambda self: self._hwnd != 0)
-    handle = property(lambda self: self._hwnd)
+    def target():
+        def fget(self):
+            return self._target
 
-    def Version():
+        def fset(self, value):
+            self._target = value
+
+        return locals()
+
+    target = property(**target())
+
+    def handle():
+        def fget(self):
+            return self._u32.FindWindowA(None, self._target)
+
+        return locals()
+
+    handle = property(**handle())
+    ready = property(lambda self: self.handle != 0)
+
+    def version():
         doc = """The current version of Snarl as a tuple (Major, Minor)"""
         def fget(self):
             if self._version is None:
@@ -95,37 +113,37 @@ class Snarler(object):
 
         return locals()
 
-    Version = property(**Version())
+    version = property(**version())
 
     def register_app(self, app):
         """Register an application and its notifications"""
 
         self._application = app
 
-        if (self.Version == (1, 6) or self.Version[0] >= 2) and app.icon != '':
+        if (self.version == (1, 6) or self.version[0] >= 2) and app.icon != '':
             command = SnarlCommand.RegisterConfigWindow2
         else:
             command = SnarlCommand.RegisterConfigWindow
 
-        ret = self._send_command(command, id=reply,
-            longdata=app.Handle, title=app.title, icon=app.icon)
+        ret = self._send_command(command, id=0,
+            longdata=app.handle, title=app.title, icon=app.icon)
 
         if ret != SnarlResult.OK:
             return ret
 
-        for name, enabled in app.notifications.iteritems():
-            ret = self.register_notification(self._title, name, enabled)
-
-            if ret != SnarlResult.OK:
-                return ret
+#        for name, enabled in app.notifications.iteritems():
+#            ret = self.register_notification(self._title, name, enabled)
+#
+#            if ret != SnarlResult.OK:
+#                return ret
 
         return SnarlResult.OK
 
-    def deregister_app(self):
+    def deregister_app(self, app=None):
         """De-register an application and its notifications"""
 
         ret = self._send_command(SnarlCommand.RevokeConfigWindow,
-            longdata=self._application.Handle)
+            longdata=self._application.handle)
 
         self._application = None
 
@@ -140,16 +158,16 @@ class Snarler(object):
         if self._application is None:
             handle = 0
         else:
-            handle = self._application.Handle
+            handle = self._application.handle
 
         if notification.sound != '':
-            notification._id = self._send_command(SnarlCommand.showEx, id=0,
+            notification._id = self._send_command(SnarlCommand.ShowEx, id=0,
                 timeout=timeout,
                 longdata=handle,
                 title=notification.title, text=notification.text,
                 icon=notification.icon, extra=notification.sound)
         else:
-            notification._id = self._send_command(SnarlCommand.show, id=0,
+            notification._id = self._send_command(SnarlCommand.Show, id=0,
                 timeout=timeout,
                 longdata=handle,
                 title=notification.title, text=notification.text,
@@ -159,7 +177,7 @@ class Snarler(object):
 
     def update_notification(self, notification):
         if notification._id != 0:
-            ret = self._send_command(SnarlCommand.update, id=notification._id,
+            ret = self._send_command(SnarlCommand.Update, id=notification._id,
                         title=notification.title, text=notification.text,
                         icon=notification.icon)
 
@@ -178,11 +196,11 @@ class Snarler(object):
         return ret
 
     def notification_is_visible(self, notification):
-        return self._send_command(SnarlCommand.is_visible, id=notification._id) == -1
+        return self._send_command(SnarlCommand.Is_Visible, id=notification._id) == -1
 
     def get_app_path(self):
         if self._app_path == '':
-            hwnd_path = self._u32.FindWindowExA(self._hwnd, 0, 'static', 0)
+            hwnd_path = self._u32.FindWindowExA(self.handle, 0, 'static', 0)
             if hwnd_path != 0:
                 app_path = ' '*1024
                 result = self._u32.GetWindowTextA(hwnd_path, app_path, 1023)
@@ -210,6 +228,12 @@ class Snarler(object):
             title=app_title, text=name)
 
     def deregister_notification(self, app, name):
+        pass
+    
+    def enable_notification(self, notification):
+        pass
+    
+    def disable_notification(self, notification):
         pass
 
     def _get_version(self):
