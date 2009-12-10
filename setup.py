@@ -13,17 +13,17 @@ Growl support will be added later.
 
 setup(name='hiss',
     version='0.1.0',
-    description='hiss is a Python interface to notification frameworks.',
+    description='hiss is a Python interface to various notification frameworks.',
     long_description=long_description,
     author='Simon Kennedy',
     author_email='hiss@sffjunkie.co.uk',
     url='http://www.sffjunkie.co.uk/python/hiss-0.1.0.zip',
     license='MIT',
-    packages=['hiss'],
+    package_dir={'': 'src'},
+    packages=['hiss', 'hiss.protocol', 'hiss.handler'],
     classifiers=[
       'Development Status :: 3 - Alpha',
       'License :: OSI Approved :: MIT License',
-      'Operating System :: Microsoft :: Windows',
       'Programming Language :: Python',
     ],
 )
