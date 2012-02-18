@@ -14,28 +14,17 @@
 
 # Part of 'hiss' the Python notification library
 
-import types
-from nose.tools import raises
+from hiss.resource import Resource
 
-from hiss import Notifier, Notification
-from hiss.target import Target
 
-def testCreate():
-    ns = [Notification('wally')]
-    n = Notifier(None, ns)
+class IconCache(object):
+    pass
 
-def testRegister():
-    ns = [Notification('wally')]
-    n = Notifier(None, notifications=ns)
-    n.register()
-    
-def testCreate():
-    ns = [Notification('wally')]
-    a = Notifier(None, ns)
 
-def testSend():
-    ns = [Notification('wally')]
-    n = Notifier(None, notifications=ns)
-    t = Target('growl@127.0.0.1')
-    n.send('wally', t)
+class Icon(Resource):
+    def __init__(self):
+        Resource.__init__(self)
+        
+    def load(self, url, name=''):
+        pass
     

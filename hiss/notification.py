@@ -1,9 +1,24 @@
-# Copyright 2009, Simon Kennedy, sdk@sffjunkie.co.uk.
-# Distributed under the terms of the MIT License.
+# Copyright 2009-2011, Simon Kennedy, python@sffjunkie.co.uk
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-from enum import *
+# Part of 'hiss' the Python notification library
 
-priority = Enum('Notification priority',
+import uuid
+
+from collections import namedtuple
+
+priority = namedtuple('Priority',
     [('VeryLow', -2),
      ('Moderate', -1),
      ('Normal', 0),
@@ -11,61 +26,32 @@ priority = Enum('Notification priority',
      ('Emergency', 2)
     ])
 
+
+class NotificationInfo(object):
+    def __init__(self):
+        self.name = ''
+        self.description = ''
+        self.icon = None
+        self.enabled = True
+
+
 class Notification(object):
-    def __init__(self, name, display_name='', enabled=False, title='', text=''):
-        self._application = ''
-        self._nid = 0
-        self._name = name
-        self._display_name = display_name
-        self._enabled = enabled
+    def __init__(self, name, title='', text='', enabled=False, icon_url=''):
+        self.nid = self._unique_id()
+        self.application = ''
+        self.name = name
+        self.description = ''
         self._title = title.encode('utf-8')
         self._text = text.encode('utf-8')
         self._sticky = False
         self._priority = priority.Normal
         self._icon = None
-        self._icon_uri = ''
-        self._sound = None
-        self._timeout = 0
+
+        self._nid_coalescing = 0
+        self._callback_context = ''
+        self._callback_context_type = ''
+        self._callback_target = ''
         self._notifier = None
-
-    def application():
-        doc = """The notification ID"""
-        
-        def fget(self):
-            return self._application
-
-        def fset(self, value):
-            self._application = value
-
-        return locals()
-
-    application = property(**application())
-
-    def nid():
-        doc = """The notification ID"""
-        
-        def fget(self):
-            return self._nid
-
-        def fset(self, value):
-            self._nid = value
-
-        return locals()
-
-    nid = property(**nid())
-
-    def name():
-        doc = """The name of the displayed notification."""
-
-        def fget(self):
-            return self._name
-
-        def fset(self, value):
-            self._name = value
-
-        return locals()
-
-    name = property(**name())
 
     def display_name():
         doc = """The display_name of the displayed notification."""
@@ -81,7 +67,7 @@ class Notification(object):
     display_name = property(**display_name())
 
     def enabled():
-        doc = """The enabled of the displayed notification."""
+        doc = """Whether the notification is enabled."""
 
         def fget(self):
             return self._enabled
@@ -94,7 +80,7 @@ class Notification(object):
     enabled = property(**enabled())
 
     def title():
-        doc = """The title of the displayed notification."""
+        doc = """The title of the displayed notification encoded as UTF-8."""
 
         def fget(self):
             return self._title
@@ -110,7 +96,7 @@ class Notification(object):
     title = property(**title())
 
     def text():
-        doc = """The text displayed below the title."""
+        doc = """The text displayed below the title encoded as UTF-8."""
 
         def fget(self):
             return self._text
@@ -121,36 +107,17 @@ class Notification(object):
         return locals()
 
     text = property(**text())
-
-    def icon_uri():
-        doc = """The URI of the icon to display."""
-
+    
+    def icon():
         def fget(self):
-            return self._icon_uri
-
-        def fset(self, uri):
-            self._icon_uri = uri
+            return self._icon
+            
+        def fset(self, value):
+            self._icon = value
 
         return locals()
 
-    icon_uri = property(**icon_uri())
-
-    def icon_from_file():
-        self._icon_file = Icon()
-        self._icon_file.from_file(filename)
-
-    def icon_file():
-        doc = """The URI of the icon to display."""
-
-        def fget(self):
-            return self._icon_file
-
-        def fset(self, uri):
-            self._icon_file = uri
-
-        return locals()
-
-    icon_file = property(**icon_file())
+    icon = property(**icon())
 
     def sound():
         doc = """A sound to play when displaying the notification."""
@@ -230,4 +197,7 @@ class Notification(object):
 
         raise NotImplementedError
 
+    def _unique_id(self):
+        return uuid.uuid3(uuid.NAMESPACE_URL, 'http://www.sffjunkie.co.uk/python-hiss.html')
+        
 
