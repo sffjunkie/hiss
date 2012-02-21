@@ -16,6 +16,7 @@
 
 __all__ = ['GNTP', 'GNTPMessage']
 
+GNTP_SCHEME = 'growl'
 
 class MessageError(Exception):
     pass

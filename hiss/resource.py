@@ -16,7 +16,7 @@
 
 import hashlib
 import urllib2
-
+import base64
 
 class Resource(object):
     def __init__(self, uri='', data=None):
@@ -39,8 +39,17 @@ class Resource(object):
         if self.data is not None:
             return hashlib.md5(self.data)
         else:
-            return ''
+            raise ValueError('Cannot compute md5: No data available')
+
+    def base64(self):
+        if self.data is not None:
+            return base64.b64encode(self.data)
+        else:
+            raise ValueError('Cannot encode base 64: No data available')
 
     def __len__(self):
         return len(self.data)
         
+
+class Icon(Resource):
+    pass

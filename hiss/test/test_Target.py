@@ -19,33 +19,50 @@ from hiss.target import Target, TargetError
 
 def testCreate():
     t = Target()
-    t = Target('growl')
-    t = Target('growl:127.0.0.1')
-    t = Target('snarl')
-    t = Target('snarl:127.0.0.1')
+    assert t.protocol == 'snp'
+    assert t.host == '127.0.0.1'
+    assert t.port == -1
+    assert t.username == ''
+    assert t.password == ''
+    
+    t = Target('growl://')
+    assert t.protocol == 'growl'
+    assert t.host == '127.0.0.1'
+    
+    t = Target('growl://192.168.1.1')
+    assert t.protocol == 'growl'
+    assert t.host == '192.168.1.1'
+    
+    t = Target('snp')
+    assert t.protocol == 'snp'
+    assert t.host == '127.0.0.1'
+
+    t = Target('snp://192.168.1.1')
+    assert t.protocol == 'snp'
+    assert t.host == '192.168.1.1'
+
+    t = Target('snp://sdk@192.168.1.1')
+    assert t.protocol == 'snp'
+    assert t.host == '192.168.1.1'
+    assert t.username == 'sdk'
+
+    t = Target('snp://sdk:wally@192.168.1.1')
+    assert t.protocol == 'snp'
+    assert t.host == '192.168.1.1'
+    assert t.username == 'sdk'
+    assert t.password == 'wally'
+
+    t = Target('snp://sdk:wally@192.168.1.1:9000')
+    assert t.protocol == 'snp'
+    assert t.host == '192.168.1.1'
+    assert t.username == 'sdk'
+    assert t.password == 'wally'
+    assert t.port == 9000
 
 @raises(TargetError)
 def testBadProtocol():
     t = Target('wally')
 
-@raises(TargetError)
-def testTooShort():
-    t = Target('y')
-
-def testSplit():
-    t = Target('growl')
-    assert t.protocol == 'growl'
-    assert t.address == ''
-
-    t = Target('growl:127.0.0.1')
-    assert t.protocol == 'growl'
-    assert t.address == '127.0.0.1'
-
-    t = Target('snarl')
-    assert t.protocol == 'snarl'
-    assert t.address == ''
-
-    t = Target('snarl:127.0.0.1')
-    assert t.protocol == 'snarl'
-    assert t.address == '127.0.0.1'
-
+if __name__ == '__main__':
+    testCreate()
+    testBadProtocol()

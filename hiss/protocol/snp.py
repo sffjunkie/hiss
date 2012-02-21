@@ -13,33 +13,66 @@
 # limitations under the License.
 
 import base64
+from urllib import quote
 from collections import namedtuple
 
 from twisted.internet.defer import Deferred
 from twisted.protocols.basic import LineReceiver
 
-SNP_PORT = 5233
+SNP_SCHEME = 'snp'
+SNP_DEFAULT_PORT = 5233
+SNP_DEFAULT_VERSION = '2.0'
 
 class SNPError(Exception):
 	pass
 
 
-class SNPMessage(object):
-	def __init__(self, signature):
-		self.signature= signature
+class SNPRequest(object):
+	def __init__(self, command, version=SNP_DEFAULT_VERSION, **kwargs):
+		self.command = command
+		self.version = version
 		self.commands = []
 		self.response = False
+		self.port = SNP_DEFAULT_PORT
 	
 	_Command = namedtuple('Command', 'name, parameters')
 
 	def append(self, name, **kwargs):
 		"""Append a command to the message
 		
-		SNPMessage.append('register', signature='sig', uid='1', title='ww')"""
+		SNPRequest.append('register', signature='sig', uid='1', title='ww')"""
+		
+		if self.version == '2.0' and len(self.commands) == 1:
+			raise ValueError('Version 2.0 messages don\'t support multiple commands')
 		
 		self.commands.append(self._Command(name, kwargs))
 	
 	def marshall(self):
+		if self.version == '2.0':
+			return self._marshall_20()
+		elif self.version == '3.0':
+			return self._marshall_30()
+		elif self.version == '1.0':
+			raise ValueError('SNP protocol version 1.0 is unsupported.')
+	
+	def unmarshall(self, data):
+		if data.startswith('SNP/2.0'):
+			return self._unmarshall_20(data)
+		elif data.startswith('SNP/3.0'):
+			return self._unmarshall_30(data)
+		else:
+			raise ValueError('Unsupported response version.')
+
+	def _marshall_20(self):
+		command = self.commands[0]
+		
+		parameters = ''
+		for parameter, value in command.parameters.items():
+			parameters += '?%s=%s' % (parameter, quote(value))
+			
+		return 'snp://%s%s\r' % (command.name, parameters)
+	
+	def _marshall_30(self):
 		data = 'SNP/3.0\r\n'
 		for command in self.commands:
 			data += '%s?' % command.name
@@ -61,11 +94,12 @@ class SNPMessage(object):
 			data += params[1:]
 			data += '\r\n'
 
-		data += 'END\r\n'
+		return data + 'END\r\n'
 
-		return data
+	def _unmarshall_20(self, data):
+		pass
 
-	def unmarshall(self, data):
+	def _unmarshall_30(self, data):
 		lines = data.split('\r\n')
 		
 		header = lines[0]
@@ -73,7 +107,7 @@ class SNPMessage(object):
 			raise SNPError('Invalid SNP message format')
 
 		try:
-			items = header.split(' ')
+			items = header.split('/')
 			if len(items) == 3:
 				self.response = True
 				status = items[1]
@@ -92,7 +126,13 @@ class SNPMessage(object):
 		data = data.replace('\r\n', '#')
 		data = data.replace('=', '%')
 		return data
+
+class RegisterRequest(SNPRequest):
+	def __init__(self):
+		SNPRequest.__init__(self)
 	
+	def append(self, info):
+		pass
 
 class SNP(LineReceiver):
 	def __init__(self):
@@ -104,7 +144,7 @@ class SNP(LineReceiver):
 	def send(self, message, host):
 		self.d = Deferred()
 		self.response = {}
-		self.transport.write(message.marshall(), (host, SNP_PORT))
+		self.transport.write(message.marshall(), (host, SNP_DEFAULT_PORT))
 		return self.d
 
 	def lineReceived(self, data):

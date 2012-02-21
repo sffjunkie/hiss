@@ -17,10 +17,11 @@
 import uuid
 
 from hiss.target import Target
-from hiss.resource import Resource
-from hiss.notification import Notification
+from hiss.resource import Icon
+from hiss.notification import Notification, NotificationInfo
 
 __all__ = ['Notifier']
+
 
 class Notifier(object):
     def __init__(self, uid=None):
@@ -30,44 +31,53 @@ class Notifier(object):
             self.nid = uid
         
         self.name = ''
-        self.icon = None
+        self._icon = None
+        self._targets= {}
+        self._notifications= {}
 
-        self._targets = {}
-        self._notifications = {}
+    def icon():
+        def fset(self, icon):
+            if isinstance(icon, Icon):
+                self._icon = icon
+            else:
+                if icon != '':
+                    self._icon = Icon(icon)
+                    
+        def fget(self):
+            return self._icon
+        
+        return locals()
+        
+    icon = property(**icon())
 
-    def load_icon(self, url):
-        if url is not None and url != '':
-            self.icon = Resource(url)
-            self.icon.load()
+    def add_notification(self, name, description, icon, enabled):
+        self._notifications[name] = NotificationInfo(name, description, icon, enabled)
 
-    def add_notification(self, info):
-        self._notifications[info[0]] = info
-
-    def get_notification(self, name, title='', text='', icon_url=''):
+    def notification(self, name, title='', text='', icon_url=''):
         if name not in self._notifications:
             raise KeyError('\'%s\' is not a known notification. Must be one of %' % (name, ','.join(self._notifications)))
             
         n =  Notification(name, title, text, enabled=True)
+        return n
 
     def remove_notification(self, name):
         del self._notifications[name]
 
     def add_target(self, target):
-        if target not in self._targets:
-            self._targets[target] = Target(target)
+        self._targets[target] = Target(target)
  
     def remove_target(self, target):
         if target in self._targets:
             del self._targets[target]
  
-    def register(self, t):
+    def register(self):
         """Register ourselves with the targets"""
 
         for target in self._targets.items():
-            msg = target.protocol.RegisterMessage()
+            msg = target.handler.RegisterMessage()
         
-            for name, enabled in self._notifications.values():
-                msg.add_notification(name, enabled)
+            for info in self._notifications.values():
+                msg.append(info)
             
             target.send(msg)
     
@@ -89,4 +99,15 @@ class Notifier(object):
             msg = target.protocol.NotifyMessage()
             msg.set_to(notification)
             target.protocol.notify(msg)
+
+    def send(self, notification):
+        def success(result):
+            pass
+        
+        def fail(failure):
+            pass
+        
+        d = self._protocol_handler.send(notification, self._host)
+        d.addCallback(success)
+        d.addErrback(fail)
 

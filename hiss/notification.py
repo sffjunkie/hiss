@@ -18,22 +18,14 @@ import uuid
 
 from collections import namedtuple
 
-priority = namedtuple('Priority',
-    [('VeryLow', -2),
-     ('Moderate', -1),
-     ('Normal', 0),
-     ('High', 1),
-     ('Emergency', 2)
-    ])
+class priority(object):
+    VeryLow = -2
+    Moderate = -1
+    Normal = 0
+    High = 1
+    Emergency = 2
 
-
-class NotificationInfo(object):
-    def __init__(self):
-        self.name = ''
-        self.description = ''
-        self.icon = None
-        self.enabled = True
-
+NotificationInfo = namedtuple('NotificationInfo',['name', 'description', 'icon', 'enabled'])
 
 class Notification(object):
     def __init__(self, name, title='', text='', enabled=False, icon_url=''):

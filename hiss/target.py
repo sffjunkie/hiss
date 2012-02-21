@@ -14,36 +14,90 @@
 
 # Part of 'hiss' the Python notification library
 
-from hiss.protocol.snp import SNP
-from hiss.protocol.gtnp import GNTP
+import urlparse
+
+from hiss.protocol.snp import SNP, SNP_SCHEME
+from hiss.protocol.gntp import GNTP, GNTP_SCHEME
+
+for s in [SNP_SCHEME, GNTP_SCHEME]:
+    if s not in urlparse.uses_relative:
+        urlparse.uses_relative.append(s)
+        
+    if s not in urlparse.uses_netloc:
+        urlparse.uses_netloc.append(s)
+
+    if s not in urlparse.uses_params:
+        urlparse.uses_params.append(s)
+
+    if s not in urlparse.uses_query:
+        urlparse.uses_query.append(s)
 
 class Target(object):
-    def __init__(self, protocol='snarl', *args, **kwargs):
-        if protocol == 'snarl': 
-            self._protocol = SNP()
-        elif protocol == 'gntp':
-            self._protocol = GNTP()
-
-        self._host = ''
-        self._password = ''
-        self._options = {}
+    def __init__(self, protocol='', **kwargs):
+        if protocol == '':
+            protocol = '%s:///' % SNP_SCHEME
         
-        for name, value in kwargs.items():
-            if name == 'host':
-                self._host = value
-            elif name == 'password':
-                self._password = value
+        self.port = -1
+        self.username = ''
+        self.password = ''
+        
+        result = urlparse.urlparse(protocol)
+        if result.scheme != '':
+            self.protocol = result.scheme
+            
+            host = ''
+            if result.netloc != '':
+                try:
+                    userpass, host = result.netloc.split('@')
+                    try:
+                        self.username, self.password = userpass.split(':')
+                    except:
+                        self.username = userpass
+                        self.password = ''
+                        
+                    try:
+                        host, port = host.split(':')
+                    except:
+                        host = host
+                        port = -1
+                except:
+                    host = result.netloc
+                    port = -1
+                    
+                host = host
             else:
-                self._options[name] = value
+                host = '127.0.0.1'
+                port = -1
+                
+            self.host = host
+            self.port = int(port)
+        elif protocol.startswith(SNP_SCHEME):
+            self.protocol = SNP_SCHEME
+            self.host = protocol[len(SNP_SCHEME):].lstrip(':')
+        elif protocol.startswith(GNTP_SCHEME):
+            self.protocol = GNTP_SCHEME
+            self.host = protocol[len(GNTP_SCHEME):].lstrip(':')
+        else:
+            self.protocol = protocol
+            
+        if self.protocol not in [SNP_SCHEME, GNTP_SCHEME]:
+            raise TargetError('Unknown protocol %s' % protocol)
 
-    def send(self, notification):
-        def success(result):
-            pass
+        if self.protocol == SNP_SCHEME:
+            self.handler = SNP()
+        elif self.protocol == GNTP_SCHEME:
+            self.handler = GNTP()
         
-        def fail(failure):
-            pass
+        self.host = kwargs.get('host', self.host)
+        self.port = kwargs.get('port', self.port)
+        self.username = kwargs.get('username', self.username)
+        self.password = kwargs.get('password', self.password)
         
-        d = self._protocol.send(notification, self._host)
-        d.addCallback(success)
-        d.addErrback(fail)
+        if self.host == '':
+            self.host = '127.0.0.1'
 
+    def __repr__(self):
+        return '%s://%s:%d' % (self.protocol, self.host, self.port)
+
+class TargetError(Exception):
+    pass
