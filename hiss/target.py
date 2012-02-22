@@ -99,5 +99,8 @@ class Target(object):
     def __repr__(self):
         return '%s://%s:%d' % (self.protocol, self.host, self.port)
 
+    def register(self, notifier):
+        self.handler.register(notifier, self)
+
 class TargetError(Exception):
     pass

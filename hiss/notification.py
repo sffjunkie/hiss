@@ -25,7 +25,7 @@ class priority(object):
     High = 1
     Emergency = 2
 
-NotificationInfo = namedtuple('NotificationInfo',['name', 'description', 'icon', 'enabled'])
+NotificationInfo = namedtuple('NotificationInfo',['name', 'description', 'icon', 'enabled', 'class_id'])
 
 class Notification(object):
     def __init__(self, name, title='', text='', enabled=False, icon_url=''):
@@ -33,6 +33,7 @@ class Notification(object):
         self.application = ''
         self.name = name
         self.description = ''
+        self.class_id = ''
         self._title = title.encode('utf-8')
         self._text = text.encode('utf-8')
         self._sticky = False

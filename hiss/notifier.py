@@ -24,14 +24,12 @@ __all__ = ['Notifier']
 
 
 class Notifier(object):
-    def __init__(self, uid=None):
-        if uid is None:
-            self.nid = uuid.uuid4()
-        else:
-            self.nid = uid
+    def __init__(self, signature, title=''):
+        self.signature = signature
         
-        self.name = ''
+        self.title = title
         self._icon = None
+        self.nid = uuid.uuid4()
         self._targets= {}
         self._notifications= {}
 
@@ -50,8 +48,17 @@ class Notifier(object):
         
     icon = property(**icon())
 
-    def add_notification(self, name, description, icon, enabled):
-        self._notifications[name] = NotificationInfo(name, description, icon, enabled)
+    def add_target(self, target):
+        self._targets[target] = Target(target)
+ 
+    def remove_target(self, target):
+        if target in self._targets:
+            del self._targets[target]
+
+    def add_notification_type(self, name, description, icon, enabled):
+        class_id = len(self._notifications) + 1
+        self._notifications[name] = NotificationInfo(name, description,
+                                                     icon, enabled, class_id)
 
     def notification(self, name, title='', text='', icon_url=''):
         if name not in self._notifications:
@@ -60,15 +67,8 @@ class Notifier(object):
         n =  Notification(name, title, text, enabled=True)
         return n
 
-    def remove_notification(self, name):
+    def remove_notification_type(self, name):
         del self._notifications[name]
-
-    def add_target(self, target):
-        self._targets[target] = Target(target)
- 
-    def remove_target(self, target):
-        if target in self._targets:
-            del self._targets[target]
  
     def register(self):
         """Register ourselves with the targets"""
