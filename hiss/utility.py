@@ -1,4 +1,4 @@
-# Copyright 2009-2011, Simon Kennedy, python@sffjunkie.co.uk
+# Copyright 2009-2011, Simon Kennedy, code@sffjunkie.co.uk
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,13 +43,10 @@ def find_local_address():
 def find_open_port(from_port, interface='0.0.0.0'):
     UDPSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    bound = False
-
     for port in range(from_port, from_port + 512):
         try:
             addr = (interface, port)
             UDPSock.bind(addr)
-            bound = True
             break
         except:
             port += 1

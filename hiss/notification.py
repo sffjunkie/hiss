@@ -1,4 +1,4 @@
-# Copyright 2009-2011, Simon Kennedy, python@sffjunkie.co.uk
+# Copyright 2009-2011, Simon Kennedy, code@sffjunkie.co.uk
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,65 +12,78 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Part of 'hiss' the Python notification library
+# Part of 'hiss' the twisted notification library
 
 import uuid
-
 from collections import namedtuple
 
-class priority(object):
+__all__ = ['Notification']
+
+class NotificationPriority(object):
+    """Notification display priority. One of VeryLow, Moderate,
+    Normal, High or Emergency
+    """
+    
     VeryLow = -2
     Moderate = -1
     Normal = 0
     High = 1
     Emergency = 2
 
-NotificationInfo = namedtuple('NotificationInfo',['name', 'description', 'icon', 'enabled', 'class_id'])
+
+NotificationCommand = namedtuple('NotificationCommand', ['command', 'label'])
+
 
 class Notification(object):
-    def __init__(self, name, title='', text='', enabled=False, icon_url=''):
-        self.nid = self._unique_id()
-        self.application = ''
-        self.name = name
-        self.description = ''
+    def __init__(self, title='', text='',
+                 icon='', sound='', enabled=True,
+                 priority=NotificationPriority.Normal,
+                 timeout=-1, app_sig=''):
+        """Create a new notification
+        
+        :param title:      Notification title.
+        :type title:       string
+        :param text:       The text to display below the title
+        :type text:        string
+        :param icon:       Icon to display
+        :type icon:        string or None for no icon
+        :param priority:   Notification display priority.
+                           Default priority = Normal
+        
+                           ====== =============
+                           Value  Priority Type
+                           ====== =============
+                           -2     Very Low
+                           -1     Moderate
+                           0      Normal
+                           1      High
+                           2      Emergency
+                           ====== =============
+        :type priority:    integer
+        :param signature:  MIME style application signature to use for this
+                           notification.
+                           
+                           Notifications created by a Notifier
+                           have this information filled in automatically.
+        :type signature:   string
+        """
+        
+        self.title = title
+        self.text = text
+        self.icon = icon
+        self.sound = sound
+        self.priority = priority
+        self.enabled = enabled
+        self.timeout = timeout
+        self.sticky = False
+        self.percentage = -1
+        self.callback = None
+        self.actions = []
+
+        self.signature = app_sig
+        self.uid = self._unique_id()
         self.class_id = ''
-        self._title = title.encode('utf-8')
-        self._text = text.encode('utf-8')
-        self._sticky = False
-        self._priority = priority.Normal
-        self._icon = None
-
-        self._nid_coalescing = 0
-        self._callback_context = ''
-        self._callback_context_type = ''
-        self._callback_target = ''
-        self._notifier = None
-
-    def display_name():
-        doc = """The display_name of the displayed notification."""
-
-        def fget(self):
-            return self._display_name
-
-        def fset(self, value):
-            self._display_name = value
-
-        return locals()
-
-    display_name = property(**display_name())
-
-    def enabled():
-        doc = """Whether the notification is enabled."""
-
-        def fget(self):
-            return self._enabled
-
-        def fset(self, value):
-            self._enabled = value
-
-        return locals()
-
-    enabled = property(**enabled())
+        self.notifier = None
 
     def title():
         doc = """The title of the displayed notification encoded as UTF-8."""
@@ -101,68 +114,29 @@ class Notification(object):
 
     text = property(**text())
     
-    def icon():
-        def fget(self):
-            return self._icon
-            
-        def fset(self, value):
-            self._icon = value
+    def add_callback(self, command, label=''):
+        """Add a callback for this notification.
+        
+        Only 1 callback can be added. Calling this multiple times will only use
+        the last.
+        """
 
-        return locals()
+        self.callback = NotificationCommand(command, label)
+        
+    def add_action(self, command, label):
+        """Add an action to this notification.
+        
+        Multiple actions can be added.
+        
+        :param command: The command to execute
+        :type command:  string
+        :param label:   The label to display
+        :type label:    string
+        """
+        
+        self.actions.append(NotificationCommand(command, label))
 
-    icon = property(**icon())
-
-    def sound():
-        doc = """A sound to play when displaying the notification."""
-
-        def fget(self):
-            return self._sound
-
-        def fset(self, value):
-            self._sound = value
-
-        return locals()
-
-    sound = property(**sound())
-
-    def timeout():
-        doc = """Timeout before the notification is hidden."""
-
-        def fget(self):
-            return self._timeout
-
-        def fset(self, value):
-            self._timeout = int(value)
-
-        return locals()
-
-    timeout = property(**timeout())
-
-    def priority():
-        doc = """The priority of the notification."""
-        def fget(self):
-            return self._priority
-
-        def fset(self, value):
-            self._priority = value
-
-        return locals()
-
-    priority = property(**priority())
-
-    def sticky():
-        doc = """The 'stickiness' of the notification. A sticky message has an infinite timeout."""
-        def fget(self):
-            return self._sticky
-
-        def fset(self, value):
-            self._sticky = bool(value)
-
-        return locals()
-
-    sticky = property(**sticky())
-
-    def is_visible():
+    def isvisible():
         doc = """Determine if the notification is currently being displayed."""
 
         def fget(self):
@@ -170,27 +144,24 @@ class Notification(object):
 
         return locals()
 
-    is_visible = property(**is_visible())
-
-    def to_notify_message():
-        raise NotImplementedError
+    isvisible = property(**isvisible())
 
     def show(self):
         """Show the notification."""
 
-        raise NotImplementedError
+        if self.notifier is not None:
+            self.notifier.show(self.uid)
+
+    def hide(self):
+        """Hide the notification"""
+
+        if self.notifier is not None:
+            self.notifier.hide(self.uid)
 
     def update(self):
         """Update the title and text of an existing notification."""
 
         raise NotImplementedError
 
-    def hide(self):
-        """Hide the notification"""
-
-        raise NotImplementedError
-
     def _unique_id(self):
-        return uuid.uuid3(uuid.NAMESPACE_URL, 'http://www.sffjunkie.co.uk/python-hiss.html')
-        
-
+        return str(uuid.uuid4())

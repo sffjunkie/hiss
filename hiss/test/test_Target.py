@@ -14,55 +14,60 @@
 
 # Part of 'hiss' the Python notification library
 
-from nose.tools import raises
+import pytest
 from hiss.target import Target, TargetError
 
-def testCreate():
+def test_Create():
     t = Target()
-    assert t.protocol == 'snp'
+    assert t.scheme == 'snp'
     assert t.host == '127.0.0.1'
     assert t.port == -1
     assert t.username == ''
     assert t.password == ''
     
     t = Target('growl://')
-    assert t.protocol == 'growl'
+    assert t.scheme == 'growl'
     assert t.host == '127.0.0.1'
     
     t = Target('growl://192.168.1.1')
-    assert t.protocol == 'growl'
+    assert t.scheme == 'growl'
     assert t.host == '192.168.1.1'
     
     t = Target('snp')
-    assert t.protocol == 'snp'
+    assert t.scheme == 'snp'
     assert t.host == '127.0.0.1'
 
     t = Target('snp://192.168.1.1')
-    assert t.protocol == 'snp'
+    assert t.scheme == 'snp'
     assert t.host == '192.168.1.1'
 
     t = Target('snp://sdk@192.168.1.1')
-    assert t.protocol == 'snp'
+    assert t.scheme == 'snp'
     assert t.host == '192.168.1.1'
     assert t.username == 'sdk'
 
     t = Target('snp://sdk:wally@192.168.1.1')
-    assert t.protocol == 'snp'
+    assert t.scheme == 'snp'
     assert t.host == '192.168.1.1'
     assert t.username == 'sdk'
     assert t.password == 'wally'
 
     t = Target('snp://sdk:wally@192.168.1.1:9000')
-    assert t.protocol == 'snp'
+    assert t.scheme == 'snp'
     assert t.host == '192.168.1.1'
     assert t.username == 'sdk'
     assert t.password == 'wally'
     assert t.port == 9000
 
-@raises(TargetError)
-def testBadProtocol():
-    t = Target('wally')
+def test_String():
+    t = Target('snp://sdk:wally@192.168.1.1:9000')
+    assert str(t) == 'snp://192.168.1.1:9000'
+    
+def test_BadProtocol():
+    with pytest.raises(TargetError):
+        t = Target('wally')
 
 if __name__ == '__main__':
-    testCreate()
-    testBadProtocol()
+    test_Create()
+    test_String()
+    test_BadProtocol()

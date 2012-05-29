@@ -1,4 +1,4 @@
-# Copyright 2009-2011, Simon Kennedy, python@sffjunkie.co.uk
+# Copyright 2009-2011, Simon Kennedy, code@sffjunkie.co.uk
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,20 +12,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Part of 'hiss' the Python notification library
+# Part of 'hiss' the twisted notification library
 
 import hashlib
 import urllib2
-import base64
+
 
 class Resource(object):
     def __init__(self, uri='', data=None):
         self.uri = uri
-        self.data = data
-
-    def load(self):
-        f = urllib2.urlopen(self.uri)
-        self.data = f.read(-1)
+        self._data = data
+        
+    def data():
+        def fget(self):
+            if self._data is None:
+                if self.uri[0] == '!':
+                    self._data = self.uri
+                else:
+                    f = urllib2.urlopen(self.uri)
+                    self._data = f.read(-1)
+                
+            return self._data
+            
+        return locals()
+        
+    data = property(**data())
         
     def res_id(self):
         if self.uri != '':
@@ -36,20 +47,15 @@ class Resource(object):
             return ''
 
     def md5(self):
-        if self.data is not None:
-            return hashlib.md5(self.data)
+        if self._data is not None:
+            return hashlib.md5(self._data)
         else:
             raise ValueError('Cannot compute md5: No data available')
 
-    def base64(self):
-        if self.data is not None:
-            return base64.b64encode(self.data)
-        else:
-            raise ValueError('Cannot encode base 64: No data available')
-
     def __len__(self):
-        return len(self.data)
+        return len(self._data)
         
 
 class Icon(Resource):
     pass
+

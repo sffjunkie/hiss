@@ -14,11 +14,12 @@
 
 # Part of 'hiss' the Python notification library
 
-from hiss.notifier import Notifier
-from hiss.notification import Notification
-from hiss.target import Target
-from hiss.resource import Icon
-from hiss.exception import *
+class GrowlMessage(object):
+    pass
 
-__all__ = ['Notifier', 'Notification', 'Target',  'Icon',
-           'HissError', 'MessageError', 'NotifierError']        
+class GrowlHandler(object):
+    class RegisterMessage(GrowlMessage):
+        pass
+
+    class NotifyMessage(GrowlMessage):
+        pass
