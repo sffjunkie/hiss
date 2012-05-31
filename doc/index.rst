@@ -13,7 +13,7 @@ Contents:
 
    thoughts
    module
-   backends
+   handlers
 
 
 Indices and tables
