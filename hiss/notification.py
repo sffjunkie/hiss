@@ -17,7 +17,7 @@
 import uuid
 from collections import namedtuple
 
-__all__ = ['Notification']
+__all__ = ['Notification', 'NotificationPriority']
 
 class NotificationPriority(object):
     """Notification display priority. One of VeryLow, Moderate,
@@ -60,6 +60,8 @@ class Notification(object):
                            2      Emergency
                            ====== =============
         :type priority:    integer
+        :param timeout:    The duration in seconds to display the notification.
+        :type timeout:     integer
         :param signature:  MIME style application signature to use for this
                            notification.
                            
