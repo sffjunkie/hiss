@@ -14,22 +14,34 @@
 
 # Part of 'hiss' the twisted notification library
 
+import uuid
 import hashlib
 import urllib2
 
 
 class Resource(object):
-    def __init__(self, uri='', data=None):
-        self.uri = uri
+    def __init__(self, source='', data=None):
+        """Provide access to a resource.
+        
+        Only one of ``source`` or ``data`` should be provided. If both used
+        ``data`` will override ``source``.
+        
+        :param source:   URI of data. If the URI starts with
+        :type source:    string
+        :param data:     Data to use
+        :type data:      bytes
+        """
+        
+        self.source = source
         self._data = data
         
     def data():
         def fget(self):
             if self._data is None:
-                if self.uri[0] == '!':
-                    self._data = self.uri
+                if self.source[0] == '!':
+                    self._data = self.source
                 else:
-                    f = urllib2.urlopen(self.uri)
+                    f = urllib2.urlopen(self.source)
                     self._data = f.read(-1)
                 
             return self._data
@@ -38,11 +50,11 @@ class Resource(object):
         
     data = property(**data())
         
-    def res_id(self):
-        if self.uri != '':
-            return self.uri
+    def __repr__(self):
+        if self.source != '':
+            return self.source
         elif self.data is not None:
-            return hashlib.md5().hexdigest()
+            return self.md5()
         else:
             return ''
 

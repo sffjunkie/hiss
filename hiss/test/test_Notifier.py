@@ -45,20 +45,23 @@ def test_Register():
     t = Target('snp://10.84.23.87')
     
     def send_notification():
-        m = n.create_notification(class_id, title='Alert',
+        m = n.create_notification(name='General Alert', title='Alert',
                                   text=u'This is an alert')
-        m.add_action('@900', 'test')
-        m.add_action('@600', 'tester')
-        m.add_action('@300', 'testing')
-        m.add_callback('@900', 'News')
+#        m.add_action('@900a', 'test')
+#        m.add_action('@600', 'tester')
+#        m.add_action('@300', 'testing')
+        m.add_callback('!system run', 'News')
+        m.icon = '!dev-media-cd'
+#        m.percentage = 50
+#        m.sound = 'C:\WINDOWS\Media\tada.wav'
         n.notify(m)
     
     reactor.callWhenRunning(n.add_target, t)
     reactor.callLater(0.5, n.register)
-    reactor.callLater(1, n.subscribe)
     reactor.callLater(1.5, send_notification)
+#    reactor.callLater(1, n.subscribe)
 #    reactor.callLater(19.5, n.unregister)
-#    reactor.callLater(20, reactor.stop)
+    reactor.callLater(20, reactor.stop)
     reactor.run()
     
 if __name__ == '__main__':

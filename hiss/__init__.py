@@ -18,7 +18,9 @@ from hiss.notifier import Notifier
 from hiss.notification import Notification
 from hiss.target import Target
 from hiss.resource import Icon
+from hiss.event import Event, NotificationEvent
 from hiss.exception import *
 
 __all__ = ['Notifier', 'Notification', 'Target',  'Icon',
-           'HissError', 'MessageError', 'NotifierError']        
+           'Event', 'NotificationEvent',
+           'HissError', 'MessageError', 'NotifierError']

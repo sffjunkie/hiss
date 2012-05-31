@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from hiss.protocol.snp import SNPRequest
+from hiss.handler.snp import SNPRequest
 
 def test_SNPRequest_Create():
-	m = SNPRequest('application/x-vnd-sffjunkie.hiss')
+	m = SNPRequest()
 
 def test_SNPRequest_Append():
-	m = SNPRequest('application/x-vnd-sffjunkie.hiss')
+	m = SNPRequest()
 	m.append('register', signature='sig', uid='1', title='ww')
 	
 	assert len(m.commands) == 1
@@ -37,17 +37,17 @@ def test_SNPRequest_Append():
 
 def test_SNPRequest_Marshall2():
 	m = SNPRequest()
-	m.append('register', signature='x-vnd-sffjunkie.hiss', uid='1', title='ww')
+	m.append('register', signature='application/x-vnd-sffjunkie.hiss', uid='1', title='ww')
 
 	cmd = m.marshall()
-	assert cmd == 'snp://register?signature=x-vnd-sffjunkie.hiss&title=ww&uid=1\r\n'
+	assert cmd == 'snp://register?signature=application/x-vnd-sffjunkie.hiss&title=ww&uid=1\r\n'
 
 def test_SNPRequest_Marshall3():
 	m = SNPRequest(version='3.0')
-	m.append('register', signature='x-vnd-sffjunkie.hiss', uid='1', title='ww')
+	m.append('register', signature='application/x-vnd-sffjunkie.hiss', uid='1', title='ww')
 
 	cmd = m.marshall()
-	assert cmd == 'SNP/3.0\r\nregister?signature=x-vnd-sffjunkie.hiss&title=ww&uid=1\r\nEND\r\n'
+	assert cmd == 'SNP/3.0\r\nregister?signature=application/x-vnd-sffjunkie.hiss&title=ww&uid=1\r\nEND\r\n'
 
 def test_SNPRequest_Unmarshall2():
 	cmd = 'snp://register?signature=x-vnd-sffjunkie.hiss&title=ww&uid=1\r\n'

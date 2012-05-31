@@ -26,6 +26,7 @@
     <script type="text/javascript" src="_static/doctools.js"></script>
     <link rel="shortcut icon" href="_static/favicon.ico"/>
     <link rel="top" title="Hiss 0.1a documentation" href="index.html" />
+    <link rel="next" title="Backends" href="backends.html" />
     <link rel="prev" title="Thoughts" href="thoughts.html" />
 <script src="_static/sffjunkie.js"></script>
 
@@ -37,6 +38,9 @@
         <li class="right" style="margin-right: 10px">
           <a href="genindex.html" title="General Index"
              accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="backends.html" title="Backends"
+             accesskey="N">next</a> |</li>
         <li class="right" >
           <a href="thoughts.html" title="Thoughts"
              accesskey="P">previous</a> |</li>
@@ -51,11 +55,22 @@
             
   <div class="section" id="the-hiss-module">
 <h1>The <tt class="xref py py-mod docutils literal"><span class="pre">hiss</span></tt> Module<a class="headerlink" href="#the-hiss-module" title="Permalink to this headline">¶</a></h1>
+<p>These are the public facing classes to use for sending notifications. The normal
+order of events is to...</p>
+<ul class="simple">
+<li>create a <a class="reference internal" href="#hiss.Notifier" title="hiss.Notifier"><tt class="xref py py-class docutils literal"><span class="pre">Notifier</span></tt></a></li>
+<li>register a set of notifications with <a class="reference internal" href="#hiss.Notifier.register_notification" title="hiss.Notifier.register_notification"><tt class="xref py py-meth docutils literal"><span class="pre">register_notification()</span></tt></a></li>
+<li>register a <a class="reference internal" href="#hiss.Target" title="hiss.Target"><tt class="xref py py-class docutils literal"><span class="pre">Target</span></tt></a> to send notifications to with
+<a class="reference internal" href="#hiss.Notifier.register_target" title="hiss.Notifier.register_target"><tt class="xref py py-meth docutils literal"><span class="pre">register_target()</span></tt></a></li>
+<li>create a new <a class="reference internal" href="#hiss.Notification" title="hiss.Notification"><tt class="xref py py-class docutils literal"><span class="pre">Notification</span></tt></a> with <a class="reference internal" href="#hiss.Notifier.create_notification" title="hiss.Notifier.create_notification"><tt class="xref py py-meth docutils literal"><span class="pre">create_notification()</span></tt></a></li>
+<li>and finally <a class="reference internal" href="#hiss.Notifier.notify" title="hiss.Notifier.notify"><tt class="xref py py-meth docutils literal"><span class="pre">notify()</span></tt></a> the
+targets of the notification</li>
+</ul>
 <div class="section" id="target">
 <h2>Target<a class="headerlink" href="#target" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
-<dt id="hiss.target.Target">
-<em class="property">class </em><tt class="descclassname">hiss.target.</tt><tt class="descname">Target</tt><big>(</big><em>target_url=''</em>, <em>**kwargs</em><big>)</big><a class="headerlink" href="#hiss.target.Target" title="Permalink to this definition">¶</a></dt>
+<dt id="hiss.Target">
+<em class="property">class </em><tt class="descclassname">hiss.</tt><tt class="descname">Target</tt><big>(</big><em>url=''</em>, <em>**kwargs</em><big>)</big><a class="headerlink" href="#hiss.Target" title="Permalink to this definition">¶</a></dt>
 <dd><p>Create a new target for notifications.</p>
 <p>Targets are specified using a URL like string of the form</p>
 <div class="highlight-python"><pre>scheme://[usernane[:password]@]host:port</pre>
@@ -65,11 +80,188 @@
 </dd></dl>
 
 </div>
+<div class="section" id="notifier">
+<h2>Notifier<a class="headerlink" href="#notifier" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="hiss.Notifier">
+<em class="property">class </em><tt class="descclassname">hiss.</tt><tt class="descname">Notifier</tt><big>(</big><em>signature</em>, <em>name</em>, <em>icon=None</em>, <em>uid=None</em><big>)</big><a class="headerlink" href="#hiss.Notifier" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a new notifier</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>signature</strong> (<em>string</em>) &#8211; The MIME style application signature for this notifier
+of the form <tt class="samp docutils literal"><span class="pre">application/x-vnd.</span><em><span class="pre">vendor</span></em><span class="pre">.</span><em><span class="pre">app</span></em></tt></li>
+<li><strong>name</strong> (<em>string</em>) &#8211; The name of this notifier</li>
+<li><strong>icon</strong> &#8211; Notifier icon. Used when registering the notifier and
+the default icon for notifications
+(unless overridden.)</li>
+<li><strong>uid</strong> &#8211; Unique id to use for this notifier. If not specified 
+one will be provided for you. This will be used as the
+password for security enabled communications.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="hiss.Notifier.create_notification">
+<tt class="descname">create_notification</tt><big>(</big><em>class_id=-1</em>, <em>name=''</em>, <em>title=None</em>, <em>text=None</em>, <em>icon=None</em>, <em>sound=None</em><big>)</big><a class="headerlink" href="#hiss.Notifier.create_notification" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a notification that is ready to send.</p>
+<p>Either <tt class="docutils literal"><span class="pre">class_id</span></tt> or <tt class="docutils literal"><span class="pre">name</span></tt> can be provided. If <tt class="docutils literal"><span class="pre">class_id</span></tt> is
+provided it will be used instead of <tt class="docutils literal"><span class="pre">name</span></tt> to
+lookup the defaults registered in <a class="reference internal" href="#hiss.Notifier.register_notification" title="hiss.Notifier.register_notification"><tt class="xref py py-meth docutils literal"><span class="pre">register_notification()</span></tt></a></p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>class_id</strong> (<em>integer</em>) &#8211; The notification class id</li>
+<li><strong>name</strong> (<em>string</em>) &#8211; The notification name</li>
+<li><strong>title</strong> (<em>string or None to use registered title</em>) &#8211; The title of the notification</li>
+<li><strong>text</strong> (<em>string or None to use registered text</em>) &#8211; The text to display in the notification</li>
+<li><strong>icon</strong> (<em>string, Icon or None to use registered icon</em>) &#8211; URL of icon to display</li>
+<li><strong>sound</strong> (<em>string or None to use registered sound</em>) &#8211; Sound to play when showing notification</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="hiss.Notifier.notify">
+<tt class="descname">notify</tt><big>(</big><em>notification</em>, <em>target=None</em><big>)</big><a class="headerlink" href="#hiss.Notifier.notify" title="Permalink to this definition">¶</a></dt>
+<dd><p>Send a notification to a specific target or all targets.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>notification</strong> (<a class="reference internal" href="#hiss.Notification" title="hiss.Notification"><tt class="xref py py-class docutils literal"><span class="pre">hiss.Notification</span></tt></a>) &#8211; The notification to send</li>
+<li><strong>target</strong> (<a class="reference internal" href="#hiss.Target" title="hiss.Target"><tt class="xref py py-class docutils literal"><span class="pre">hiss.Target</span></tt></a> or None) &#8211; The target to send the notification to. If no
+target is specified then the notification will
+be sent to all known targets.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="hiss.Notifier.register">
+<tt class="descname">register</tt><big>(</big><em>targets=None</em><big>)</big><a class="headerlink" href="#hiss.Notifier.register" title="Permalink to this definition">¶</a></dt>
+<dd><p>Register this notifier with the targets specified.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>targets</strong> (<a class="reference internal" href="#hiss.Target" title="hiss.Target"><tt class="xref py py-class docutils literal"><span class="pre">hiss.Target</span></tt></a> or None) &#8211; The targets to register with.
+If not specified or None then the notifier will be
+registered with all known targets</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="hiss.Notifier.register_notification">
+<tt class="descname">register_notification</tt><big>(</big><em>name</em>, <em>default_title=''</em>, <em>default_text=None</em>, <em>default_icon=None</em>, <em>default_sound=None</em>, <em>enabled=True</em><big>)</big><a class="headerlink" href="#hiss.Notifier.register_notification" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add a notification class.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>name</strong> (<em>string</em>) &#8211; Notification class name</li>
+<li><strong>default_title</strong> (<em>string</em>) &#8211; Default notification title</li>
+<li><strong>default_text</strong> (<em>string</em>) &#8211; Default notification text</li>
+<li><strong>default_icon</strong> (<em>string</em>) &#8211; Default notification icon</li>
+<li><strong>default_sound</strong> (<em>string</em>) &#8211; Default notification sound</li>
+<li><strong>enabled</strong> (<em>boolean</em>) &#8211; Whether the notification is enabled or not</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">The class id of the newly added notification</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">integer</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="hiss.Notifier.register_target">
+<tt class="descname">register_target</tt><big>(</big><em>target</em><big>)</big><a class="headerlink" href="#hiss.Notifier.register_target" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add a target to the list of known targets</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>target</strong> (<a class="reference internal" href="#hiss.Target" title="hiss.Target"><tt class="xref py py-class docutils literal"><span class="pre">hiss.Target</span></tt></a>) &#8211; The Target to add.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="hiss.Notifier.subscribe">
+<tt class="descname">subscribe</tt><big>(</big><em>signatures=</em><span class="optional">[</span><span class="optional">]</span>, <em>targets=None</em><big>)</big><a class="headerlink" href="#hiss.Notifier.subscribe" title="Permalink to this definition">¶</a></dt>
+<dd><p>Subscribe to notifications from a list of signatures.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>signatures</strong> (<em>List of strings or empty list.</em>) &#8211; List of signatures to listen to events from. If an
+empty list is specified then subscribe to events
+from all applications.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="hiss.Notifier.unregister">
+<tt class="descname">unregister</tt><big>(</big><em>targets=None</em><big>)</big><a class="headerlink" href="#hiss.Notifier.unregister" title="Permalink to this definition">¶</a></dt>
+<dd><p>Unregister this notifier with all targets</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>targets</strong> (<a class="reference internal" href="#hiss.Target" title="hiss.Target"><tt class="xref py py-class docutils literal"><span class="pre">hiss.Target</span></tt></a> or None) &#8211; The targets to register with
+If not specified or None then the notifier will be
+registered with all known targets</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="hiss.Notifier.unregister_target">
+<tt class="descname">unregister_target</tt><big>(</big><em>target</em><big>)</big><a class="headerlink" href="#hiss.Notifier.unregister_target" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove a previously added target.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>target</strong> (<a class="reference internal" href="#hiss.Target" title="hiss.Target"><tt class="xref py py-class docutils literal"><span class="pre">hiss.Target</span></tt></a>) &#8211; The Target to add.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
 <div class="section" id="notification">
 <h2>Notification<a class="headerlink" href="#notification" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
-<dt id="hiss.notifier.Notification">
-<em class="property">class </em><tt class="descclassname">hiss.notifier.</tt><tt class="descname">Notification</tt><big>(</big><em>title=''</em>, <em>text=''</em>, <em>icon=''</em>, <em>sound=''</em>, <em>enabled=True</em>, <em>priority=0</em>, <em>timeout=-1</em>, <em>app_sig=''</em><big>)</big><a class="headerlink" href="#hiss.notifier.Notification" title="Permalink to this definition">¶</a></dt>
+<dt id="hiss.Notification">
+<em class="property">class </em><tt class="descclassname">hiss.</tt><tt class="descname">Notification</tt><big>(</big><em>title=''</em>, <em>text=''</em>, <em>icon=''</em>, <em>sound=''</em>, <em>enabled=True</em>, <em>priority=0</em>, <em>timeout=-1</em>, <em>app_sig=''</em><big>)</big><a class="headerlink" href="#hiss.Notification" title="Permalink to this definition">¶</a></dt>
 <dd><p>Create a new notification</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
@@ -110,6 +302,7 @@ Default priority = Normal</p>
 </tbody>
 </table>
 </li>
+<li><strong>timeout</strong> (<em>integer</em>) &#8211; The duration in seconds to display the notification.</li>
 <li><strong>signature</strong> (<em>string</em>) &#8211; <p>MIME style application signature to use for this
 notification.</p>
 <p>Notifications created by a Notifier
@@ -121,8 +314,8 @@ have this information filled in automatically.</p>
 </tbody>
 </table>
 <dl class="method">
-<dt id="hiss.notifier.Notification.add_action">
-<tt class="descname">add_action</tt><big>(</big><em>command</em>, <em>label</em><big>)</big><a class="headerlink" href="#hiss.notifier.Notification.add_action" title="Permalink to this definition">¶</a></dt>
+<dt id="hiss.Notification.add_action">
+<tt class="descname">add_action</tt><big>(</big><em>command</em>, <em>label</em><big>)</big><a class="headerlink" href="#hiss.Notification.add_action" title="Permalink to this definition">¶</a></dt>
 <dd><p>Add an action to this notification.</p>
 <p>Multiple actions can be added.</p>
 <table class="docutils field-list" frame="void" rules="none">
@@ -140,213 +333,80 @@ have this information filled in automatically.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="hiss.notifier.Notification.add_callback">
-<tt class="descname">add_callback</tt><big>(</big><em>command</em>, <em>label=''</em><big>)</big><a class="headerlink" href="#hiss.notifier.Notification.add_callback" title="Permalink to this definition">¶</a></dt>
+<dt id="hiss.Notification.add_callback">
+<tt class="descname">add_callback</tt><big>(</big><em>command</em>, <em>label=''</em><big>)</big><a class="headerlink" href="#hiss.Notification.add_callback" title="Permalink to this definition">¶</a></dt>
 <dd><p>Add a callback for this notification.</p>
 <p>Only 1 callback can be added. Calling this multiple times will only use
 the last.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="hiss.notifier.Notification.hide">
-<tt class="descname">hide</tt><big>(</big><big>)</big><a class="headerlink" href="#hiss.notifier.Notification.hide" title="Permalink to this definition">¶</a></dt>
+<dt id="hiss.Notification.hide">
+<tt class="descname">hide</tt><big>(</big><big>)</big><a class="headerlink" href="#hiss.Notification.hide" title="Permalink to this definition">¶</a></dt>
 <dd><p>Hide the notification</p>
 </dd></dl>
 
 <dl class="attribute">
-<dt id="hiss.notifier.Notification.isvisible">
-<tt class="descname">isvisible</tt><a class="headerlink" href="#hiss.notifier.Notification.isvisible" title="Permalink to this definition">¶</a></dt>
+<dt id="hiss.Notification.isvisible">
+<tt class="descname">isvisible</tt><a class="headerlink" href="#hiss.Notification.isvisible" title="Permalink to this definition">¶</a></dt>
 <dd><p>Determine if the notification is currently being displayed.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="hiss.notifier.Notification.show">
-<tt class="descname">show</tt><big>(</big><big>)</big><a class="headerlink" href="#hiss.notifier.Notification.show" title="Permalink to this definition">¶</a></dt>
+<dt id="hiss.Notification.show">
+<tt class="descname">show</tt><big>(</big><big>)</big><a class="headerlink" href="#hiss.Notification.show" title="Permalink to this definition">¶</a></dt>
 <dd><p>Show the notification.</p>
 </dd></dl>
 
 <dl class="attribute">
-<dt id="hiss.notifier.Notification.text">
-<tt class="descname">text</tt><a class="headerlink" href="#hiss.notifier.Notification.text" title="Permalink to this definition">¶</a></dt>
+<dt id="hiss.Notification.text">
+<tt class="descname">text</tt><a class="headerlink" href="#hiss.Notification.text" title="Permalink to this definition">¶</a></dt>
 <dd><p>The text displayed below the title encoded as UTF-8.</p>
 </dd></dl>
 
 <dl class="attribute">
-<dt id="hiss.notifier.Notification.title">
-<tt class="descname">title</tt><a class="headerlink" href="#hiss.notifier.Notification.title" title="Permalink to this definition">¶</a></dt>
+<dt id="hiss.Notification.title">
+<tt class="descname">title</tt><a class="headerlink" href="#hiss.Notification.title" title="Permalink to this definition">¶</a></dt>
 <dd><p>The title of the displayed notification encoded as UTF-8.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="hiss.notifier.Notification.update">
-<tt class="descname">update</tt><big>(</big><big>)</big><a class="headerlink" href="#hiss.notifier.Notification.update" title="Permalink to this definition">¶</a></dt>
+<dt id="hiss.Notification.update">
+<tt class="descname">update</tt><big>(</big><big>)</big><a class="headerlink" href="#hiss.Notification.update" title="Permalink to this definition">¶</a></dt>
 <dd><p>Update the title and text of an existing notification.</p>
 </dd></dl>
 
 </dd></dl>
 
 </div>
-<div class="section" id="notifier">
-<h2>Notifier<a class="headerlink" href="#notifier" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="events">
+<h2>Events<a class="headerlink" href="#events" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
-<dt id="hiss.notifier.Notifier">
-<em class="property">class </em><tt class="descclassname">hiss.notifier.</tt><tt class="descname">Notifier</tt><big>(</big><em>signature</em>, <em>name</em>, <em>icon=None</em>, <em>uid=None</em><big>)</big><a class="headerlink" href="#hiss.notifier.Notifier" title="Permalink to this definition">¶</a></dt>
-<dd><p>Create a new notifier</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>signature</strong> (<em>string</em>) &#8211; The MIME style application signature for this notifier
-of the form <tt class="samp docutils literal"><span class="pre">application/x-vnd.</span><em><span class="pre">vendor</span></em><span class="pre">.</span><em><span class="pre">app</span></em></tt></li>
-<li><strong>name</strong> (<em>string</em>) &#8211; The name of this notifier</li>
-<li><strong>icon</strong> &#8211; Notifier icon. Used when registering the notifier and
-the default icon for notifications
-(unless overridden.)</li>
-<li><strong>uid</strong> &#8211; Unique id to use for this notifier. If not specified a
-new id will be generated</li>
-</ul>
-</td>
-</tr>
-</tbody>
-</table>
-<dl class="method">
-<dt id="hiss.notifier.Notifier.add_target">
-<tt class="descname">add_target</tt><big>(</big><em>target</em><big>)</big><a class="headerlink" href="#hiss.notifier.Notifier.add_target" title="Permalink to this definition">¶</a></dt>
-<dd><p>Add a target to the list of known targets</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>target</strong> (<em>hiss.Target</em>) &#8211; The Target to add.</td>
-</tr>
-</tbody>
-</table>
+<dt id="hiss.Event">
+<em class="property">class </em><tt class="descclassname">hiss.</tt><tt class="descname">Event</tt><a class="headerlink" href="#hiss.Event" title="Permalink to this definition">¶</a></dt>
+<dd><p>A generic event.</p>
+<dl class="attribute">
+<dt id="hiss.Event.code">
+<tt class="descname">code</tt><em class="property"> = None</em><a class="headerlink" href="#hiss.Event.code" title="Permalink to this definition">¶</a></dt>
+<dd><p>The integer status code of the event</p>
 </dd></dl>
 
-<dl class="method">
-<dt id="hiss.notifier.Notifier.create_notification">
-<tt class="descname">create_notification</tt><big>(</big><em>class_id=-1</em>, <em>name=''</em>, <em>title=None</em>, <em>text=None</em>, <em>icon=None</em>, <em>sound=None</em><big>)</big><a class="headerlink" href="#hiss.notifier.Notifier.create_notification" title="Permalink to this definition">¶</a></dt>
-<dd><p>Create a notification that is ready to send.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>class_id</strong> (<em>integer</em>) &#8211; The notification class id</li>
-<li><strong>name</strong> (<em>string</em>) &#8211; The notification name</li>
-<li><strong>title</strong> (<em>string or None to use registered title</em>) &#8211; The title of the notification</li>
-<li><strong>text</strong> (<em>string or None to use registered text</em>) &#8211; The text to display in the notification</li>
-<li><strong>icon</strong> (<em>string or None to use registered icon</em>) &#8211; URL of icon to display</li>
-<li><strong>sound</strong> (<em>string or None to use registered sound</em>) &#8211; Sound to play when showing notification</li>
-</ul>
-</td>
-</tr>
-</tbody>
-</table>
+<dl class="attribute">
+<dt id="hiss.Event.name">
+<tt class="descname">name</tt><em class="property"> = None</em><a class="headerlink" href="#hiss.Event.name" title="Permalink to this definition">¶</a></dt>
+<dd><p>The name of the event</p>
 </dd></dl>
 
-<dl class="method">
-<dt id="hiss.notifier.Notifier.notify">
-<tt class="descname">notify</tt><big>(</big><em>notification</em>, <em>target=None</em><big>)</big><a class="headerlink" href="#hiss.notifier.Notifier.notify" title="Permalink to this definition">¶</a></dt>
-<dd><p>Send a notification to a specific target or all targets.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>notification</strong> (<em>hiss.Notification</em>) &#8211; The notification to send</li>
-<li><strong>target</strong> (<em>hiss.Target or None</em>) &#8211; The target to send the notification to. If no
-target is specified then the notification will
-be sent to all known targets.</li>
-</ul>
-</td>
-</tr>
-</tbody>
-</table>
 </dd></dl>
 
-<dl class="method">
-<dt id="hiss.notifier.Notifier.register">
-<tt class="descname">register</tt><big>(</big><em>targets=None</em><big>)</big><a class="headerlink" href="#hiss.notifier.Notifier.register" title="Permalink to this definition">¶</a></dt>
-<dd><p>Register this notifier with all targets</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>targets</strong> (<em>hiss.Target or None</em>) &#8211; The targets to register with (Optional)
-If not specified or None then the notifier will be
-registered with all known targets</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="hiss.notifier.Notifier.register_notification">
-<tt class="descname">register_notification</tt><big>(</big><em>name</em>, <em>default_title=''</em>, <em>default_text=None</em>, <em>default_icon=None</em>, <em>default_sound=None</em>, <em>enabled=True</em><big>)</big><a class="headerlink" href="#hiss.notifier.Notifier.register_notification" title="Permalink to this definition">¶</a></dt>
-<dd><p>Add a notification class.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>name</strong> (<em>string</em>) &#8211; Notification class name</li>
-<li><strong>default_title</strong> (<em>string</em>) &#8211; Default notification title (Optional)</li>
-<li><strong>default_text</strong> (<em>string</em>) &#8211; Default notification text (Optional)</li>
-<li><strong>default_icon</strong> (<em>string</em>) &#8211; Default notification icon (Optional)</li>
-<li><strong>default_sound</strong> (<em>string</em>) &#8211; Default notification sound (Optional)</li>
-<li><strong>enabled</strong> (<em>boolean</em>) &#8211; Whether notification is enabled (Optional)</li>
-</ul>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="hiss.notifier.Notifier.remove_target">
-<tt class="descname">remove_target</tt><big>(</big><em>target</em><big>)</big><a class="headerlink" href="#hiss.notifier.Notifier.remove_target" title="Permalink to this definition">¶</a></dt>
-<dd><p>Remove a previously added target.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>target</strong> (<em>hiss.Target</em>) &#8211; The Target to add.</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="hiss.notifier.Notifier.subscribe">
-<tt class="descname">subscribe</tt><big>(</big><em>signatures=</em><span class="optional">[</span><span class="optional">]</span>, <em>targets=None</em><big>)</big><a class="headerlink" href="#hiss.notifier.Notifier.subscribe" title="Permalink to this definition">¶</a></dt>
-<dd><p>Subscribe to notifications from a list of signatures.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>signatures</strong> (<em>List or an empty list. I an empty list specified
-then subscribe to all applications.</em>) &#8211; List of signatures to listen to events from.</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="hiss.notifier.Notifier.unregister">
-<tt class="descname">unregister</tt><big>(</big><em>targets=None</em><big>)</big><a class="headerlink" href="#hiss.notifier.Notifier.unregister" title="Permalink to this definition">¶</a></dt>
-<dd><p>Unregister this notifier with all targets</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>targets</strong> (<em>hiss.Target or None</em>) &#8211; The targets to register with
-If not specified or None then the notifier will be
-registered with all known targets</td>
-</tr>
-</tbody>
-</table>
+<dl class="class">
+<dt id="hiss.NotificationEvent">
+<em class="property">class </em><tt class="descclassname">hiss.</tt><tt class="descname">NotificationEvent</tt><a class="headerlink" href="#hiss.NotificationEvent" title="Permalink to this definition">¶</a></dt>
+<dd><p>Encapsulates an event returning from one of hiss&#8217; handlers</p>
+<dl class="attribute">
+<dt id="hiss.NotificationEvent.nid">
+<tt class="descname">nid</tt><em class="property"> = None</em><a class="headerlink" href="#hiss.NotificationEvent.nid" title="Permalink to this definition">¶</a></dt>
+<dd><p>The uid of the notification which generated this event</p>
 </dd></dl>
 
 </dd></dl>
@@ -356,13 +416,43 @@ registered with all known targets</td>
 <h2>Resources<a class="headerlink" href="#resources" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
 <dt id="hiss.resource.Resource">
-<em class="property">class </em><tt class="descclassname">hiss.resource.</tt><tt class="descname">Resource</tt><big>(</big><em>uri=''</em>, <em>data=None</em><big>)</big><a class="headerlink" href="#hiss.resource.Resource" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<em class="property">class </em><tt class="descclassname">hiss.resource.</tt><tt class="descname">Resource</tt><big>(</big><em>source=''</em>, <em>data=None</em><big>)</big><a class="headerlink" href="#hiss.resource.Resource" title="Permalink to this definition">¶</a></dt>
+<dd><p>Provide access to a resource.</p>
+<p>Only one of <tt class="docutils literal"><span class="pre">source</span></tt> or <tt class="docutils literal"><span class="pre">data</span></tt> should be provided. If both used
+<tt class="docutils literal"><span class="pre">data</span></tt> will override <tt class="docutils literal"><span class="pre">source</span></tt>.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>source</strong> (<em>string</em>) &#8211; URI of data. If the URI starts with</li>
+<li><strong>data</strong> (<em>bytes</em>) &#8211; Data to use</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
 
 <dl class="class">
 <dt id="hiss.resource.Icon">
-<em class="property">class </em><tt class="descclassname">hiss.resource.</tt><tt class="descname">Icon</tt><big>(</big><em>uri=''</em>, <em>data=None</em><big>)</big><a class="headerlink" href="#hiss.resource.Icon" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<em class="property">class </em><tt class="descclassname">hiss.resource.</tt><tt class="descname">Icon</tt><big>(</big><em>source=''</em>, <em>data=None</em><big>)</big><a class="headerlink" href="#hiss.resource.Icon" title="Permalink to this definition">¶</a></dt>
+<dd><p>Provide access to a resource.</p>
+<p>Only one of <tt class="docutils literal"><span class="pre">source</span></tt> or <tt class="docutils literal"><span class="pre">data</span></tt> should be provided. If both used
+<tt class="docutils literal"><span class="pre">data</span></tt> will override <tt class="docutils literal"><span class="pre">source</span></tt>.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>source</strong> (<em>string</em>) &#8211; URI of data. If the URI starts with</li>
+<li><strong>data</strong> (<em>bytes</em>) &#8211; Data to use</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
 
 </div>
 </div>
@@ -377,8 +467,9 @@ registered with all known targets</td>
   <ul>
 <li><a class="reference internal" href="#">The <tt class="docutils literal"><span class="pre">hiss</span></tt> Module</a><ul>
 <li><a class="reference internal" href="#target">Target</a></li>
-<li><a class="reference internal" href="#notification">Notification</a></li>
 <li><a class="reference internal" href="#notifier">Notifier</a></li>
+<li><a class="reference internal" href="#notification">Notification</a></li>
+<li><a class="reference internal" href="#events">Events</a></li>
 <li><a class="reference internal" href="#resources">Resources</a></li>
 </ul>
 </li>
@@ -387,6 +478,9 @@ registered with all known targets</td>
   <h4>Previous topic</h4>
   <p class="topless"><a href="thoughts.html"
                         title="previous chapter">Thoughts</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="backends.html"
+                        title="next chapter">Backends</a></p>
   <h3>This Page</h3>
   <ul class="this-page-menu">
     <li><a href="_sources/module.txt"
@@ -415,6 +509,9 @@ registered with all known targets</td>
         <li class="right" style="margin-right: 10px">
           <a href="genindex.html" title="General Index"
              >index</a></li>
+        <li class="right" >
+          <a href="backends.html" title="Backends"
+             >next</a> |</li>
         <li class="right" >
           <a href="thoughts.html" title="Thoughts"
              >previous</a> |</li>

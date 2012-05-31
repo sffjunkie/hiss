@@ -47,8 +47,9 @@ class Notifier(object):
         :param icon:      Notifier icon. Used when registering the notifier and
                           the default icon for notifications
                           (unless overridden.)
-        :param uid:       Unique id to use for this notifier. If not specified a
-                          new id will be generated
+        :param uid:       Unique id to use for this notifier. If not specified 
+                          one will be provided for you. This will be used as the
+                          password for security enabled communications.
         """
         
         self.signature = signature
@@ -72,16 +73,18 @@ class Notifier(object):
         
         :param name:          Notification class name
         :type name:           string
-        :param default_title: Default notification title (Optional)
+        :param default_title: Default notification title
         :type default_title:  string
-        :param default_text:  Default notification text (Optional)
+        :param default_text:  Default notification text
         :type default_text:   string
-        :param default_icon:  Default notification icon (Optional)
+        :param default_icon:  Default notification icon
         :type default_icon:   string
-        :param default_sound: Default notification sound (Optional)
+        :param default_sound: Default notification sound
         :type default_sound:  string
-        :param enabled:       Whether notification is enabled (Optional)
+        :param enabled:       Whether the notification is enabled or not
         :type enabled:        boolean
+        :returns:             The class id of the newly added notification
+        :rtype:               integer
         """
         
         class_id = len(self.notification_classes) + 1
@@ -91,11 +94,11 @@ class Notifier(object):
             
         return class_id
  
-    def add_target(self, target):
+    def register_target(self, target):
         """Add a target to the list of known targets
         
         :param target: The Target to add.
-        :type target:  hiss.Target
+        :type target:  :class:`hiss.Target`
         """
         
         if target.scheme in self._handlers:
@@ -107,11 +110,11 @@ class Notifier(object):
         target.handler = handler
         return handler.connect(target)
  
-    def remove_target(self, target):
+    def unregister_target(self, target):
         """Remove a previously added target.
         
         :param target: The Target to add.
-        :type target:  hiss.Target
+        :type target:  :class:`hiss.Target`
         """
         
         if target.handler is not None:
@@ -120,12 +123,12 @@ class Notifier(object):
             return defer.fail(False)
 
     def register(self, targets=None):
-        """Register this notifier with all targets
+        """Register this notifier with the targets specified.
         
-        :param targets: The targets to register with (Optional)
+        :param targets: The targets to register with.
                         If not specified or None then the notifier will be
                         registered with all known targets
-        :type targets:  hiss.Target or None
+        :type targets:  :class:`hiss.Target` or None
         """
         
         for handler in self._handlers.values():
@@ -136,6 +139,10 @@ class Notifier(object):
                             icon=None, sound=None):
         """Create a notification that is ready to send.
         
+        Either ``class_id`` or ``name`` can be provided. If ``class_id`` is
+        provided it will be used instead of ``name`` to
+        lookup the defaults registered in :meth:`.register_notification`
+        
         :param class_id:   The notification class id
         :type class_id:    integer
         :param name:       The notification name
@@ -145,7 +152,7 @@ class Notifier(object):
         :param text:       The text to display in the notification
         :type text:        string or None to use registered text
         :param icon:       URL of icon to display
-        :type icon:        string or None to use registered icon
+        :type icon:        string, Icon or None to use registered icon
         :param sound:      Sound to play when showing notification
         :type sound:       string or None to use registered sound
         """
@@ -182,11 +189,11 @@ class Notifier(object):
         """Send a notification to a specific target or all targets.
         
         :param notification:   The notification to send
-        :type notification:    hiss.Notification
+        :type notification:    :class:`hiss.Notification`
         :param target:         The target to send the notification to. If no
                                target is specified then the notification will
                                be sent to all known targets.
-        :type target:          hiss.Target or None
+        :type target:          :class:`hiss.Target` or None
         """
         
         if target is None:
@@ -202,9 +209,10 @@ class Notifier(object):
     def subscribe(self, signatures=[], targets=None):
         """Subscribe to notifications from a list of signatures.
         
-        :param signatures: List of signatures to listen to events from.
-        :type signatures:  List or an empty list. I an empty list specified
-                           then subscribe to all applications.
+        :param signatures: List of signatures to listen to events from. If an
+                           empty list is specified then subscribe to events
+                           from all applications.
+        :type signatures:  List of strings or empty list.
         """
         
         for handler in self._handlers.values():
@@ -216,7 +224,7 @@ class Notifier(object):
         :param targets: The targets to register with
                         If not specified or None then the notifier will be
                         registered with all known targets
-        :type targets:  hiss.Target or None
+        :type targets:  :class:`hiss.Target` or None
         """
         
         for handler in self._handlers.values():

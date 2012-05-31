@@ -14,28 +14,25 @@
 
 # Part of 'hiss' the twisted notification library
 
-__all__ = ['NotificationEvent']
-
-class EventHandler(object):
-    def __init__(self):
-        self._handlers = []
-        
-    def addHandler(self, handler):
-        self._handlers.append(handler)
-        
-    def __call__(self, *args, **kwargs):
-        for handler in self._handlers:
-            result = handler(args, kwargs)
-            
-        return result
+__all__ = ['Event', 'NotificationEvent']
 
 class Event(object):
+    """A generic event."""
+    
     def __init__(self):
         self.name = ''
+        """The name of the event"""
+        
         self.code = -1
-        self.nid = ''
+        """The integer status code of the event"""
     
 
 class NotificationEvent(Event):
-    pass
+    """Encapsulates an event returning from one of hiss' handlers"""
+    
+    def __init__(self):
+        Event.__init__(self)
+        
+        self.nid = ''
+        """The uid of the notification which generated this event"""
 

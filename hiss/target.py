@@ -40,7 +40,7 @@ class TargetError(Exception):
 
 
 class Target(object):
-    def __init__(self, target_url='', **kwargs):
+    def __init__(self, url='', **kwargs):
         """Create a new target for notifications.
         
         Targets are specified using a URL like string of the form ::
@@ -52,14 +52,14 @@ class Target(object):
         All values can be overridden using named parameters.
         """ 
         
-        if target_url == '':
-            target_url = '%s:///' % SNP_SCHEME
+        if url == '':
+            url = '%s:///' % SNP_SCHEME
         
         self.port = -1
         self.username = ''
         self.password = ''
         
-        result = urlparse.urlparse(target_url)
+        result = urlparse.urlparse(url)
         if result.scheme != '':
             self.scheme = result.scheme
             
@@ -89,17 +89,17 @@ class Target(object):
                 
             self.host = host
             self.port = int(port)
-        elif target_url.startswith(SNP_SCHEME):
+        elif url.startswith(SNP_SCHEME):
             self.scheme = SNP_SCHEME
-            self.host = target_url[len(SNP_SCHEME):].lstrip(':')
-        elif target_url.startswith(GNTP_SCHEME):
+            self.host = url[len(SNP_SCHEME):].lstrip(':')
+        elif url.startswith(GNTP_SCHEME):
             self.scheme = GNTP_SCHEME
-            self.host = target_url[len(GNTP_SCHEME):].lstrip(':')
+            self.host = url[len(GNTP_SCHEME):].lstrip(':')
         else:
-            self.scheme = target_url
+            self.scheme = url
             
         if self.scheme not in [SNP_SCHEME, GNTP_SCHEME]:
-            raise TargetError('Unknown protocol %s' % target_url)
+            raise TargetError('Unknown protocol %s' % url)
 
         # Override with any parameters passed
         self.host = kwargs.get('host', self.host)
