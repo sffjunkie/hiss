@@ -155,7 +155,7 @@ class Notifier(object):
                 raise ValueError('%d is not a known notification class id' % str(class_id))
             info = self.notification_classes[class_id]
         elif name != '':
-            for class_id, info in self.notification_classes:
+            for class_id, info in self.notification_classes.items():
                 if info.name == name:
                     break
         else:
