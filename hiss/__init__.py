@@ -12,15 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Part of 'hiss' the Python notification library
+# Part of 'hiss' the twisted notification library
 
-from hiss.notifier import Notifier
-from hiss.notification import Notification
+from hiss.notifier import Notifier, USE_REGISTERED
+from hiss.notification import Notification, NotificationPriority
 from hiss.target import Target
 from hiss.resource import Icon
 from hiss.event import Event, NotificationEvent
 from hiss.exception import *
 
-__all__ = ['Notifier', 'Notification', 'Target',  'Icon',
+__all__ = ['Notifier', 'USE_REGISTERED',
+           'Notification', 'NotificationPriority',
+           'Target',  'Icon',
            'Event', 'NotificationEvent',
-           'HissError', 'MessageError', 'NotifierError']
+           'HissError']

@@ -1,9 +1,0 @@
-{% extends "basic/layout.html" %}
-{%- block extrahead %}
-<script src="{{ pathto('_static/sffjunkie.js', 1) }}"></script>
-{% endblock %}
-
-{% if theme_collapsiblesidebar|tobool %}
-{% set script_files = script_files + ['_static/sidebar.js'] %}
-{% endif %}
-

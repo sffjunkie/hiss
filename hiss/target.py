@@ -19,6 +19,8 @@ import urlparse
 from hiss.handler.snp import SNP_SCHEME
 from hiss.handler.gntp import GNTP_SCHEME
 
+DEFAULT_PROTOCOL = 'snp'
+
 __all__ = ['TargetError', 'Target']
 
 for s in [SNP_SCHEME, GNTP_SCHEME]:
@@ -53,7 +55,7 @@ class Target(object):
         """ 
         
         if url == '':
-            url = '%s:///' % SNP_SCHEME
+            url = '%s:///' % DEFAULT_PROTOCOL
         
         self.port = -1
         self.username = ''

@@ -15,18 +15,6 @@
 The :mod:`hiss` Module
 ========================
 
-These are the public facing classes to use for sending notifications. The normal
-order of events is to...
-	
-* create a :class:`.Notifier`
-* register a set of notifications with :meth:`.register_notification`
-* register a :class:`.Target` to send notifications to with
-  :meth:`.register_target`
-* create a new :class:`.Notification` with :meth:`.create_notification`
-* and finally :meth:`notify() <hiss.Notifier.notify>` the
-  targets of the notification
-
-
 Target
 ------
 
@@ -35,15 +23,29 @@ Target
 
 Notifier
 --------
+  
+.. py:data:: hiss.USE_REGISTERED
+	
+	Signifies to use the value provided during
+	:meth:`registration <hiss.Notifier.register_notification>`
+	of a notification.
     
 .. autoclass:: hiss.Notifier
    :members:
 
 Notification
 ------------
+
+.. autoclass:: hiss.NotificationPriority
+   :members:
     
 .. autoclass:: hiss.Notification
    :members:
+   
+   .. py:attribute:: uid
+   
+      Unique ID generated automatically. This ID can be used to refer to the
+      notification when showing or hiding via a :class:`~hiss.Notifier`.
 
 Events
 ------
@@ -53,13 +55,11 @@ Events
    
 .. autoclass:: hiss.NotificationEvent
    :members:
-   :inherited-members:
+   :show-inheritance:
 
    
 Resources
 ---------
-    
-.. autoclass:: hiss.resource.Resource
 
-.. autoclass:: hiss.resource.Icon
+.. autoclass:: hiss.Icon
 

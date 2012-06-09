@@ -12,4 +12,44 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Part of 'hiss' the Python notification library
+# Part of 'hiss' the twisted notification library
+
+class TargetList():
+    def __init__(self):
+        self._targets = []
+        
+    def append(self, target):
+        self._targets.append(target)
+        
+    def __getitem__(self, s):
+        return self._targets[s]
+    
+    def __setitem__(self, index, value):
+        self._targets[index] = value
+        
+    def __delitem__(self, s):
+        del self._targets[s]
+
+    def valid_targets(self, targets):        
+        if targets is None:
+            targets = self._targets
+        else:
+            targets = self._known_targets(targets)
+            
+        return targets
+
+    def _known_targets(self, targets):
+        """Filter out unknown targets"""  
+        
+        if isinstance(targets, tuple):
+            targets = list(targets)
+        elif not isinstance(targets, list):
+            targets = [targets]
+        
+        _targets = []
+        for target in targets:
+            if target in self._targets:
+                _targets.append(target)
+                
+        return _targets
+

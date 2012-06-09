@@ -15,23 +15,22 @@
 # Part of 'hiss' the twisted notification library
 
 import uuid
-import hashlib
 import urllib2
-
 
 class Resource(object):
     def __init__(self, source='', data=None):
         """Provide access to a resource.
         
-        Only one of ``source`` or ``data`` should be provided. If both used
-        ``data`` will override ``source``.
+        Only one of :attr:`source` or :attr:`data` should be provided.
+        If both used :attr:`data` will override :attr:`source`.
         
-        :param source:   URI of data. If the URI starts with
+        :param source:   URI of the data.
         :type source:    string
         :param data:     Data to use
         :type data:      bytes
         """
         
+        self.uid = str(uuid.uuid4())
         self.source = source
         self._data = data
         
@@ -49,23 +48,14 @@ class Resource(object):
         return locals()
         
     data = property(**data())
-        
-    def __repr__(self):
-        if self.source != '':
-            return self.source
-        elif self.data is not None:
-            return self.md5()
-        else:
-            return ''
-
-    def md5(self):
-        if self._data is not None:
-            return hashlib.md5(self._data)
-        else:
-            raise ValueError('Cannot compute md5: No data available')
 
     def __len__(self):
-        return len(self._data)
+        if self._data is not None:
+            return len(self._data)
+        elif self.source != '':
+            return len(self.source)
+        else:
+            return 0
         
 
 class Icon(Resource):

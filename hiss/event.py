@@ -16,19 +16,51 @@
 
 __all__ = ['Event', 'NotificationEvent']
 
+EVENT_CODES = {
+    0: 'Clicked',
+    1: 'TimedOut',
+    2: 'Closed',
+    3: 'ActionSelected',
+}
+
 class Event(object):
     """A generic event."""
     
     def __init__(self):
-        self.name = ''
-        """The name of the event"""
-        
         self.code = -1
         """The integer status code of the event"""
+        
+        self.data = ''
+        """Any data returned. Normally the value associated with the
+        callback/action selected that was provided when sending the
+        notification.
+        """
+        
+        self.timestamp = ''
+        """Timestamp of event on host"""
+        
+        self.host = ''
+        """Hostname on the network where the event originated"""
+        
+        self.daemon = ''
+        """The name of the daemon on the host which generated this event."""
+
+    def name():
+        doc="Friendly name for the :attr:`code` (Read only)"
+        
+        def fget(self):
+            if self.code in EVENT_CODES:
+                return EVENT_CODES[self.code]
+            else:
+                return 'Unknown'
+            
+        return locals()
+        
+    name = property(**name())
     
 
 class NotificationEvent(Event):
-    """Encapsulates an event returning from one of hiss' handlers"""
+    """Encapsulates a notification event returning from one of hiss' handlers"""
     
     def __init__(self):
         Event.__init__(self)

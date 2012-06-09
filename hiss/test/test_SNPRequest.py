@@ -36,7 +36,7 @@ def test_SNPRequest_Append():
 	assert len(m.commands) == 3
 
 def test_SNPRequest_Marshall2():
-	m = SNPRequest()
+	m = SNPRequest(version='2.0')
 	m.append('register', signature='application/x-vnd-sffjunkie.hiss', uid='1', title='ww')
 
 	cmd = m.marshall()

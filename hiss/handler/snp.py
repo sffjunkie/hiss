@@ -26,16 +26,16 @@ from twisted.internet.protocol import ClientFactory
 from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.protocols.basic import LineReceiver
 
+from hiss.handler import TargetList
 from hiss.resource import Icon
 from hiss.event import NotificationEvent
+from hiss.exception import HissError
 
-log = logging.getLogger('hiss')
-log.setLevel(logging.DEBUG)
-console = logging.StreamHandler()
-log.addHandler(console)
+logging.basicConfig(level=logging.DEBUG, format='%(message)s')
 
 SNP_SCHEME = 'snp'
 SNP_DEFAULT_PORT = 9887
+SNP_BASE_VERSION = '2.0'
 SNP_DEFAULT_VERSION = '3.0'
 SNP_VALID_VERSIONS = ['2.0', '3.0']
 
@@ -54,26 +54,198 @@ SNARL_STATUS = {
     308: 'ActionSelected',
 }
 
-BOOL_MAPPING = {
-    1: '1',
-    True: '1',
-    'true': '1',
-    'yes': '1',
-    0: '0',
-    False: '0',
-    'false': '0',
-    'no': '0',
+EVENT_MAPPING = {
+    '304': 0,
+    '303': 1,
+    '307': 2,
+    '308': 3,
 }
 
-def snp64(data):
-    data = base64.encode(data)
-    data = data.replace('\r\n', '#')
-    data = data.replace('=', '%')
-    return data
+ATTR_MAPPING = {
+    'event-code': 'status_code',
+    'event-name': 'status_name',
+    'notification-uid': 'nid',
+    'event-data': 'data',
+    'x-timestamp': 'timestamp',
+    'x-daemon': 'daemon',
+    'x-host': 'host',
+}
+
+BOOL_MAPPING = {
+    1: '1', True: '1',  'true': '1',  'yes': '1',
+    0: '0', False: '0', 'false': '0', 'no': '0',
+}
 
 
 class SNPError(Exception):
     pass
+
+
+class SNP(object):
+    def __init__(self, event_handler=None):
+        """Snarl Network Protocol handler.
+        
+        :param event_handler: A callable which is provided with an
+                              :class:`hiss.NotificationEvent` when an SNP callback
+                              event is received.
+        :type event_handler:  A callable
+        """
+        
+        self._targets = TargetList()
+        self._event_handler = event_handler
+        self._factory = SNPFactory(self._snp_event_handler)
+    
+    def connect(self, target):
+        """Connect to a target
+        
+        :param target: Target to connect to
+        :type target:  :class:`hiss.Target`
+        :returns:      A :class:`defer.Deferred` which fires when
+                       connected to the target 
+        """
+        
+        def version(response):
+            target.protocol_version = response.max_version
+        
+        def connected(response):
+            self._targets.append(target)
+            
+            request = VersionRequest()
+            d = self._factory.send_request(request, [target])
+            d.addCallback(version)
+            
+            return response
+        
+        def failed(failure):
+            raise HissError(failure.value)
+        
+        if target.port == -1:
+            target.port = SNP_DEFAULT_PORT
+        
+        if target not in self._targets:
+            d = self._factory.connect(target)
+            d.addCallback(connected)
+            d.addErrback(failed)
+            return d
+        else:
+            return defer.succeed(True)
+
+    def disconnect(self, target):
+        """Disconnect from a target
+        
+        :param target: Target to disconnect from
+        :type target:  :class:`hiss.Target`
+        :returns:      A :class:`defer.Deferred` which fires when
+                       disconnected from the target 
+        """
+        
+        if target in self._targets:
+            protocol = self._factory.find_protocol(target.host, target.port)
+            if protocol is not None:
+                protocol.loseConnection()
+            
+            target.handler = None
+            del self._targets[target]
+            
+            return defer.succeed(True)
+        else:
+            return defer.fail(False)
+        
+    def register(self, notifier, targets=None):
+        """Register a notifier with a list of targets
+        
+        :param notifier: Notifier to register
+        :type notifier:  :class:`hiss.Notifier`
+        :param targets:  list of targets to register with or None to
+                         register with all targets
+        :type targets:   list of :class:`hiss.Target` or None
+        :returns:        A :class:`defer.Deferred` which fires when a response
+                         has been received.
+        """
+        
+        request = RegisterRequest(notifier)
+        targets = self._targets.valid_targets(targets)
+        return self._factory.send_request(request, targets)
+        
+    def notify(self, notifier, notification, targets=None):
+        """Send a notification to a list of targets
+        
+        :param notifier: Notification to send
+        :type notifier:  :class:`hiss.Notification`
+        :param targets:  list of targets to notify or None to
+                         send to all targets
+        :type targets:   list of :class:`hiss.Target` or None
+        :returns:        A :class:`defer.Deferred` which fires when a response
+                         has been received.
+        """
+        
+        request = NotifyRequest(notifier, notification)
+        targets = self._targets.valid_targets(targets)
+        return self._factory.send_request(request, targets)
+    
+    def add_action(self, notification, targets=None):
+        pass
+    
+    def clear_action(self, notification, targets=None):
+        pass
+    
+    def show(self, uid, targets=None):
+        pass
+    
+    def hide(self, uid, targets=None):
+        pass
+    
+    def is_visible(self, notification, notifier=None, targets=None):
+        if notifier is None:
+            if notification.notifier is not None:
+                notifier = notification.notifier
+            else:
+                raise ValueError('No valid notifier instance available.')
+            
+        request = IsVisibleRequest(notifier, notification)
+        targets = self._targets.valid_targets(targets)
+        return self._factory.send_request(request, targets)
+    
+    def subscribe(self, notifier, signatures=[], targets=None):
+        """Subscribe to notifications from a list of signatures
+        
+        :param notifier:   Notifier to use.
+        :type notifier:    :class:`hiss.Notifier`
+        :param signatures: Application signatures to receive messages from
+        :type signatures:  List of string or [] for all
+                           applications
+        :param targets:    list of targets to notify or None to
+                           send to all targets
+        :type targets:     list of :class:`hiss.Target` or None
+        """
+                           
+        request = SubscribeRequest(notifier, signatures)
+        targets = self._targets.valid_targets(targets)
+        return self._factory.send_request(request, targets)
+    
+    def unregister(self, notifier, targets=None):
+        """Unregister a notifier with a list of targets
+        
+        :param notifier: Notifier to unregister
+        :type notifier:  hiss.Notifier
+        :param targets:  list of targets to unregister with or None to
+                         unregister with all targets
+        :type targets:   list of :class:`hiss.Target` or None
+        :returns:        A :class:`defer.Deferred` which fires when a response
+                         has been received.
+        """
+        
+        request = UnregisterRequest(notifier)
+        targets = self._targets.valid_targets(targets)
+        return self._factory.send_request(request, targets)
+    
+    def _snp_event_handler(self, response):
+        event = NotificationEvent()
+        event.nid = response.nid
+        event.code = EVENT_MAPPING[response.status_code]
+        event.data = response.data
+        
+        self._event_handler(event)
 
 
 SNPCommand = namedtuple('SNPCommand', ['name', 'parameters'])
@@ -268,6 +440,12 @@ class SNPRequest(object):
 
         return '%s:%s.%s' % self.hash
 
+    def _encrypt(self):
+        pass
+
+    def _decrypt(self):
+        pass
+
 
 class SNPResponse(object):
     def __init__(self):
@@ -287,7 +465,7 @@ class SNPResponse(object):
         
         self.data = ''
         self.isevent = False
-        self.headers = {}
+        self.header = {}
         
         self._lines = []
         
@@ -368,22 +546,188 @@ class SNPResponse(object):
             name, value = line.split(':', 1)
             value = value.strip()
             
-            if name == 'event-code':
-                self.status_code = int(value)
-            elif name == 'event-name':
-                self.status_name = value
-            elif name == 'notification-uid':
-                self.nid = value
-            elif name == 'event-data':
-                self.data = value
-
-            if name not in self.headers:
-                self.headers[name] = value
+            if name in ATTR_MAPPING:
+                attr = ATTR_MAPPING[name]
+                self.__setattr__(attr, value)
             else:
-                if not isinstance(self.headers[name], list):
-                    self.headers[name] = [self.headers[name]]
+                if name not in self.header:
+                    self.header[name] = value
+                else:
+                    if not isinstance(self.header[name], list):
+                        self.header[name] = [self.header[name]]
+    
+                    self.header[name].append(value)
 
-                self.headers[name].append(value)
+    def _encrypt(self):
+        pass
+
+    def _decrypt(self):
+        pass
+    
+
+class SNPFactory(ClientFactory):
+    def __init__(self, event_handler=None):
+        self._protocol_map = []
+        self._event_handler = event_handler
+        
+    def connect(self, target):
+        """Connect to a target.
+        
+        You must use this method to connect to a target otherwise everything
+        else will fail."""
+        
+        protocol = SNPProtocol(self._event_handler)
+        protocol.factory = self
+        
+        self._protocol_map.append((target, protocol))
+        
+        point = TCP4ClientEndpoint(reactor, target.host, target.port)
+        d = point.connect(self)
+        return d
+    
+    def send_request(self, request, targets):
+        """Send a request to a list of targets
+        
+        :param request:  Request to send
+        :type request:   Request
+        :param targets:  List of targets to send request to
+        :type targets:   list of hiss.Target
+        :returns:        A defer.Deferred or defer.DeferredList to wait on
+        """
+        
+        return self._send_commands(request.commands, targets)
+
+    def _send_commands(self, commands, targets):
+        """Send a list of commands to a list of targets
+        
+        :param commands: Commands to send
+        :type commands:  list of commands
+        :param targets:  List of targets to send request to
+        :type targets:   list of hiss.Target
+        :returns:        A defer.Deferred or defer.DeferredList to wait on
+        """
+        
+        def response_received(response, target):
+            return response
+
+        ds = []
+
+        for target in targets:
+            logging.debug('Sending to %s' % str(target))
+            
+            if target.protocol_version == '':
+                target.protocol_version = SNP_BASE_VERSION
+            
+            protocol = self._find_protocol_for_target(target)
+            if target.protocol_version == '3.0' or len(commands) == 1:
+                d = self._send_single_request(commands,
+                                              target.protocol_version,
+                                              protocol)
+            else:
+                d = self._send_multiple_requests(commands,
+                                                 target.protocol_version,
+                                                 protocol)
+
+            d.addCallback(response_received, target)
+            ds.append(d)
+
+        if len(ds) == 1:
+            return ds[0]
+        else:            
+            return defer.DeferredList(ds)
+
+    def _send_single_request(self, commands, version, protocol):
+        request = SNPRequest(version)
+        for command in commands:
+            request.append(command)
+            
+        data = request.marshall()
+        deferred = defer.Deferred()
+
+        logging.debug('Sending: %s' % data.replace('\r\n', '\r').rstrip('\r'))
+        protocol.deferred = deferred
+        protocol.send_data(data)
+        
+        return deferred
+
+    @defer.inlineCallbacks
+    def _send_multiple_requests(self, commands, version, protocol):
+        for command in commands:
+            d = self._send_single_request([command], version, protocol)
+            yield d
+        
+        defer.returnValue('')        
+
+    def buildProtocol(self, address):
+        for t, protocol in self._protocol_map:
+            if t.host == address.host and t.port == address.port:
+                return protocol
+            else:
+                raise SNPError(('Unable to build protocol for address %s. '
+                                'Ensure you use the connect method') % address)
+    
+    def _find_protocol_for_target(self, target):
+        """Find the protocol created during :meth:`~SNPFactory.connect` for the
+        specified target
+        
+        :param target: The target to find
+        :type target:  :class:`hiss.Target`
+        """
+        
+        for t, protocol in self._protocol_map:
+            if t == target:
+                return protocol
+        
+        return None
+
+
+class SNPProtocol(LineReceiver):
+    """SNPProtocol has 2 responsibilities
+    
+    1. Sends a single SNPRequest and compiles an SNPResponse as data arrives.
+       When a complete response is received it executes the callback on the
+       deferred set up when sending the request.
+       
+    2. Compiles any callback data into an SNPResponse. When a complete response
+       is received it calls the registered event handler 
+    """
+    
+    def __init__(self, event_handler=None):
+        """Initializes the instance and registers an event handler, if provided,
+        called when an SNP callback response is received.
+        """
+        
+        self.deferred = None
+        self._response = SNPResponse()
+        self._event_handler = event_handler
+    
+    def lineReceived(self, line):
+        """Receive lines of data until a complete response has been received."""
+        
+        logging.debug('Received: %s' % line)
+        self._response.append(line)
+        
+        if self._response.iscomplete:
+            self._response.unmarshall()
+            
+            if self._response.isevent:
+                if self._event_handler is not None:
+                    self._event_handler(self._response)
+            else:
+                if self.deferred is not None:
+                    self.deferred.callback(self._response)
+                    self.deferred = None
+            
+            # And so it goes around...
+            self._response = SNPResponse()
+    
+    def connectionLost(self, reason):
+        pass
+    
+    def send_data(self, data):
+        """Send a single SNP request."""
+        
+        self.transport.write(data)
                     
 
 class VersionRequest(object):
@@ -459,10 +803,6 @@ class NotifyRequest(object):
             parameters['app-sig'] = notification.notifier.signature
             parameters['password'] = notification.notifier.uid
          
-        #TODO: What was this for?   
-        #if notification.signature != '':
-        #    parameters['app-sig'] = notification.signature
-        
         if notification.class_id != '':
             parameters['id'] = notification.class_id
             
@@ -563,342 +903,9 @@ class IsVisibleRequest(object):
         self.commands.append(('isvisible', parameters))
 
 
-class SNP(object):
-    """Snarl Network Protocol handler.
-    
-    :param event_handler: A callable which is provided with an
-                          :class:`hiss.NotificationEvent` when an SNP callback
-                          event is received.
-    :type event_handler:  A callable
-    """
-    
-    def __init__(self, event_handler=None):
-        self._targets = []
-        self._event_handler = event_handler
-        self._factory = SNPFactory(self._snp_event_handler)
-    
-    def connect(self, target):
-        """Connect to a target
-        
-        :param target: Target to connect to
-        :type target:  :class:`hiss.Target`
-        """
-        
-        def version(response):
-            target.protocol_version = response.max_version
-        
-        def connected(response):
-            self._targets.append(target)
-            
-            request = VersionRequest()
-            d = self._factory.send_commands(request.commands, [target])
-            d.addCallback(version)
-            
-            return response
-        
-        if target.port == -1:
-            target.port = SNP_DEFAULT_PORT
-        
-        if target not in self._targets:
-            d = self._factory.connect(target)
-            d.addCallback(connected)
-            return d
-        else:
-            return defer.succeed(True)
-
-    def disconnect(self, target):
-        """Disconnect from a target
-        
-        :param target: Target to disconnect from
-        :type target:  :class:`hiss.Target`
-        """
-        
-        if target in self._targets:
-            protocol = self._factory.find_protocol(target.host, target.port)
-            if protocol is not None:
-                protocol.loseConnection()
-            
-            target.handler = None
-            del self._targets[target]
-            
-            return defer.succeed(True)
-        else:
-            return defer.fail(False)
-        
-    def register(self, notifier, targets=None):
-        """Register a notifier with a list of targets
-        
-        :param notifier: Notifier to register
-        :type notifier:  :class:`hiss.Notifier`
-        :param targets:  list of targets to register with or None to
-                         register with all targets
-        :type targets:   list of :class:`hiss.Target` or None
-        :returns:        A :class:`defer.Deferred` to wait on
-        """
-        
-        if targets is None:
-            targets = self._targets
-        else:
-            targets = self._known_targets(targets)
-        
-        request = RegisterRequest(notifier)
-        return self._factory.send_commands(request.commands, targets)
-        
-    def notify(self, notifier, notification, targets=None):
-        """Send a notification to a list of targets
-        
-        :param notifier: Notification to send
-        :type notifier:  :class:`hiss.Notification`
-        :param targets:  list of targets to notify or None to
-                         send to all targets
-        :type targets:   list of :class:`hiss.Target` or None
-        :returns:        A :class:`defer.Deferred` to wait on
-        """
-        
-        if targets is None:
-            targets = self._targets
-        else:
-            targets = self._known_targets(targets)
-        
-        request = NotifyRequest(notifier, notification)
-        return self._factory.send_commands(request.commands, targets)
-    
-    def add_action(self, notification, targets=None):
-        pass
-    
-    def clear_action(self, notification, targets=None):
-        pass
-    
-    def show(self, uid, targets=None):
-        pass
-    
-    def hide(self, uid, targets=None):
-        pass
-    
-    def is_visible(self, notification, notifier=None, targets=None):
-        if targets is None:
-            targets = self._targets
-        else:
-            targets = self._known_targets(targets)
-        
-        if notifier is None:
-            if notification.notifier is not None:
-                notifier = notification.notifier
-            else:
-                raise ValueError('No valid notifier instance available.')
-            
-        request = IsVisibleRequest(notifier, notification)
-        return self._factory.send_commands(request.commands, targets)
-    
-    def subscribe(self, notifier, signatures=[], targets=None):
-        """Subscribe to notifications from a list of signatures
-        
-        :param notifier:   Notifier to use.
-        :type notifier:    :class:`hiss.Notifier`
-        :param signatures: Application signatures to receive messages from
-        :type signatures:  List of string or [] for all
-                           applications
-        :param targets:    list of targets to notify or None to
-                           send to all targets
-        :type targets:     list of :class:`hiss.Target` or None
-        """
-                           
-        if targets is None:
-            targets = self._targets
-        else:
-            targets = self._known_targets(targets)
-        
-        request = SubscribeRequest(notifier, signatures)
-        return self._factory.send_commands(request.commands, targets)
-    
-    def unregister(self, notifier, targets=None):
-        """Unregister a notifier with a list of targets
-        
-        :param notifier: Notifier to unregister
-        :type notifier:  hiss.Notifier
-        :param targets:  list of targets to unregister with or None to
-                         unregister with all targets
-        :type targets:   list of :class:`hiss.Target` or None
-        :returns:        A :class:`defer.Deferred` to wait on
-        """
-        
-        if targets is None:
-            targets = self._targets
-        else:
-            targets = self._known_targets(targets)
-        
-        request = UnregisterRequest(notifier)
-        return self._factory.send_commands(request.commands, targets)
-
-    def _all_targets(self):
-        return self._targets
-
-    def _known_targets(self, targets):
-        """Filter out unknown targets"""  
-        
-        if isinstance(targets, tuple):
-            targets = list(targets)
-        elif not isinstance(targets, list):
-            targets = [targets]
-        
-        _targets = []
-        for target in targets:
-            if target in self._targets:
-                _targets.append(target)
-                
-        return _targets
-    
-    def _snp_event_handler(self, response):
-        event = NotificationEvent()
-        event.nid = response.nid
-        event.name = response.status_name
-        event.code = response.status_code
-        event.data = response.data
-            
-        self._event_handler(event)
-    
-
-class SNPFactory(ClientFactory):
-    def __init__(self, event_handler=None):
-        self._protocol_map = []
-        self._event_handler = event_handler
-        
-    def connect(self, target):
-        """Connect to a target.
-        
-        You must use this method to connect to a target otherwise everything
-        else will fail."""
-        
-        protocol = SNPProtocol(self._event_handler)
-        protocol.factory = self
-        
-        self._protocol_map.append((target, protocol))
-        
-        point = TCP4ClientEndpoint(reactor, target.host, target.port)
-        d = point.connect(self)
-        return d
-
-    def send_commands(self, request, targets):
-        """Send a request to a list of targets
-        
-        :param commands: Commands to send
-        :type commands:  list of commands
-        :param targets:  List of targets to send request to
-        :type targets:   list of hiss.Target
-        :returns:        A defer.Deferred or defer.DeferredList to wait on
-        """
-        
-        def response_received(response, target):
-            return response
-
-        ds = []
-        commands = request.commands
-
-        for target in targets:
-            log.debug('Sending to %s' % str(target))
-            
-            if target.protocol_version == '':
-                #TODO: Replace with constant?
-                target.protocol_version = '2.0'
-            
-            protocol = self._find_protocol_for_target(target)
-            if target.protocol_version == '3.0' or len(commands) == 1:
-                d = self._send_single_request(commands,
-                                              target.protocol_version,
-                                              protocol)
-            else:
-                d = self._send_multiple_requests(commands,
-                                                 target.protocol_version,
-                                                 protocol)
-
-            d.addCallback(response_received, target)
-            ds.append(d)
-
-        if len(ds) == 1:
-            return ds[0]
-        else:            
-            return defer.DeferredList(ds)
-
-    def _send_single_request(self, commands, version, protocol):
-        request = SNPRequest(version)
-        for command in commands:
-            request.append(command)
-            
-        data = request.marshall()
-        deferred = defer.Deferred()
-
-        log.debug('Sending: %s' % data.replace('\r\n', '\r').rstrip('\r'))
-        protocol.deferred = deferred
-        protocol.send_data(data)
-        
-        return deferred
-
-    @defer.inlineCallbacks
-    def _send_multiple_requests(self, commands, version, protocol):
-        for command in commands:
-            d = self._send_single_request([command], version, protocol)
-            yield d
-        
-        defer.returnValue('')        
-
-    def buildProtocol(self, address):
-        for target, protocol in self._protocol_map:
-            if target.host == address.host and target.port == address.port:
-                return protocol
-            else:
-                raise SNPError(('Unable to build protocol for address %s. '
-                                'Ensure you use the connect method') % address)
-    
-    def _find_protocol_for_target(self, target):
-        for t, protocol in self._protocol_map:
-            if t == target:
-                return protocol
-        
-        return None
-
-
-class SNPProtocol(LineReceiver):
-    """SNPProtocol has 2 responsibilities
-    
-    1. Sends a single SNPRequest and compiles an SNPResponse as data arrives.
-       When a complete response is received it executes the callback on the
-       deferred set up when sending the request.
-       
-    2. Compiles any callback data into an SNPResponse. When a complete response
-       is received it calls the registered event handler 
-    """
-    
-    def __init__(self, event_handler=None):
-        """Initializes the instance and registers an event handler, if provided,
-        called when an SNP callback response is received.
-        """
-        
-        self.deferred = None
-        self._response = SNPResponse()
-        self._event_handler = event_handler
-    
-    def lineReceived(self, line):
-        """Receive lines of data until a complete response has been received."""
-        
-        log.debug('Received: %s' % line)
-        self._response.append(line)
-        
-        if self._response.iscomplete:
-            self._response.unmarshall()
-            
-            if self._response.isevent:
-                if self._event_handler is not None:
-                    self._event_handler(self._response)
-            else:
-                if self.deferred is not None:
-                    self.deferred.callback(self._response)
-                    self.deferred = None
-            
-            # And so it goes around...
-            self._response = SNPResponse()
-    
-    def send_data(self, data):
-        """Send a single SNP request."""
-        
-        self.transport.write(data)
+def snp64(data):
+    data = base64.encode(data)
+    data = data.replace('\r\n', '#')
+    data = data.replace('=', '%')
+    return data
     

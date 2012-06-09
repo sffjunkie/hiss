@@ -14,6 +14,9 @@
 
 # Part of 'hiss' the twisted notification library
 
+import logging
+logging.basicConfig(level=logging.DEBUG, format='%(message)s')
+
 from twisted.internet import reactor
 
 import pytest
@@ -29,20 +32,21 @@ from hiss.target import Target
 @nottest
 def test_BadInit():
     with pytest.raises(TypeError):
-        n = Notifier()
+        _n = Notifier()
 
 def test_Init():
-    n = Notifier('application/x-vnd.sffjunkie.test', 'Test')
+    _n = Notifier('application/x-vnd.sffjunkie.test', 'Test')
 
 def test_Register():
     n = Notifier('application/x-vnd.sffjunkie.test', 'Hiss',
                  uid='b6d92249-b5aa-49de-8c17-75f147ef04dd')
     n.icon = '!reminder'
     
-    n.register_notification('General Alert', default_icon='!dev-ipod')
+    n.register_notification('General Alert', icon='!dev-ipod')
     class_id = n.register_notification('Big and beautiful')
     
-    t = Target('snp://10.84.23.87')
+    #t = Target('snp://127.0.0.1')
+    t = Target('gntp://127.0.0.1')
     
     def send_notification():
         m = n.create_notification(name='General Alert', title='Alert',
@@ -58,10 +62,10 @@ def test_Register():
     
     reactor.callWhenRunning(n.add_target, t)
     reactor.callLater(0.5, n.register)
-    reactor.callLater(1.5, send_notification)
-#    reactor.callLater(1, n.subscribe)
-#    reactor.callLater(19.5, n.unregister)
-    reactor.callLater(20, reactor.stop)
+    reactor.callLater(2.5, send_notification)
+    reactor.callLater(1, n.subscribe)
+#    reactor.callLater(9.5, n.unregister)
+    reactor.callLater(30, reactor.stop)
     reactor.run()
     
 if __name__ == '__main__':
