@@ -1,4 +1,4 @@
-# Copyright 2009-2011, Simon Kennedy, code@sffjunkie.co.uk
+# Copyright 2009-2012, Simon Kennedy, code@sffjunkie.co.uk
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,50 +15,26 @@
 # Part of 'hiss' the twisted notification library
 
 import re
+import socket
 import logging
+from collections import Callable
 
-from twisted.internet import reactor, defer
-from twisted.internet.protocol import ClientFactory
-from twisted.internet.endpoints import TCP4ClientEndpoint
-from twisted.protocols.basic import LineReceiver
-from twisted.internet.error import ConnectionDone
-
+from hiss.target import Target
 from hiss.handler import TargetList
-from hiss.resource import Icon
-from hiss.event import NotificationEvent
-
-logging.basicConfig(level=logging.DEBUG, format='%(message)s')
+from hiss.resource import Resource
 
 GNTP_SCHEME = 'gntp'
 GNTP_DEFAULT_PORT = 23053
-GNTP_DEFAULT_VERSION = '1.0'
-
-EVENT_MAPPING = {
-    'CLICK': 0,
-    'CLICKED': 0,
-    'TIMEDOUT': 1,
-    'TIMEOUT': 1,
-    'CLOSED': 2,
-    'CLOSE': 2,
-}
+GNTP_BASE_VERSION = '1.0'
 
 class GNTPError(Exception):
     pass
         
-
 class GNTP(object):
-    def __init__(self, event_handler=None):
-        """Growl Network Transfer Protocol handler
-        
-        :param event_handler: A callable which is provided with an
-                              :class:`hiss.NotificationEvent` when an SNP callback
-                              event is received.
-        :type event_handler:  A callable
-        """
-    
+    def __init__(self, default_notifier=None, response_handler=None):
+        self._notifier = default_notifier
+        self._handler = response_handler
         self._targets = TargetList()
-        self._event_handler = event_handler
-        self._factory = GNTPFactory(self._gtnp_event_handler)
     
     def connect(self, target):
         """Connect to a target
@@ -66,20 +42,22 @@ class GNTP(object):
         :param target: Target to connect to
         :type target:  :class:`hiss.Target`
         """
+            
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(0.5)
+        try:
+            s.connect((target.host, GNTP_DEFAULT_PORT))
         
-        def connected(response):
-            self._targets.append(target)
-            return response
+            if target.port == -1:
+                target.port = GNTP_DEFAULT_PORT
+                
+            target.handler = self
+        except OSError:
+            return False
+        finally:
+            s.close()
         
-        if target.port == -1:
-            target.port = GNTP_DEFAULT_PORT
-        
-        if target not in self._targets:
-            d = self._factory.connect(target)
-            d.addCallback(connected)
-            return d
-        else:
-            return defer.succeed(True)
+        return True
 
     def disconnect(self, target):
         """Disconnect from a target
@@ -91,90 +69,153 @@ class GNTP(object):
         """
         
         if target in self._targets:
-            protocol = self._factory.find_protocol(target.host, target.port)
-            if protocol is not None:
-                protocol.loseConnection()
-            
             target.handler = None
             del self._targets[target]
             
-            return defer.succeed(True)
+            return True
         else:
-            return defer.fail(False)
+            return False
+
+    def register(self, target, notifier=None):
+        """Register a ``notifier`` with a ``target`` 
         
-    def register(self, notifier, targets=None):
-        """Register a notifier with a list of targets
-        
-        :param notifier: Notifier to register
-        :type notifier:  :class:`hiss.Notifier`
-        :param targets:  list of targets to register with or None to
-                         register with all targets
-        :type targets:   list of :class:`hiss.Target` or None
-        :returns:        A :class:`defer.Deferred` to wait on
+        :param target: The target to register the notifier with
+        :type target:  :class:`~hiss.target.Target`
+        :param notifier: The Notifier to register or the default notifier
+                         if None
+        :type notifier:  :class:`~hiss.notifier.Notifier` or None
         """
         
+        notifier = self._get_notifier(notifier)
+
         request = RegisterRequest(notifier)
-        targets = self._targets.valid_targets(targets)
-        return self._factory.send_request(request, targets)
+        response = self._send_request(request, target)
         
-    def notify(self, notifier, notification, targets=None):
-        """Send a notification to a list of targets
+        if response.type == 'OK':
+            self._targets.append(target)
         
-        :param notifier: Notification to send
-        :type notifier:  :class:`hiss.Notification`
-        :param targets:  list of targets to notify or None to
-                         send to all targets
-        :type targets:   list of :class:`hiss.Target` or None
-        :returns:        A :class:`defer.Deferred` which fires when a response
-                         has been received.
+        if isinstance(self._handler, Callable):
+            self._handler(response)
+        return response
+
+    def notify(self, notification, notifier=None, targets=None, handler=None):
+        """Send a notification
+        
+        Send to either to all known targets or a specific target or list of
+        targets
+        
+        :param notification: The notification to send
+        :type notification: :class:`~hiss.notification.Notification`
+        :param notifier: The notifier to send the notification for or None for
+                         the default notifier.
+        :type notifier:  :class:`~hiss.notifier.Notifier`
+        :param targets:  The target or list of targets to send the notification
+                         to or None for all targets
+        :type targets:   :class:`~hiss.target.Target` or list of Target
         """
         
-        request = NotifyRequest(notifier, notification)
-        targets = self._targets.valid_targets(targets)
-        return self._factory.send_request(request, targets)
-    
-    def subscribe(self, notifier, signatures=[], targets=None):
-        """Subscribe to notifications from a list of signatures
+        targets = self._get_targets(targets)
+        notifier = self._get_notifier(notifier)
         
-        :param notifier:   Notifier to use.
-        :type notifier:    :class:`hiss.Notifier`
-        :param signatures: Application signatures to receive messages from
-        :type signatures:  List of string or [] for all
-                           applications
-        :param targets:    list of targets to notify or None to
-                           send to all targets
-        :type targets:     list of :class:`hiss.Target` or None
-        """
-                           
-        request = SubscribeRequest(notifier)
-        targets = self._targets.valid_targets(targets)
-        return self._factory.send_request(request, targets)
-    
-    def unregister(self, notifier, targets=None):
-        """Unregister a notifier with a list of targets
+        responses = []
+        for target in targets:
+            request = NotifyRequest(notifier, notification)
+            response = self._send_request(request, target,
+                                          notification.has_callback)
+            responses.append(response)
         
-        :param notifier: Notifier to unregister
-        :type notifier:  hiss.Notifier
-        :param targets:  list of targets to unregister with or None to
-                         unregister with all targets
-        :type targets:   list of :class:`hiss.Target` or None
-        :returns:        A :class:`defer.Deferred` which fires when a response
-                         has been received.
-        """
-        
-        return defer.succeed(True)
-        
-    def _gtnp_event_handler(self, response):
-        event = NotificationEvent()
-        event.nid = response.nid
-        event.code = EVENT_MAPPING[response.status_name]
-        event.data = response.data
+        if len(responses) == 1:
+            responses = responses[0]
+
+        if isinstance(self._handler, Callable):
+            self._handler(response)
             
-        self._event_handler(event)
+        return responses
+
+    def unregister(self, target, notifier=None):
+        """Unregister a notifier with a target
+        
+        :param target: The target to unregister the notifier with
+        :type target:  :class:`~hiss.target.Target`
+        :param notifier: The Notifier to unregister or the default notifier
+                         if None
+        :type notifier:  :class:`~hiss.notifier.Notifier` or None
+        """
+        
+        notifier = self._get_notifier(notifier)
+
+        request = UnregisterRequest(notifier)
+        response = self._send_request(request, target)
+
+        if isinstance(self._handler, Callable):
+            self._handler(response)
+        return response
+
+    def _get_targets(self, targets):
+        if targets is None:
+            targets = self._targets
+        elif isinstance(targets, Target):
+            if targets not in self._targets:
+                raise ValueError('hiss.GNTP: Unable to send request - Target unknown')
+            else:
+                targets = [targets]
+        elif isinstance(targets, list):
+            targets = []
+            for t in targets:
+                if isinstance(t, Target):
+                    if t.port == -1:
+                        t.port = GNTP_DEFAULT_PORT
+                        
+                    if t in self._targets:
+                        targets.append(t)
+            
+            if len(targets) == 0:
+                raise ValueError('hiss.GNTP: Unable to send request - No valid targets specified')
+        return targets
+
+    def _get_notifier(self, notifier):
+        if notifier is None:
+            notifier = self._notifier
+        if notifier is None:
+            raise ValueError('hiss.GNTP: No notifier specified')
+        return notifier
+
+    def _send_request(self, request, target, with_callback=False):
+        request_data = request.marshall()
+        s = socket.create_connection((target.host, target.port))
+        s.send(request_data)
+        
+        response_data = ''
+        
+        while True:
+            data = s.recv(1024)
+            
+            if not data:
+                break
+            
+            response_data += data
+
+        s.close()
+        
+        if with_callback:
+            items = response_data.split('\r\n\r\n')
+            response_data = items[0]
+            callback_data = items[1] 
+            
+            callback_response = GNTPResponse()
+            callback_response.unmarshall(callback_data)
+    
+        response = GNTPResponse()
+        response.unmarshall(response_data)
+        
+        if with_callback:
+            return (response, callback_response)
+        else:
+            return response
 
 
 class GNTPRequest(object):
-    def __init__(self, version=GNTP_DEFAULT_VERSION, password=''):
+    def __init__(self, version=GNTP_BASE_VERSION, password=''):
         self.version = version
         self.command = ''
         self.header = {}
@@ -183,6 +224,16 @@ class GNTPRequest(object):
         self.password = password
         self.hash = None
         self.encryption = None
+    
+    def add_resource(self, key, resource):
+        uid = resource.uid
+        data = resource.data
+        self.header[key] = 'x-growl-resource://%s' % uid
+        
+        identifier = {}
+        identifier['identifier'] = uid
+        identifier['data'] = data
+        self.identifiers.append(identifier)
     
     def marshall(self):
         """Marshall the request ready to send over the wire."""
@@ -210,8 +261,8 @@ class GNTPRequest(object):
             data += '\r\n'
             
         for identifier in self.identifiers:
-            data += 'Identifier: %s\r\n' % identifier['Identifier']
-            idata = identifier['data'] 
+            data += 'Identifier: %s\r\n' % identifier['identifier']
+            idata = identifier['data']
             data += 'Length: %d\r\n\r\n%s\r\n\r\n' % (len(idata), idata)
             
         return data
@@ -271,7 +322,7 @@ class GNTPRequest(object):
             #            raise GNTPError('unmarshall: Unable to find data for identifier %s' % value)
             #            section[name] = d
         else:
-            raise GNTPError('unmarshall: Invalid GNTP message')
+            raise GNTPError('hiss.GNTP.unmarshall: Invalid GNTP message')
 
     def _unmarshall_section(self, lines, info):
         for line in lines:
@@ -304,7 +355,7 @@ class GNTPResponse(object):
         self.version = '1.0'
         """The GNTP protocol version number of this response"""
         
-        self.response_type = ''
+        self.type = ''
         self.command = ''
         self.header = {}
         self.use_encryption = False
@@ -319,7 +370,7 @@ class GNTPResponse(object):
     def marshall(self):
         """Marshall the request ready to send over the wire."""
         
-        data = 'GNTP/%s -%s' % (self.version, self.response_type)
+        data = 'GNTP/%s -%s' % (self.version, self.type)
         
         if self.use_encryption:
             self._encrypt()
@@ -349,12 +400,12 @@ class GNTPResponse(object):
         if m is not None:
             d = m.groupdict()
             self.version = d['version']
-            self.response_type = d['responsetype'].lstrip('-')
+            self.type = d['responsetype'].lstrip('-')
             
-            if self.response_type == 'ERROR':
+            if self.type == 'ERROR':
                 self.status_code = 1
             
-            self.isevent = (self.response_type == 'CALLBACK')
+            self.isevent = (self.type == 'CALLBACK')
             
             if d['encryptionAlgorithmID'] is None:
                 self.encryption = None
@@ -396,7 +447,7 @@ class GNTPResponse(object):
                 
                                 self.header[name].append(value)
                     except ValueError:
-                        logging.debug('GTNP::Unmarshall - Error splitting %s' % line)
+                        logging.debug('hiss.GTNP.unmarshall - Error splitting %s' % line)
 
     def _encrypt(self):
         pass
@@ -405,182 +456,74 @@ class GNTPResponse(object):
         pass
 
 
-class RegisterRequest(object):
+class RegisterRequest(GNTPRequest):
     def __init__(self, notifier):
-        request = GNTPRequest()
-        request.command = 'REGISTER'
-        request.header['Application-Name'] = notifier.name
-        request.header['Notifications-Count'] = len(notifier.notification_classes)
+        GNTPRequest.__init__(self)
+        
+        self.command = 'REGISTER'
+        self.header['Application-Name'] = notifier.name
+        self.header['Notifications-Count'] = len(notifier.notification_classes)
             
-        if notifier.icon is not None:
-            if isinstance(notifier.icon, Icon):
-                uid = notifier.icon.uid
-                data = notifier.icon.data
-            else:
-                request.header['Application-Icon'] = notifier.icon
+        if isinstance(notifier.icon, Resource):
+            self.add_resource('Application-Icon', notifier.icon)
+        else:
+            self.header['Application-Icon'] = notifier.icon
         
         for info in notifier.notification_classes.values():
             section = {}
             section['Notification-Name'] = info.name
             section['Notification-Enabled'] = info.enabled
                     
-            request.sections.append(section)
-        
-        self.request = request
+            self.sections.append(section)
 
 
-class NotifyRequest(object):
+class NotifyRequest(GNTPRequest):
     def __init__(self, notifier, notification):
-        request = GNTPRequest()
-        request.command = 'NOTIFY'
-        request.header['Application-Name'] = notifier.name
-        request.header['Notification-Name'] = notification.name
-        request.header['Notification-ID'] = notification.uid
-        request.header['Notification-Title'] = notification.title
+        GNTPRequest.__init__(self)
+        
+        self.command = 'NOTIFY'
+        self.header['Application-Name'] = notifier.name
+        self.header['Notification-Name'] = notification.name
+        self.header['Notification-ID'] = notification.uid
+        self.header['Notification-Title'] = notification.title
         
         if notification.text is not None:
-            request.header['Notification-Text'] = notification.text
-        
-        if notification.callback is not None:
-            request.header['Notification-Callback-Context'] = \
-                notification.callback.command
-            request.header['Notification-Callback-Context-Type'] = \
-                'string'
-        
-        self.request = request
-        
-        
-class SubscribeRequest(object):
-    def __init__(self, notifier):
-        request = GNTPRequest()
-        request.command = 'SUBSCRIBE'
-        request.header['Subscriber-ID'] = notifier.uid
-        request.header['Subscriber-Name'] = notifier.name
-        
-        self.request = request
-        
-
-class GNTPFactory(ClientFactory):
-    def __init__(self, event_handler=None):
-        self._protocol_map = []
-        self._event_handler = event_handler
-        
-    def connect(self, target):
-        """Connect to a target.
-        
-        You must use this method to connect to a target otherwise everything
-        else will fail."""
-        
-        protocol = GNTPProtocol(self._event_handler)
-        protocol.factory = self
-        
-        self._protocol_map.append((target, protocol))
-        
-        point = TCP4ClientEndpoint(reactor, target.host, target.port)
-        protocol.endpoint = point
-        d = point.connect(self)
-        return d
-    
-    def send_request(self, request, targets):
-        """Send a request to a list of targets
-        
-        :param request:  Request to send
-        :type request:   :class:`hiss.Request`
-        :param targets:  List of targets to send request to
-        :type targets:   list of :class:`hiss.Target`
-        :returns:        A :class:`defer.Deferred` or
-                         :class:`defer.DeferredList` to wait on
-        """
-        
-        ds = []
-        for target in targets:
-            logging.debug('Sending to %s' % str(target))
+            self.header['Notification-Text'] = notification.text
             
-            data = request.request.marshall()
-            logging.debug('%s' % data.replace('\r\n', '\n'))
+        if notification.timeout == 0:
+            self.header['Notification-Sticky'] = 'True'
             
-            protocol = self._find_protocol_for_target(target)
-            if protocol is not None:
-                deferred = defer.Deferred()
-                protocol.deferred = deferred
-                protocol.send_data(data)
-                
-                ds.append(deferred)
-        
-        if len(ds) == 1:
-            return ds[0]
+        if notification.sound is not None:
+            self.header['X-Sound'] = notification.sound
+            
+        if isinstance(notification.icon, Resource):
+            self.add_resource('Notification-Icon', notification.icon)
         else:
-            return defer.DeferredList(ds)
-
-    def buildProtocol(self, address):
-        for target, protocol in self._protocol_map:
-            if target.host == address.host and target.port == address.port:
-                return protocol
+            self.header['Notification-Icon'] = notification.icon
+        
+        callback = notification.callback
+        if callback is not None:
+            if callback.command.startswith('http://'):
+                self.header['Notification-Callback-Target'] = callback.command
             else:
-                raise GNTPError(('Unable to build protocol for address %s. '
-                                'Ensure you use the connect method') % address)
-    
-    def _find_protocol_for_target(self, target):
-        for t, protocol in self._protocol_map:
-            if t == target:
-                return protocol
+                self.header['Notification-Callback-Context'] = callback.command
+                self.header['Notification-Callback-Context-Type'] = 'string'
         
-        return None
-    
-    def clientConnectionLost(self, connector, reason):
-        if issubclass(reason.type, ConnectionDone):
-            connector.connect()
+        
+class SubscribeRequest(GNTPRequest):
+    def __init__(self, notifier):
+        GNTPRequest.__init__(self)
+        
+        self.command = 'SUBSCRIBE'
+        self.header['Subscriber-ID'] = notifier.uid
+        self.header['Subscriber-Name'] = notifier.name
+        
+        
+class UnregisterRequest(GNTPRequest):
+    def __init__(self, notifier):
+        GNTPRequest.__init__(self)
+        
+        self.command = 'REGISTER'
+        self.header['Application-Name'] = notifier.name
+        self.header['Notifications-Count'] = 0
 
-
-class GNTPProtocol(LineReceiver):
-    """GNTPProtocol has 2 responsibilities
-    
-    1. Sends a single GNTPRequest and compiles a GNTPResponse as data arrives.
-       When a complete response is received it executes the callback on the
-       deferred set up when sending the request.
-       
-    2. Compiles any callback data into an GNTPResponse. When a complete response
-       is received it calls the registered event handler 
-    """
-    
-    def __init__(self, event_handler=None):
-        """Initializes the instance and registers an event handler, if provided,
-        called when an GNTP callback response is received.
-        """
-        
-        self._data = ''
-        self.deferred = None
-        self._response = GNTPResponse()
-        self._event_handler = event_handler
-    
-    def lineReceived(self, line):
-        """Receive lines of data"""
-        
-        logging.debug('Received: %s' % line)
-        self._data += ('%s\r\n' % line)
-    
-    def connectionLost(self, reason):
-        if issubclass(reason.type, ConnectionDone):
-            responses = self._data.split('\r\n\r\n')
-            self._data = ''
-            
-            for response in [r for r in responses if len(r)>0]:
-                r = GNTPResponse()
-                r.unmarshall(response)
-            
-                if r.isevent:
-                    if self._event_handler is not None:
-                        self._event_handler(r)
-                else:
-                    if self.deferred is not None:
-                        self.deferred.callback(r)
-                        self.deferred = None
-            
-            # And so it goes around...
-            self.endpoint.connect(self.factory)
-            
-    def send_data(self, data):
-        """Send a single GNTP request."""
-        
-        self.transport.write(data)
-    

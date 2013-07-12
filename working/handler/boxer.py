@@ -105,7 +105,7 @@ class Boxer(object):
     def get_icon_path(self):
         pass
 
-    def register_notification(self, app_title, name, enabled):
+    def add_notification(self, app_title, name, enabled):
         pass
 
     def deregister_notification(self, app, name):

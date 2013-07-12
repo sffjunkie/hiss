@@ -16,10 +16,10 @@
 
 import urlparse
 
-from hiss.handler.snp import SNP_SCHEME
-from hiss.handler.gntp import GNTP_SCHEME
+SNP_SCHEME = 'snp'
+GNTP_SCHEME = 'gntp'
 
-DEFAULT_PROTOCOL = 'snp'
+DEFAULT_SCHEME = SNP_SCHEME
 
 __all__ = ['TargetError', 'Target']
 
@@ -47,7 +47,7 @@ class Target(object):
         
         Targets are specified using a URL like string of the form ::
         
-            scheme://[usernane[:password]@]host:port
+            scheme://[username@]host[:port]
         
         where scheme is currently one of ``snp`` or ``gntp``.
         
@@ -55,11 +55,10 @@ class Target(object):
         """ 
         
         if url == '':
-            url = '%s:///' % DEFAULT_PROTOCOL
+            url = '%s:///' % DEFAULT_SCHEME
         
         self.port = -1
         self.username = ''
-        self.password = ''
         
         result = urlparse.urlparse(url)
         if result.scheme != '':
@@ -68,23 +67,15 @@ class Target(object):
             host = ''
             if result.netloc != '':
                 try:
-                    userpass, host = result.netloc.split('@')
-                    try:
-                        self.username, self.password = userpass.split(':')
-                    except:
-                        self.username = userpass
-                        self.password = ''
-                        
-                    try:
-                        host, port = host.split(':')
-                    except:
-                        host = host
-                        port = -1
+                    self.username, hostport = result.netloc.split('@')
                 except:
-                    host = result.netloc
+                    hostport = result.netloc
+                        
+                try:
+                    host, port = hostport.split(':')
+                except:
+                    host = hostport
                     port = -1
-                    
-                host = host
             else:
                 host = '127.0.0.1'
                 port = -1
@@ -107,7 +98,6 @@ class Target(object):
         self.host = kwargs.get('host', self.host)
         self.port = kwargs.get('port', self.port)
         self.username = kwargs.get('username', self.username)
-        self.password = kwargs.get('password', self.password)
         
         if self.host == '' or self.host == 'localhost':
             self.host = '127.0.0.1'
@@ -115,13 +105,14 @@ class Target(object):
         self.handler = None
         self.protocol_version = ''
 
+    address = property(lambda self: (self.host, self.port))
+
     def __repr__(self):
         return '%s://%s:%d' % (self.scheme, self.host, self.port)
 
     def __eq__(self, other):
         """Tests that 2 targets are equal when ignoring username and password.""" 
         
-        return (self.scheme, self.host, self.port,
-                self.username, self.password) == \
-               (other.scheme, other.host, other.port,
-                other.username, other.password)
+        return (self.scheme, self.host, self.port, self.username) == \
+               (other.scheme, other.host, other.port, other.username)
+

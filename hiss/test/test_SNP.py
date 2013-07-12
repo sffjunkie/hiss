@@ -15,26 +15,26 @@
 from twisted.internet import reactor
 
 from hiss.target import Target
-from hiss.protocol.snp import SNP, SNPRequest
+from hiss.handler.snp import SNP
 
 def test_Connection():
     target = Target('snp://192.168.3.111')    
     factory = SNP()
-    factory.add_target(target)
+    factory.connect(target)
     reactor.callLater(5, reactor.stop)
     reactor.run()
 
 def test_BadConnection():
     target = Target('snp://192.168.3.111')    
     factory = SNP()
-    factory.add_target(target)
+    factory.connect(target)
     reactor.callLater(5, reactor.stop)
     reactor.run()
 
 def test_Hello():
     target = Target()
     factory = SNP()
-    factory.add_target(target)
+    factory.connect(target)
     
     reactor.connectTCP(target.host, target.port, factory)
 

@@ -1,4 +1,4 @@
-# Copyright 2009-2011, Simon Kennedy, code@sffjunkie.co.uk
+# Copyright 2009-2012, Simon Kennedy, code@sffjunkie.co.uk
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,18 +17,16 @@
 import uuid
 from collections import namedtuple
 
+import logging
+logging.basicConfig(level=logging.DEBUG, format='%(message)s')
+
 from twisted.internet import defer
 
+from hiss.handler.snp import SNP
+from hiss.handler.gntp import GNTP
 from hiss.notification import Notification
-from hiss.handler.snp import SNP_SCHEME, SNP
-from hiss.handler.gntp import GNTP_SCHEME, GNTP
 
 __all__ = ['Notifier', 'USE_NOTIFIER', 'USE_REGISTERED']
-
-SCHEME_HANDLERS = {
-    SNP_SCHEME: SNP,
-    GNTP_SCHEME: GNTP,
-}
 
 NotificationInfo = namedtuple('NotificationInfo', ['name', 'title', 'text',
                                                    'icon', 'sound', 'enabled'])
@@ -37,17 +35,18 @@ USE_NOTIFIER = -1
 USE_REGISTERED = -2
 
 class Notifier(object):
-    def __init__(self, signature, name, icon=None, uid=None):
-        """Create a new notifier
+    def __init__(self, signature, name, icon=None, sound=None, uid=None):
+        """Create a new default_notifier
         
-        :param signature: The MIME style application signature for this notifier
+        :param signature: The MIME style application signature for this default_notifier
                           of the form :samp:`application/x-vnd.{vendor}.{app}`
         :type signature:  string
-        :param name:      The name of this notifier
+        :param name:      The name of this default_notifier
         :type name:       string
         :param icon:      Notifier icon. Used when registering the notifier and
                           as the default icon for notifications.
-        :param uid:       Unique id to use for this notifier. If not specified, 
+        :type icon:       :class:`~hiss.resource.Icon` or string
+        :param uid:       Unique id to use for this default_notifier. If not specified, 
                           one will be provided for you. The ``uid`` will
                           be used as the password for 'secured' communications.
         """
@@ -55,6 +54,7 @@ class Notifier(object):
         self.signature = signature
         self.name = name
         self.icon = icon
+        self.sound = sound
         
         if uid is None:
             self.uid = self._unique_id()
@@ -66,7 +66,7 @@ class Notifier(object):
         self._handlers = {}
         self._notifications = {}
 
-    def register_notification(self, name, title=None, text=None,
+    def add_notification(self, name, title=None, text=None,
                               icon=None, sound=None,
                               enabled=True):
         """Add a notification class.
@@ -99,12 +99,17 @@ class Notifier(object):
         
         :param target: The Target to add.
         :type target:  :class:`hiss.Target`
+        :returns:      A :class:`.defer.Deferred`
+                       which fires when connected.
         """
         
         if target.scheme in self._handlers:
             handler = self._handlers[target.scheme]
-        else:
-            handler = SCHEME_HANDLERS[target.scheme](self._event_handler)
+        elif target.scheme == 'snp':
+            handler = SNP(notifier=self, event_handler=self._handler)
+            self._handlers[target.scheme] = handler
+        elif target.scheme == 'gntp':
+            handler = GNTP(notifier=self, event_handler=self._handler)
             self._handlers[target.scheme] = handler
         
         target.handler = handler
@@ -131,8 +136,20 @@ class Notifier(object):
         :type targets:  :class:`hiss.Target` or ``None``
         """
         
-        for handler in self._handlers.values():
-            handler.register(self, targets)
+        if targets is None:
+            handlers = self._handlers
+        elif targets.handler is not None:
+            handlers = [targets.handler]
+        
+        ds = []
+        for handler in handlers.values():
+            d = handler.register(self, targets)
+            ds.append(d)
+        
+        if len(ds) == 1:
+            return ds[0]
+        else:
+            return ds
 
     def create_notification(self, class_id=-1, name='',
                             title=None, text=None,
@@ -142,7 +159,7 @@ class Notifier(object):
         Either ``class_id`` or ``name`` can be provided. If ``class_id`` is
         provided it will be used instead of ``name`` to
         lookup the defaults registered in
-        :meth:`~Notifier.register_notification`
+        :meth:`~Notifier.add_notification`
         
         :param class_id:   The notification class id
         :type class_id:    integer
@@ -170,13 +187,14 @@ class Notifier(object):
             if class_id not in self.notification_classes:
                 raise ValueError('%d is not a known notification class id' % \
                                  str(class_id))
-            info = self.notification_classes[class_id]
         elif name != '':
             for class_id, info in self.notification_classes.items():
                 if info.name == name:
                     break
         else:
-            raise ValueError('Either a class id or a name must be specified.')
+            raise ValueError('hiss.Notifier: Either a class id or name must be specified.')
+
+        info = self.notification_classes[class_id]
             
         if title is USE_REGISTERED:
             title = info.title
@@ -184,38 +202,51 @@ class Notifier(object):
         if text is USE_REGISTERED:
             text = info.text
             
-        if icon is USE_REGISTERED:
-            icon = info.icon
+        if icon is None:
+            if info.icon is not None:
+                icon = info.icon
+            else:
+                icon = self.icon
             
-        if sound is USE_REGISTERED:
-            sound = info.sound
+        if sound is None:
+            if sound.icon is not None:
+                sound = info.sound
+            else:
+                sound = self.sound
             
-        n =  Notification(title, text, icon, sound, self.signature)
+        n =  Notification(title, text, icon, sound, signature=self.signature)
         n.name = info.name
         n.class_id = class_id
         n.notifier = self
         return n
     
-    def notify(self, notification, target=None):
-        """Send a notification to a specific target or all targets.
+    def notify(self, notification, targets=None):
+        """Send a notification to a specific targets or all targets.
         
         :param notification:   The notification to send
         :type notification:    :class:`hiss.Notification`
-        :param target:         The target to send the notification to. If no
-                               target is specified then the notification will
+        :param targets:         The targets to send the notification to. If no
+                               targets is specified then the notification will
                                be sent to all known targets.
-        :type target:          :class:`hiss.Target` or ``None``
+        :type targets:          :class:`hiss.Target` or ``None``
         """
         
-        if target is None:
+        if targets is None:
             handlers = self._handlers
-        elif target.handler is not None:
-            handlers = [target.handler]
+        elif targets.handler is not None:
+            handlers = [targets.handler]
             
         self._notifications[notification.uid] = None
-            
+        
+        ds = []
         for handler in handlers.values():
-            handler.notify(self, notification)
+            d = handler.notify(self, notification)
+            ds.append(d)
+        
+        if len(ds) == 1:
+            return ds[0]
+        else:
+            return ds
 
     def subscribe(self, signatures=[], targets=None):
         """Subscribe to notifications from a list of signatures.
@@ -242,12 +273,18 @@ class Notifier(object):
             handler.unregister(self, targets)
 
     def show(self, uid):
+        """If ``uid`` is in the list of current notifications then show it."""
+        
         if uid in self._notifications:
             for handler in self._handlers.values():
-                handler.show(uid)
+                handler.show(self, uid)
     
     def hide(self, uid):
-        pass
+        """If ``uid`` is in the list of current notifications then hide it."""
+        
+        if uid in self._notifications:
+            for handler in self._handlers.values():
+                handler.show(self, uid)
     
     def event_handler(self, event):
         """Event handler for callback events. Default handler does nothing.
@@ -256,7 +293,7 @@ class Notifier(object):
         :type event:  :class:`hiss.NotificationEvent`
         """
 
-    def _event_handler(self, event):
+    def _handler(self, event):
         # If event is for a notification closing
         if event.code >= 0 and event.code <= 2:
             if event.nid in self._notifications:

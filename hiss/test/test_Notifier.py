@@ -14,12 +14,14 @@
 
 # Part of 'hiss' the twisted notification library
 
-import logging
-logging.basicConfig(level=logging.DEBUG, format='%(message)s')
-
-from twisted.internet import reactor
-
+import sys
 import pytest
+import logging
+logging.basicConfig(level=logging.DEBUG, format='%(message)s',
+                    stream=sys.__stdout__)
+
+from twisted.internet import reactor, defer
+
 try:
     from nose.tools import nottest
 except ImportError:
@@ -42,28 +44,71 @@ def test_Register():
                  uid='b6d92249-b5aa-49de-8c17-75f147ef04dd')
     n.icon = '!reminder'
     
-    n.register_notification('General Alert', icon='!dev-ipod')
-    class_id = n.register_notification('Big and beautiful')
+    n.add_notification('General Alert', icon='!dev-ipod')
+    _class_id = n.add_notification('Big and beautiful')
     
-    #t = Target('snp://127.0.0.1')
-    t = Target('gntp://127.0.0.1')
+    t = Target('snp://127.0.0.1')
+    #t = Target('gntp://127.0.0.1')
     
-    def send_notification():
+    def done():
+        print('done')
+        
+    def callback(value):
+        print('callback')
+    
+    def notify():
         m = n.create_notification(name='General Alert', title='Alert',
                                   text=u'This is an alert')
-#        m.add_action('@900a', 'test')
-#        m.add_action('@600', 'tester')
-#        m.add_action('@300', 'testing')
-        m.add_callback('!system run', 'News')
-        m.icon = '!dev-media-cd'
-#        m.percentage = 50
-#        m.sound = 'C:\WINDOWS\Media\tada.wav'
-        n.notify(m)
+        d = n.notify(m)
+        d.addCallback(done)
+        return d
     
-    reactor.callWhenRunning(n.add_target, t)
-    reactor.callLater(0.5, n.register)
-    reactor.callLater(2.5, send_notification)
-    reactor.callLater(1, n.subscribe)
+    def register():
+        d = n.register()
+        d.addCallback(notify)
+        return d
+
+    def go2():    
+        d = n.add_target(t)
+        d.addCallback(register)
+        return d
+    
+    m = n.create_notification(name='General Alert', title='Alert',
+                              text=u'This is an alert')
+
+    @defer.inlineCallbacks
+    def go():
+        print('go')
+        added = yield n.add_target(t)
+        if added:
+            print('added target')
+        else:
+            print('unable to add target')
+            
+        sys.stdout.flush()
+        
+        print('registering')
+        registered = yield n.register()
+        if registered:
+            print('registered')
+        sys.stdout.flush()
+        
+        notification_id = yield n.notify(m)
+        #print('notified')
+        #sys.stdout.flush()
+        
+        #unregistered = yield n.unregister()
+        
+        #print('unregistered')
+        #sys.stdout.flush()
+        
+        #defer.returnValue(True)
+    
+    reactor.callWhenRunning(go)
+#    reactor.callWhenRunning(n.add_target, t)
+#    reactor.callLater(0.5, n.register)
+#    reactor.callLater(2.5, n.notify, m)
+#    reactor.callLater(1, n.subscribe)
 #    reactor.callLater(9.5, n.unregister)
     reactor.callLater(30, reactor.stop)
     reactor.run()

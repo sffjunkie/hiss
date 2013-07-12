@@ -3,7 +3,7 @@
 
 # Part of 'hiss' the Python notification library
 
-from distutils.core import setup
+from setuptools import setup
 
 long_description="""
 hiss is/will be a Python interface to various notification frameworks.

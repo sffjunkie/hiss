@@ -132,7 +132,7 @@ class Snarler(object):
             return ret
 
 #        for name, enabled in app.notifications.iteritems():
-#            ret = self.register_notification(self._title, name, enabled)
+#            ret = self.add_notification(self._title, name, enabled)
 #
 #            if ret != SnarlResult.OK:
 #                return ret
@@ -223,7 +223,7 @@ class Snarler(object):
 
         return self._global_msg
 
-    def register_notification(self, app_title, name, enabled):
+    def add_notification(self, app_title, name, enabled):
         return self._send_command(SnarlCommand.RegisterAlert,
             title=app_title, text=name)
 

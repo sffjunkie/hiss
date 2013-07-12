@@ -1,4 +1,4 @@
-# Copyright 2009-2011, Simon Kennedy, code@sffjunkie.co.uk
+# Copyright 2009-2012, Simon Kennedy, code@sffjunkie.co.uk
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -71,7 +71,6 @@ class Notification(object):
         self.sound = sound
         self.priority = priority
         self.timeout = timeout
-        self.sticky = (timeout == 0)
         self.percentage = -1
         self.callback = None
         self.actions = []
@@ -113,6 +112,20 @@ class Notification(object):
 
     text = property(**text())
     
+    def sticky():
+        def fget(self):
+            return (self.timeout == 0)
+        
+        def fset(self, value):
+            if value:
+                self.timeout = 0
+            else:
+                self.timeout = -1
+                
+        return locals()
+    
+    sticky = property(**sticky())
+    
     def add_callback(self, command, label=''):
         """Add a callback for this notification.
         
@@ -146,7 +159,7 @@ class Notification(object):
         
         self.actions.append(NotificationCommand(command, label))
 
-    def isvisible():
+    def visible():
         doc = """Determine if the notification is currently being displayed."""
 
         def fget(self):
@@ -154,7 +167,9 @@ class Notification(object):
 
         return locals()
 
-    isvisible = property(**isvisible())
+    visible = property(**visible())
+
+    has_callback = property(lambda self: self.callback is not None)
 
     def show(self):
         """Show the notification."""
