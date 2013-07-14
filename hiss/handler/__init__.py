@@ -20,22 +20,26 @@ class TargetList(object):
 
     def __contains__(self, target):
         for t in self._targets:
-            if target.scheme == t.scheme and target.host == t.host:
+            if target == t:
                 return True
             
         return False
         
+    def __iter__(self):
+        return self._targets.__iter__()
+        
     def append(self, target):
         self._targets.append(target)
+
+    def remove(self, target):
+        index_to_delete = -1
+        for idx, t in enumerate(self._targets):
+            if target == t:
+                index_to_delete = idx
+                break
         
-    def __getitem__(self, s):
-        return self._targets[s]
-    
-    def __setitem__(self, index, value):
-        self._targets[index] = value
-        
-    def __delitem__(self, s):
-        del self._targets[s]
+        if index_to_delete != -1:
+            del self._targets[index_to_delete]
 
     def valid_targets(self, targets):        
         if targets is None:

@@ -101,7 +101,9 @@ class Target(object):
         
         if self.host == '' or self.host == 'localhost':
             self.host = '127.0.0.1'
-            
+        
+        self.socket = None
+        self.enabled = True
         self.handler = None
         self.protocol_version = ''
 
@@ -116,3 +118,7 @@ class Target(object):
         return (self.scheme, self.host, self.port, self.username) == \
                (other.scheme, other.host, other.port, other.username)
 
+    def __del__(self):
+        if self.socket is not None:
+            self.socket.close()
+            self.socket = None

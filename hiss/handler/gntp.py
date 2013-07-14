@@ -31,9 +31,9 @@ class GNTPError(Exception):
     pass
         
 class GNTP(object):
-    def __init__(self, default_notifier=None, response_handler=None):
-        self._notifier = default_notifier
-        self._handler = response_handler
+    def __init__(self, notifier=None, handler=None):
+        self._notifier = notifier
+        self._handler = handler
         self._targets = TargetList()
     
     def connect(self, target):
@@ -43,38 +43,28 @@ class GNTP(object):
         :type target:  :class:`hiss.Target`
         """
             
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(0.5)
-        try:
-            s.connect((target.host, GNTP_DEFAULT_PORT))
-        
-            if target.port == -1:
-                target.port = GNTP_DEFAULT_PORT
-                
-            target.handler = self
-        except OSError:
-            return False
-        finally:
-            s.close()
-        
-        return True
+        target.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        #target.socket.settimeout(0.5)
+        target.socket.connect((target.host, GNTP_DEFAULT_PORT))
+        target.port = GNTP_DEFAULT_PORT
+        target.handler = self
+        self._targets.append(target)
 
     def disconnect(self, target):
         """Disconnect from a target
         
         :param target: Target to disconnect from
         :type target:  :class:`hiss.Target`
-        :returns:      A :class:`defer.Deferred` which fires when
-                       disconnected from the target 
         """
         
         if target in self._targets:
+            if target.socket is not None:
+                target.socket.close()
+                target.socket = None
             target.handler = None
-            del self._targets[target]
-            
-            return True
+            self._targets.remove(target)
         else:
-            return False
+            raise ValueError('GNTP: disconnect - Not connected to target')
 
     def register(self, target, notifier=None):
         """Register a ``notifier`` with a ``target`` 
@@ -91,9 +81,25 @@ class GNTP(object):
         request = RegisterRequest(notifier)
         response = self._send_request(request, target)
         
-        if response.type == 'OK':
-            self._targets.append(target)
+        if isinstance(self._handler, Callable):
+            self._handler(response)
+        return response
+
+    def unregister(self, target, notifier=None):
+        """Unregister a notifier with a target
         
+        :param target: The target to unregister the notifier with
+        :type target:  :class:`~hiss.target.Target`
+        :param notifier: The Notifier to unregister or the default notifier
+                         if None
+        :type notifier:  :class:`~hiss.notifier.Notifier` or None
+        """
+        
+        notifier = self._get_notifier(notifier)
+
+        request = UnregisterRequest(notifier)
+        response = self._send_request(request, target)
+
         if isinstance(self._handler, Callable):
             self._handler(response)
         return response
@@ -132,25 +138,6 @@ class GNTP(object):
             
         return responses
 
-    def unregister(self, target, notifier=None):
-        """Unregister a notifier with a target
-        
-        :param target: The target to unregister the notifier with
-        :type target:  :class:`~hiss.target.Target`
-        :param notifier: The Notifier to unregister or the default notifier
-                         if None
-        :type notifier:  :class:`~hiss.notifier.Notifier` or None
-        """
-        
-        notifier = self._get_notifier(notifier)
-
-        request = UnregisterRequest(notifier)
-        response = self._send_request(request, target)
-
-        if isinstance(self._handler, Callable):
-            self._handler(response)
-        return response
-
     def _get_targets(self, targets):
         if targets is None:
             targets = self._targets
@@ -182,20 +169,17 @@ class GNTP(object):
 
     def _send_request(self, request, target, with_callback=False):
         request_data = request.marshall()
-        s = socket.create_connection((target.host, target.port))
-        s.send(request_data)
+        target.socket.send(request_data)
         
         response_data = ''
         
         while True:
-            data = s.recv(1024)
+            data = target.socket.recv(1024)
             
             if not data:
                 break
             
             response_data += data
-
-        s.close()
         
         if with_callback:
             items = response_data.split('\r\n\r\n')

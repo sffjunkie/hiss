@@ -20,8 +20,6 @@ from collections import namedtuple
 import logging
 logging.basicConfig(level=logging.DEBUG, format='%(message)s')
 
-from twisted.internet import defer
-
 from hiss.handler.snp import SNP
 from hiss.handler.gntp import GNTP
 from hiss.notification import Notification
@@ -38,15 +36,15 @@ class Notifier(object):
     def __init__(self, signature, name, icon=None, sound=None, uid=None):
         """Create a new default_notifier
         
-        :param signature: The MIME style application signature for this default_notifier
+        :param signature: The MIME style application signature for this notifier
                           of the form :samp:`application/x-vnd.{vendor}.{app}`
         :type signature:  string
-        :param name:      The name of this default_notifier
+        :param name:      The name of this notifier
         :type name:       string
         :param icon:      Notifier icon. Used when registering the notifier and
                           as the default icon for notifications.
         :type icon:       :class:`~hiss.resource.Icon` or string
-        :param uid:       Unique id to use for this default_notifier. If not specified, 
+        :param uid:       Unique id to use for this notifier. If not specified, 
                           one will be provided for you. The ``uid`` will
                           be used as the password for 'secured' communications.
         """
@@ -99,20 +97,17 @@ class Notifier(object):
         
         :param target: The Target to add.
         :type target:  :class:`hiss.Target`
-        :returns:      A :class:`.defer.Deferred`
-                       which fires when connected.
         """
         
         if target.scheme in self._handlers:
             handler = self._handlers[target.scheme]
         elif target.scheme == 'snp':
-            handler = SNP(notifier=self, event_handler=self._handler)
+            handler = SNP(notifier=self, handler=self._handler)
             self._handlers[target.scheme] = handler
         elif target.scheme == 'gntp':
-            handler = GNTP(notifier=self, event_handler=self._handler)
+            handler = GNTP(notifier=self, handler=self._handler)
             self._handlers[target.scheme] = handler
         
-        target.handler = handler
         return handler.connect(target)
  
     def remove_target(self, target):
@@ -125,7 +120,7 @@ class Notifier(object):
         if target.handler is not None:
             return target.handler.disconnect(target)
         else:
-            return defer.fail(False)
+            return False
 
     def register(self, targets=None):
         """Register this notifier with the targets specified.
@@ -209,7 +204,7 @@ class Notifier(object):
                 icon = self.icon
             
         if sound is None:
-            if sound.icon is not None:
+            if info.sound is not None:
                 sound = info.sound
             else:
                 sound = self.sound
