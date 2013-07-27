@@ -18,12 +18,13 @@ import urlparse
 
 SNP_SCHEME = 'snp'
 GNTP_SCHEME = 'gntp'
+XBMC_SCHEME = 'xbmc'
 
 DEFAULT_SCHEME = SNP_SCHEME
 
 __all__ = ['TargetError', 'Target']
 
-for s in [SNP_SCHEME, GNTP_SCHEME]:
+for s in [SNP_SCHEME, GNTP_SCHEME, XBMC_SCHEME]:
     if s not in urlparse.uses_relative:
         urlparse.uses_relative.append(s)
         
@@ -88,10 +89,13 @@ class Target(object):
         elif url.startswith(GNTP_SCHEME):
             self.scheme = GNTP_SCHEME
             self.host = url[len(GNTP_SCHEME):].lstrip(':')
+        elif url.startswith(XBMC_SCHEME):
+            self.scheme = XBMC_SCHEME
+            self.host = url[len(XBMC_SCHEME):].lstrip(':')
         else:
             self.scheme = url
             
-        if self.scheme not in [SNP_SCHEME, GNTP_SCHEME]:
+        if self.scheme not in [SNP_SCHEME, GNTP_SCHEME, XBMC_SCHEME]:
             raise TargetError('Unknown protocol %s' % url)
 
         # Override with any parameters passed
@@ -102,7 +106,6 @@ class Target(object):
         if self.host == '' or self.host == 'localhost':
             self.host = '127.0.0.1'
         
-        self.socket = None
         self.enabled = True
         self.handler = None
         self.protocol_version = ''
@@ -113,12 +116,8 @@ class Target(object):
         return '%s://%s:%d' % (self.scheme, self.host, self.port)
 
     def __eq__(self, other):
-        """Tests that 2 targets are equal when ignoring username and password.""" 
+        """Tests that 2 targets are equal when ignoring username and password.
+        """ 
         
         return (self.scheme, self.host, self.port, self.username) == \
                (other.scheme, other.host, other.port, other.username)
-
-    def __del__(self):
-        if self.socket is not None:
-            self.socket.close()
-            self.socket = None
