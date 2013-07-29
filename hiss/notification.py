@@ -14,6 +14,8 @@
 
 # Part of 'hiss' the twisted notification library
 
+from __future__ import unicode_literals
+
 import uuid
 from collections import namedtuple
 
