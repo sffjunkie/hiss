@@ -14,6 +14,8 @@
 
 # Part of 'hiss' the Python notification library
 
+from __future__ import unicode_literals
+
 import urlparse
 
 SNP_SCHEME = 'snp'
