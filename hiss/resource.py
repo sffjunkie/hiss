@@ -15,7 +15,11 @@
 # Part of 'hiss' the twisted notification library
 
 import uuid
-import urllib2
+
+try:
+    from urllib.request import urlopen    
+except ImportError:
+    from urllib2 import urlopen
 
 class Resource(object):
     def __init__(self, source='', data=None):
@@ -40,7 +44,7 @@ class Resource(object):
                 if self.source[0] == '!':
                     self._data = self.source
                 else:
-                    f = urllib2.urlopen(self.source)
+                    f = urlopen(self.source)
                     self._data = f.read(-1)
                 
             return self._data
@@ -60,4 +64,3 @@ class Resource(object):
 
 class Icon(Resource):
     pass
-

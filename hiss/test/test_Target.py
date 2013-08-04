@@ -22,7 +22,7 @@ def test_Create():
     assert t.scheme == 'snp'
     assert t.host == '127.0.0.1'
     assert t.port == -1
-    assert t.username == ''
+    assert t.password is None
     
     t = Target('gntp://')
     assert t.scheme == 'gntp'
@@ -43,13 +43,13 @@ def test_Create():
     t = Target('snp://wally@192.168.1.1')
     assert t.scheme == 'snp'
     assert t.host == '192.168.1.1'
-    assert t.username == 'wally'
+    assert t.password == 'wally'
     assert t.port == -1
 
     t = Target('snp://wally@192.168.1.1:9000')
     assert t.scheme == 'snp'
     assert t.host == '192.168.1.1'
-    assert t.username == 'wally'
+    assert t.password == 'wally'
     assert t.port == 9000
 
 def test_String():

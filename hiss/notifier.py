@@ -14,6 +14,8 @@
 
 # Part of 'hiss' the twisted notification library
 
+from __future__ import unicode_literals
+
 import uuid
 from collections import namedtuple
 
@@ -22,6 +24,7 @@ logging.basicConfig(level=logging.DEBUG, format='%(message)s')
 
 from hiss.handler.snp import SNP
 from hiss.handler.gntp import GNTP
+from hiss.handler.xbmc import XBMC
 from hiss.notification import Notification
 
 __all__ = ['Notifier', 'USE_NOTIFIER', 'USE_REGISTERED']
@@ -33,31 +36,23 @@ USE_NOTIFIER = -1
 USE_REGISTERED = -2
 
 class Notifier(object):
-    def __init__(self, signature, name, icon=None, sound=None, uid=None):
+    def __init__(self, title, signature, icon=None, sound=None):
         """Create a new default_notifier
         
+        :param title:     The title of this notifier
+        :type title:      string
         :param signature: The MIME style application signature for this notifier
                           of the form :samp:`application/x-vnd.{vendor}.{app}`
         :type signature:  string
-        :param name:      The name of this notifier
-        :type name:       string
         :param icon:      Notifier icon. Used when registering the notifier and
                           as the default icon for notifications.
         :type icon:       :class:`~hiss.resource.Icon` or string
-        :param uid:       Unique id to use for this notifier. If not specified, 
-                          one will be provided for you. The ``uid`` will
-                          be used as the password for 'secured' communications.
         """
         
+        self.title = title
         self.signature = signature
-        self.name = name
         self.icon = icon
         self.sound = sound
-        
-        if uid is None:
-            self.uid = self._unique_id()
-        else:
-            self.uid = uid
             
         self.notification_classes = {}
         
@@ -96,16 +91,19 @@ class Notifier(object):
         """Add a target to the list of known targets
         
         :param target: The Target to add.
-        :type target:  :class:`hiss.Target`
+        :type target:  :class:`~hiss.target.Target`
         """
         
         if target.scheme in self._handlers:
             handler = self._handlers[target.scheme]
         elif target.scheme == 'snp':
-            handler = SNP(notifier=self, handler=self._handler)
+            handler = SNP(notifier=self, response_handler=self._handler)
             self._handlers[target.scheme] = handler
         elif target.scheme == 'gntp':
-            handler = GNTP(notifier=self, handler=self._handler)
+            handler = GNTP(notifier=self, response_handler=self._handler)
+            self._handlers[target.scheme] = handler
+        elif target.scheme == 'xbmc':
+            handler = XBMC(notifier=self, response_handler=self._handler)
             self._handlers[target.scheme] = handler
         
         return handler.connect(target)
@@ -114,7 +112,7 @@ class Notifier(object):
         """Remove a previously added target.
         
         :param target: The Target to add.
-        :type target:  :class:`hiss.Target`
+        :type target:  :class:`~hiss.target.Target`
         """
         
         if target.handler is not None:
@@ -122,23 +120,28 @@ class Notifier(object):
         else:
             return False
 
-    def register(self, targets=None):
-        """Register this notifier with the targets specified.
+    def register(self, target=None):
+        """Register this notifier with the target specified.
         
-        :param targets: The targets to register with.
-                        If not specified or ``None`` then the notifier
-                        will be registered with all known targets
-        :type targets:  :class:`hiss.Target` or ``None``
+        :param target: The target to register with.
+                       If not specified or ``None`` then the notifier
+                       will be registered with all known target
+        :type target:  :class:`~hiss.target.Target` or ``None``
         """
         
-        if targets is None:
+        if target is None:
             handlers = self._handlers
-        elif targets.handler is not None:
-            handlers = [targets.handler]
+        elif target.handler is not None:
+            handlers = [target.handler]
         
         ds = []
         for handler in handlers.values():
-            d = handler.register(self, targets)
+            if handler.capabilities['register']:
+                d = handler.register(target, notifier=self)
+            else:
+                d = {'result': 'OK'}
+            
+            d['name'] = handler.name    
             ds.append(d)
         
         if len(ds) == 1:
@@ -235,7 +238,8 @@ class Notifier(object):
         
         ds = []
         for handler in handlers.values():
-            d = handler.notify(self, notification)
+            d = handler.notify(notification, notifier=self)
+            d['name'] = handler.name    
             ds.append(d)
         
         if len(ds) == 1:
@@ -265,21 +269,24 @@ class Notifier(object):
         """
         
         for handler in self._handlers.values():
-            handler.unregister(self, targets)
+            if handler.capabilities['unregister']:
+                handler.unregister(targets, notifier=self)
 
     def show(self, uid):
         """If ``uid`` is in the list of current notifications then show it."""
         
         if uid in self._notifications:
             for handler in self._handlers.values():
-                handler.show(self, uid)
+                if handler.show_hide:
+                    handler.show(self, uid)
     
     def hide(self, uid):
         """If ``uid`` is in the list of current notifications then hide it."""
         
         if uid in self._notifications:
             for handler in self._handlers.values():
-                handler.show(self, uid)
+                if handler.show_hide:
+                    handler.show(self, uid)
     
     def event_handler(self, event):
         """Event handler for callback events. Default handler does nothing.
@@ -289,10 +296,10 @@ class Notifier(object):
         """
 
     def _handler(self, event):
-        # If event is for a notification closing
-        if event.code >= 0 and event.code <= 2:
-            if event.nid in self._notifications:
-                del self._notifications[event.nid]
+        ## If event is for a notification closing
+        #if event.code >= 0 and event.code <= 2:
+        #    if event.nid in self._notifications:
+        #        del self._notifications[event.nid]
                 
         self.event_handler(event)
 

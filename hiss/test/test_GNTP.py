@@ -1,3 +1,4 @@
+# Copyright 2009-2012, Simon Kennedy, code@sffjunkie.co.uk
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,56 +17,60 @@ from hiss.notifier import Notifier
 from hiss.handler.gntp import GNTP
 from hiss.resource import Icon
 
+HOST = '127.0.0.1'
+#HOST = '10.84.23.66'
+
 def test_connect():
-    n = Notifier('application/x-vnd.sffjunkie.hiss', 'GNTP Test')
-    g = GNTP(n)
-    t = Target('gntp://127.0.0.1')
+    g = GNTP()
+    t = Target('gntp://%s' % HOST)
     g.connect(t)
 
 def test_disconnect():
-    n = Notifier('application/x-vnd.sffjunkie.hiss', 'GNTP Test')
-    g = GNTP(n)
-    t = Target('gntp://127.0.0.1')
+    g = GNTP()
+    t = Target('gntp://%s' % HOST)
     g.connect(t)
     g.disconnect(t)
 
 def test_register():
     g = GNTP()
-    n = Notifier('application/x-vnd.sffjunkie.hiss', 'GNTP Test')
+    n = Notifier('GNTP Test', 'application/x-vnd.sffjunkie.hiss')
     n.add_notification('New', 'New email received.')
-    t = Target('gntp://127.0.0.1')
+    t = Target('gntp://%s' % HOST)
+    g.connect(t)
+    response = g.register(t, n)
+    g.disconnect(t)
+    assert response['result'] == 'OK'
+
+def test_unregister():
+    g = GNTP()
+    n = Notifier('GNTP Test', 'application/x-vnd.sffjunkie.hiss')
+    t = Target('gntp://%s' % HOST)
     g.connect(t)
     response = g.register(t, n)
     assert response.type == 'OK'
 
-def test_unregister():
-    g = GNTP()
-    n = Notifier('application/x-vnd.sffjunkie.hiss', 'GNTP Test')
-    t = Target('gntp://127.0.0.1')
-    g.connect(t)
     response = g.unregister(t, n)
-    assert response.type == 'OK'
+    g.disconnect(t)
+    assert response['result'] == 'OK'
 
 def test_register_with_icon():
     g = GNTP()
     i = Icon('file:///c:/me_150.png')
-    n = Notifier('application/x-vnd.sffjunkie.hiss', 'GNTP Test',
+    n = Notifier('GNTP Test', 'application/x-vnd.sffjunkie.hiss',
                  icon=i)
     n.add_notification('New', 'New email received.')
-    t = Target('gntp://127.0.0.1')
+    t = Target('gntp://%s' % HOST)
     g.connect(t)
     response = g.register(t, n)
-    assert response.type == 'OK'
+    assert response['result'] == 'OK'
 
 def test_notification():
     g = GNTP()
     
-    i = Icon('file:///c:/me_150.png')
-    n = Notifier('application/x-vnd.sffjunkie.hiss', 'GNTP Test',
-                 icon=i)
+    n = Notifier('GNTP Test', 'application/x-vnd.sffjunkie.hiss')
     class_id = n.add_notification('1984', 'New email received.')
     
-    t = Target('gntp://127.0.0.1')
+    t = Target('gntp://%s' % HOST)
     g.connect(t)
     _response = g.register(t, n)
     
@@ -73,15 +78,16 @@ def test_notification():
                                          title="A brave new world",
                                          text="Say hello to Prism")
     response = g.notify(notification, n)
-    assert response.type == 'OK'
+    assert response['result'] == 'OK'
+    print(response)
 
 def test_notification_with_url_callback():
     g = GNTP()
     
-    n = Notifier('application/x-vnd.sffjunkie.hiss', 'GNTP Test')
+    n = Notifier('GNTP Test', 'application/x-vnd.sffjunkie.hiss')
     class_id = n.add_notification('1984', 'New email received.')
     
-    t = Target('gntp://127.0.0.1')
+    t = Target('gntp://%s' % HOST)
     g.connect(t)
     _response = g.register(t, n)
     
@@ -91,18 +97,15 @@ def test_notification_with_url_callback():
     notification.add_callback('C:\\')
     response = g.notify(notification, n)
     
-    if notification.has_callback:
-        assert response[0].type == 'OK'
-        assert response[1].type == 'CALLBACK'
-    else:
-        assert response.type == 'OK'
+    assert response['result'] == 'OK'
+    print(response)
 
 def test_notification_with_icon():
     g = GNTP()
-    n = Notifier('application/x-vnd.sffjunkie.hiss', 'GNTP Test')
+    n = Notifier('GNTP Test', 'application/x-vnd.sffjunkie.hiss')
     class_id = n.add_notification('1984', 'New email received.')
-    t = Target('gntp://127.0.0.1')
-    _connected = g.connect(t)
+    t = Target('gntp://%s' % HOST)
+    g.connect(t)
     _response = g.register(t, n)
     
     i = Icon('file:///c:/me_150.png')
@@ -111,16 +114,17 @@ def test_notification_with_icon():
                                          text="This notification should have an icon",
                                          icon=i)
     response = g.notify(notification, n)
-    assert response.type == 'OK'
+    assert response['result'] == 'OK'
+    print(response)
     
 
 if __name__ == '__main__':
-    #test_connect()
-    #test_disconnect()
+    test_connect()
+    test_disconnect()
     test_register()
     #test_unregister()
     #test_register_with_icon()
     test_notification()
     #test_notification_with_url_callback()
-    #test_notification_with_icon()
+    test_notification_with_icon()
     

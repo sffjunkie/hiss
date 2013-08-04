@@ -29,7 +29,6 @@ class XBMCError(Exception):
 
 
 class XBMC(Handler):
-    
     name = 'XBMC'
 
     def __init__(self, notifier=None, response_handler=None,

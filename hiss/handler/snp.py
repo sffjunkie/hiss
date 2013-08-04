@@ -14,6 +14,8 @@
 
 # Part of 'hiss' the twisted notification library
 
+from __future__ import unicode_literals
+
 import base64
 import logging
 import random
@@ -22,14 +24,13 @@ import hashlib
 from collections import namedtuple
 
 from twisted.internet import reactor, defer
-from twisted.internet.protocol import ClientFactory
+from twisted.internet.protocol import Factory
 from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.protocols.basic import LineReceiver
 
 from hiss.handler import TargetList
 from hiss.resource import Icon
 from hiss.event import NotificationEvent
-from hiss.exception import HissError
 
 logging.basicConfig(level=logging.DEBUG, format='%(message)s')
 
@@ -143,7 +144,7 @@ class SNP(object):
                 request_version.addCallback(version)
                 request_version.addErrback(failed)
 
-                request = SNPRequest(version=SNP_BASE_VERSION)
+                request = Request(version=SNP_BASE_VERSION)
                 request.append(('version', {}))
                 data = request.marshall()
                 
@@ -208,9 +209,9 @@ class SNP(object):
         def failed(fail):
             reactor.callLater(0, deferred.errback, False)
         
-        request = RegisterRequest(notifier)
+        request = _RegisterRequest(notifier)
         targets = self._targets.valid_targets(targets)
-        d = self.send_request(request, targets)
+        d = self._send_request(request, targets)
         d.addCallback(ok)
         d.addErrback(failed)
         return deferred
@@ -237,9 +238,9 @@ class SNP(object):
         def failed(fail):
             reactor.callLater(0, deferred.errback, False)
         
-        request = NotifyRequest(notifier, notification)
+        request = _NotifyRequest(notifier, notification)
         targets = self._targets.valid_targets(targets)
-        d = self.send_request(request, targets)
+        d = self._send_request(request, targets)
         d.addCallback(ok)
         d.addErrback(failed)
         return deferred
@@ -263,14 +264,14 @@ class SNP(object):
                          has been received.
         """
         
-        request = ShowRequest(uid)
+        request = _ShowRequest(uid)
         targets = self._targets.valid_targets(targets)
-        return self.send_request(request, targets)
+        return self._send_request(request, targets)
     
     def hide(self, uid, targets=None):
-        request = HideRequest(uid)
+        request = _HideRequest(uid)
         targets = self._targets.valid_targets(targets)
-        return self.send_request(request, targets)
+        return self._send_request(request, targets)
     
     def is_visible(self, notification, notifier=None, targets=None):
         def response():
@@ -282,9 +283,9 @@ class SNP(object):
             else:
                 raise ValueError('No valid notifier instance available.')
             
-        request = IsVisibleRequest(notifier, notification)
+        request = _IsVisibleRequest(notifier, notification)
         targets = self._targets.valid_targets(targets)
-        d = self.send_request(request, targets)
+        d = self._send_request(request, targets)
         d.addCallback(response)
         return d
     
@@ -301,9 +302,9 @@ class SNP(object):
         :type targets:     list of :class:`hiss.Target` or None
         """
                            
-        request = SubscribeRequest(notifier, signatures)
+        request = _SubscribeRequest(notifier, signatures)
         targets = self._targets.valid_targets(targets)
-        return self.send_request(request, targets)
+        return self._send_request(request, targets)
     
     def unregister(self, notifier, targets=None):
         """Unregister a notifier with a list of targets
@@ -317,11 +318,11 @@ class SNP(object):
                          has been received.
         """
         
-        request = UnregisterRequest(notifier)
+        request = _UnregisterRequest(notifier)
         targets = self._targets.valid_targets(targets)
-        return self.send_request(request, targets)
+        return self._send_request(request, targets)
     
-    def send_request(self, request, targets):
+    def _send_request(self, request, targets):
         """Send a request to a list of targets
         
         :param request:  Request to send
@@ -360,7 +361,7 @@ class SNP(object):
             return defer.DeferredList(ds)
 
     def _send_single_request(self, commands, version, protocol):
-        request = SNPRequest(version)
+        request = Request(version)
         for command in commands:
             request.append(command)
         
@@ -388,53 +389,36 @@ class SNP(object):
         self._handler(event)
     
 
-class SNPFactory(ClientFactory):
-    def __init__(self, response_handler=None):
+class SNPFactory(Factory):
+    def __init__(self, default_handler=None):
         self._protocols = []
-        self._handler = response_handler
+        self._default_handler = default_handler
 
     def buildProtocol(self, address):
-        protocol = SNPProtocol(self._handler)
-        protocol.factory = self
-        protocol.address = (address.host, address.port)
-        
+        protocol = SNPProtocol(self._default_handler)
         self._protocols.append(protocol)
         return protocol
-    
-    def _protocol_for_target(self, target):
-        """Find the protocol created during :meth:`~SNPFactory.connect` for the
-        specified target
-        
-        :param target: The target to find
-        :type target:  :class:`hiss.Target`
-        """
-        
-        for protocol in self._protocols:
-            if protocol.address == target.address:
-                return protocol
-        
-        return None
 
 
 class SNPProtocol(LineReceiver):
     """SNPProtocol has 2 responsibilities
     
-    1. Sends a single SNPRequest and compiles an SNPResponse as data arrives.
+    1. Sends a single Request and compiles a response as data arrives.
        When a complete response is received it executes the callback on the
        deferred set up when sending the request.
        
-    2. Compiles any callback data into an SNPResponse. When a complete response
+    2. Compiles any callback data into an Response. When a complete response
        is received it calls the registered event handler 
     """
     
     def __init__(self, response_handler=None):
-        """Initializes the instance and registers an event handler, if provided,
-        called when an SNP callback response is received.
-        """
+        self._response = Response()
+        self._response_handler = response_handler
         
-        self.deferred = None
-        self._response = SNPResponse()
-        self._handler = response_handler
+    def sendRequest(self, request):
+        self._response = Response()
+        data = request.marshall()
+        self.transport.write(data)
     
     def lineReceived(self, line):
         """Receive lines of data until a complete response has been received."""
@@ -445,24 +429,15 @@ class SNPProtocol(LineReceiver):
         if self._response.iscomplete:
             self._response.unmarshall()
             
-            if self._response.isevent:
-                if self._handler is not None:
-                    self._handler(self._response)
-            else:
-                if self.deferred is not None:
-                    self.deferred.callback(self._response)
-                    self.deferred = None
-                else:
-                    raise ValueError('deferred is None')
+            if self._response_handler is not None:
+                self._response_handler(self._response)
             
-            # And so it goes around...
-            self._response = SNPResponse()
 
 
 SNPCommand = namedtuple('SNPCommand', ['name', 'parameters'])
 
 
-class SNPRequest(object):
+class Request(object):
     def __init__(self, version=SNP_DEFAULT_VERSION, password='', use_hash=False):
         self.version = version
         self.commands = []
@@ -658,7 +633,7 @@ class SNPRequest(object):
         pass
 
 
-class SNPResponse(object):
+class Response(object):
     def __init__(self):
         self.version = ''
         """The SNP protocol version number of this response"""
@@ -776,12 +751,12 @@ class SNPResponse(object):
         pass
                     
 
-class VersionRequest(object):
+class _VersionRequest(object):
     def __init__(self):
         self.commands = [('version', {})]
                     
 
-class RegisterRequest(object):
+class _RegisterRequest(object):
     def __init__(self, notifier):
         self.commands = []
 
@@ -818,7 +793,7 @@ class RegisterRequest(object):
             self.commands.append(('addclass', parameters))
 
 
-class ClearClassesRequest(object):
+class _ClearClassesRequest(object):
     def __init__(self, notifier):
         self.commands = []
 
@@ -829,7 +804,7 @@ class ClearClassesRequest(object):
         self.commands.append(('clearclasses', parameters))
 
 
-class UnregisterRequest(object):
+class _UnregisterRequest(object):
     def __init__(self, notifier):
         self.commands = []
 
@@ -840,7 +815,7 @@ class UnregisterRequest(object):
         self.commands.append(('unregister', parameters))
 
 
-class NotifyRequest(object):
+class _NotifyRequest(object):
     def __init__(self, notifier, notification):
         self.commands = []
 
@@ -903,7 +878,7 @@ class NotifyRequest(object):
         self.commands.append(('notify', parameters))
 
 
-class SubscribeRequest(object):
+class _SubscribeRequest(object):
     def __init__(self, notifier, signatures):
         self.commands = []
 
@@ -914,7 +889,7 @@ class SubscribeRequest(object):
         self.commands.append(('subscribe', parameters))
 
 
-class AddActionRequest(object):
+class _AddActionRequest(object):
     def __init__(self, notifier, notification, command, label):
         self.commands = []
 
@@ -928,7 +903,7 @@ class AddActionRequest(object):
         self.commands.append(('addaction', parameters))
 
 
-class ClearActionsRequest(object):
+class _ClearActionsRequest(object):
     def __init__(self, notifier, notification):
         self.commands = []
 
@@ -940,7 +915,7 @@ class ClearActionsRequest(object):
         self.commands.append(('clearactions', parameters))
 
 
-class IsVisibleRequest(object):
+class _IsVisibleRequest(object):
     def __init__(self, notifier, notification):
         self.commands = []
 
@@ -952,7 +927,7 @@ class IsVisibleRequest(object):
         self.commands.append(('isvisible', parameters))
                     
 
-class ShowRequest(object):
+class _ShowRequest(object):
     def __init__(self, notifier, uid):
         self.commands = []
 
@@ -964,7 +939,7 @@ class ShowRequest(object):
         self.commands.append(('show', parameters))
                     
 
-class HideRequest(object):
+class _HideRequest(object):
     def __init__(self, notifier, uid):
         self.commands = []
 

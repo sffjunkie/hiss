@@ -14,6 +14,8 @@
 
 # Part of 'hiss' the twisted notification library
 
+import logging
+
 from twisted.internet import reactor, defer
 from twisted.internet.protocol import ClientFactory
 from twisted.internet.endpoints import TCP4ClientEndpoint
@@ -23,10 +25,11 @@ from twisted.internet.error import ConnectionDone
 from hiss.resource import Icon
 from hiss.event import NotificationEvent
 
+from hiss.handler import TargetList
+from hiss.handler.gntp import GNTPError
 from hiss.handler.gntp import GNTP_BASE_VERSION, GNTP_DEFAULT_PORT
-from hiss.handler.gntp import GNTPResponse
-from hiss.handler.gntp import SubscribeRequest, RegisterRequest, NotifyRequest
-
+from hiss.handler.gntp import Response
+from hiss.handler.gntp import _SubscribeRequest, _RegisterRequest, _NotifyRequest
 EVENT_MAPPING = {
     'CLICK': 0,
     'CLICKED': 0,
@@ -111,9 +114,9 @@ class txGNTP(object):
         :returns:        A :class:`defer.Deferred` to wait on
         """
         
-        request = RegisterRequest(notifier)
+        request = _RegisterRequest(notifier)
         targets = self._targets.valid_targets(targets)
-        return self._factory.send_request(request, targets)
+        return self._factory._send_request(request, targets)
         
     def notify(self, notifier, notification, targets=None):
         """Send a notification to a list of targets
@@ -127,9 +130,9 @@ class txGNTP(object):
                          has been received.
         """
         
-        request = NotifyRequest(notifier, notification)
+        request = _NotifyRequest(notifier, notification)
         targets = self._targets.valid_targets(targets)
-        return self._factory.send_request(request, targets)
+        return self._factory._send_request(request, targets)
     
     def subscribe(self, notifier, signatures=[], targets=None):
         """Subscribe to notifications from a list of signatures
@@ -144,9 +147,9 @@ class txGNTP(object):
         :type targets:     list of :class:`hiss.Target` or None
         """
                            
-        request = SubscribeRequest(notifier)
+        request = _SubscribeRequest(notifier)
         targets = self._targets.valid_targets(targets)
-        return self._factory.send_request(request, targets)
+        return self._factory._send_request(request, targets)
     
     def unregister(self, notifier, targets=None):
         """Unregister a notifier with a list of targets
@@ -196,7 +199,7 @@ class GNTPFactory(ClientFactory):
         d.addCallback(connected)
         return d
     
-    def send_request(self, request, targets):
+    def _send_request(self, request, targets):
         """Send a request to a list of targets
         
         :param request:  Request to send
@@ -250,11 +253,11 @@ class GNTPFactory(ClientFactory):
 class GNTPProtocol(LineReceiver):
     """GNTPProtocol has 2 responsibilities
     
-    1. Sends a single GNTPRequest and compiles a GNTPResponse as data arrives.
+    1. Sends a single GNTPRequest and compiles a Response as data arrives.
        When a complete response is received it executes the callback on the
        deferred set up when sending the request.
        
-    2. Compiles any callback data into an GNTPResponse. When a complete response
+    2. Compiles any callback data into an Response. When a complete response
        is received it calls the registered event handler 
     """
     
@@ -265,7 +268,7 @@ class GNTPProtocol(LineReceiver):
         
         self._data = ''
         self.deferred = None
-        self._response = GNTPResponse()
+        self._response = Response()
         self._handler = response_handler
     
     def lineReceived(self, line):
@@ -291,7 +294,7 @@ class GNTPProtocol(LineReceiver):
         self._data = ''
         
         for response in [r for r in responses if len(r)>0]:
-            r = GNTPResponse()
+            r = Response()
             r.unmarshall(response)
             
             logging.debug('GNTPProtocol: Command %s' % r.command)

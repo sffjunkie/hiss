@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from hiss.handler.gntp import GNTPResponse
+from hiss.handler.gntp import _Response
 
 def test_GNTPResponse_Create():
-    _r = GNTPResponse()
+    _r = _Response()
 
 def test_GNTPResponse_Marshall():
-    r = GNTPResponse()
+    r = _Response()
     r.version = '1.0'
     r.type = 'OK'
     r.command = 'REGISTER'
@@ -29,7 +29,7 @@ def test_GNTPResponse_Marshall():
 
 
 def test_GNTPResponse_Unmarshall():
-    r = GNTPResponse()
+    r = _Response()
     msg = 'GNTP/1.0 -OK NONE\r\nResponse-Action: REGISTER\r\nOrigin-Machine-Name: OURAGAN\r\n'
     r.unmarshall(msg)
     

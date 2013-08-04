@@ -14,6 +14,96 @@
 
 # Part of 'hiss' the twisted notification library
 
+import socket
+
+from hiss.target import Target
+
+
+class Handler(object):
+    def __init__(self, notifier, port):
+        self._notifier = notifier
+        self._default_port = port
+        self._targets = TargetList()
+    
+    def connect(self, target):
+        """Connect to a target
+        
+        :param target: Target to connect to
+        :type target:  :class:`hiss.target.Target`
+        """
+        
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.connect((target.host, self._default_port))
+            
+            target.port = self._default_port
+            target.handler = self
+            self._targets.append(target)
+        finally:
+            s.close()
+
+    def disconnect(self, target):
+        """Disconnect from a target
+        
+        :param target: Target to disconnect from
+        :type target:  :class:`hiss.Target`
+        """
+        
+        if target in self._targets:
+            target.handler = None
+            self._targets.remove(target)
+        else:
+            raise ValueError('hiss.Handler: disconnect - Not connected to target')
+
+    def _get_targets(self, targets):
+        if targets is None:
+            targets = self._targets
+        elif isinstance(targets, Target):
+            if targets not in self._targets:
+                raise ValueError('hiss.Handler: Unable to send request - Target unknown')
+            else:
+                targets = [targets]
+        elif isinstance(targets, list):
+            targets = []
+            for t in targets:
+                if isinstance(t, Target):
+                    if t.port == -1:
+                        t.port = self._default_port
+                        
+                    if t in self._targets:
+                        targets.append(t)
+            
+            if len(targets) == 0:
+                raise ValueError('hiss.Handler: Unable to send request - No valid targets specified')
+        return targets
+
+    def _get_notifier(self, notifier):
+        if notifier is None:
+            notifier = self._notifier
+        if notifier is None:
+            raise ValueError('hiss.Handler: No notifier specified')
+        return notifier
+
+
+class txHandler(Handler):
+    def __init__(self, notifier):
+        Handler.__init__(self, notifier)
+    
+    def connect(self, target, connected_handler):
+        """Connect to a target
+        
+        :param target: Target to connect to
+        :type target:  :class:`hiss.target.Target`
+        """
+
+    def disconnect(self, target):
+        """Disconnect from a target
+        
+        :param target: Target to disconnect from
+        :type target:  :class:`hiss.Target`
+        """
+
+
 class TargetList(object):
     def __init__(self):
         self._targets = []
@@ -63,4 +153,5 @@ class TargetList(object):
                 _targets.append(target)
                 
         return _targets
-
+        
+    

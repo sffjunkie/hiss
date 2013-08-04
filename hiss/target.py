@@ -16,7 +16,10 @@
 
 from __future__ import unicode_literals
 
-import urlparse
+try:
+    import urllib.parse as urlparse
+except ImportError:
+    import urlparse
 
 SNP_SCHEME = 'snp'
 GNTP_SCHEME = 'gntp'
@@ -50,9 +53,9 @@ class Target(object):
         
         Targets are specified using a URL like string of the form ::
         
-            scheme://[username@]host[:port]
+            scheme://[password@]host[:port]
         
-        where scheme is currently one of ``snp`` or ``gntp``.
+        where scheme is one of ``snp``, ``gntp`` or ``xbmc``.
         
         All values can be overridden using named parameters.
         """ 
@@ -61,7 +64,7 @@ class Target(object):
             url = '%s:///' % DEFAULT_SCHEME
         
         self.port = -1
-        self.username = ''
+        self.password = None
         
         result = urlparse.urlparse(url)
         if result.scheme != '':
@@ -70,7 +73,7 @@ class Target(object):
             host = ''
             if result.netloc != '':
                 try:
-                    self.username, hostport = result.netloc.split('@')
+                    self.password, hostport = result.netloc.split('@')
                 except:
                     hostport = result.netloc
                         
@@ -103,7 +106,7 @@ class Target(object):
         # Override with any parameters passed
         self.host = kwargs.get('host', self.host)
         self.port = kwargs.get('port', self.port)
-        self.username = kwargs.get('username', self.username)
+        self.password = kwargs.get('password', self.password)
         
         if self.host == '' or self.host == 'localhost':
             self.host = '127.0.0.1'
@@ -118,8 +121,8 @@ class Target(object):
         return '%s://%s:%d' % (self.scheme, self.host, self.port)
 
     def __eq__(self, other):
-        """Tests that 2 targets are equal when ignoring username and password.
+        """Tests that 2 targets are equal when ignoring password and password.
         """ 
         
-        return (self.scheme, self.host, self.port, self.username) == \
-               (other.scheme, other.host, other.port, other.username)
+        return (self.scheme, self.host, self.port, self.password) == \
+               (other.scheme, other.host, other.port, other.password)
