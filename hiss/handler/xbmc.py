@@ -98,11 +98,11 @@ class XBMC(asyncio.Protocol):
                 if data['result'] == 'OK':
                     result['status_code'] = 0
             else:
-                result['status'] = 'FAIL'
+                result['status'] = 'ERROR'
                 result['reason'] = http_response.reason
             
         except Exception as exc:
-            result['status'] = 'FAIL'
+            result['status'] = 'ERROR'
             result['reason'] = exc.args[0]
 
         return result

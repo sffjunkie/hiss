@@ -73,7 +73,7 @@ def test_register(notifier):
             response = yield from h.register(notifier, t)
             response['result'] = 'OK'
         except Exception as exc:
-            response = {'result': 'FAIL', 'reason': exc.args[0]}
+            response = {'result': 'ERROR', 'reason': exc.args[0]}
             
         return response
     

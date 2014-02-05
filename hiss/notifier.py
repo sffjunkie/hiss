@@ -217,7 +217,7 @@ class Notifier(object):
             result = {}
             result['target'] = tr.target
             if result is None:
-                result['status'] = 'FAIL'
+                result['status'] = 'ERROR'
                 result['reason'] = 'Unable to connect to target'
             else:
                 result['status'] = 'OK'            
@@ -327,7 +327,7 @@ class Notifier(object):
             if 'async' in target.handler.capabilities:
                 response = yield from target.handler.subscribe(self, signatures, targets)
             else:
-                response = {'result': 'FAIL', 'reason': 'Not Supported'}
+                response = {'result': 'ERROR', 'reason': 'Not Supported'}
             
             response['handler'] = target.handler.name
             responses.append(response)

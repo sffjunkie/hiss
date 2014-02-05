@@ -760,7 +760,7 @@ class Response(object):
             self.status = 'OK'
             self.status_code = 0
         else:
-            self.status = 'FAIL'
+            self.status = 'ERROR'
             result = max(results, key=attrgetter('status_code'))
             self.status_code = result.status_code
             self.reason = result.reason

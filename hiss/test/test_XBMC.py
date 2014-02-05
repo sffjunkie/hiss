@@ -46,7 +46,7 @@ def test_notification(notifier):
                                              text="Say hello to Prism",
                                              icon='info')
         response = yield from h.notify(notification, t)
-        if response['status'] == 'FAIL':
+        if response['status'] == 'ERROR':
             assert response['reason'] == 'All hosts are unreachable.'
         else:
             assert response['status_code'] == 0

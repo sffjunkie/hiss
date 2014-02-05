@@ -179,7 +179,7 @@ class Handler():
         response = {
             'handler': self.__handler__,
             'command': 'connect',
-            'status': 'FAIL',
+            'status': 'ERROR',
             'reason': str(exc),
             'result': exc,
         }
@@ -188,7 +188,7 @@ class Handler():
     def _unsupported(self):
         response = {
             'handler': self.__handler__,
-            'status': 'FAIL',
+            'status': 'ERROR',
             'reason': 'Unsupported',
         }
         return response
