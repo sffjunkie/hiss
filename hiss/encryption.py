@@ -1,0 +1,96 @@
+# Copyright 2013-2014, Simon Kennedy, code@sffjunkie.co.uk
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Part of 'hiss' the asynchronous notification library
+
+try:
+    import Crypto as crypto
+    PY_CRYPTO = True
+except ImportError:
+    PY_CRYPTO = False
+    
+from binascii import hexlify, unhexlify
+    
+__all__ = ['encrypt', 'decrypt']
+
+class EncryptionInfo():
+    """Records the encryption information required to be sent to remote hosts.
+    
+    Exposes the following properties
+    
+    * algorithm - The algorithm used to generate the hash (str)
+    * iv        - The initial value (bytes)
+    """
+    
+    def __init__(self, algorithm, iv):
+        if isinstance(algorithm, (bytes, bytearray)):
+            algorithm = algorithm.decode('UTF-8')
+        self.algorithm = algorithm.upper()
+        
+        if isinstance(iv, str):
+            iv = unhexlify(iv.encode('UTF-8'))
+        self.iv = iv
+        
+    def __eq__(self, other):
+        return self.algorithm == other.algorithm and \
+            self.iv == other.key_hash
+        
+    def __repr__(self):
+        return '%s:%s' % (self.algorithm,
+                          hexlify(self.key_hash).decode('UTF-8'))
+
+def encrypt(encryption_algorithm, iv, key, data):
+    def _pkcs7_pad(self, data, block_length):
+        padding = block_length - (len(data) % block_length)
+        data.extend(chr(padding) * padding)
+        
+    cipher, block_length = _create_cipher(encryption_algorithm, iv, key)
+    _pkcs7_pad(data, block_length)
+    encrypted_data = cipher.encrypt(data)
+    return encrypted_data
+
+def decrypt(encryption_algorithm, iv, key, data):
+    cipher, _ = _create_cipher(encryption_algorithm, iv, key)
+    decrypted_data = cipher.decrypt(data)
+    padding_length = ord(decrypted_data[-1])
+    decrypted_data = decrypted_data[:-padding_length]
+    return decrypted_data
+    
+def _create_cipher(self, encryption_algorithm, iv, key):
+    # AES = AES192 = key length=24, block length=16, iv length=16
+    if encryption_algorithm == 'AES':
+        key_length = 24
+        block_length = 24
+        key = key[:key_length]
+        mode = crypto.Cipher.AES.MODE_CBC
+        cipher = crypto.Cipher.AES.new(key, mode, IV=iv)
+        
+    # DES = key length=8, block length=8, iv length=8
+    elif encryption_algorithm == 'DES':
+        key_length = 8
+        block_length = 8
+        key = key[:key_length]
+        mode = crypto.Cipher.DES.MODE_CBC
+        cipher = crypto.Cipher.DES.new(key, mode, IV=iv)
+        
+    # 3DES = key length=24, block length=8, iv length=8
+    elif encryption_algorithm == '3DES':
+        key_length = 24
+        block_length = 24
+        key = key[:key_length]
+        mode = crypto.Cipher.DES3.MODE_CBC
+        cipher = crypto.Cipher.DES3.new(key, mode, IV=iv)
+    
+    return (cipher, block_length)
+    
