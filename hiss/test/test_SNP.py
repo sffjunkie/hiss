@@ -69,13 +69,9 @@ def test_register(notifier):
         
         t = Target('snp://%s' % HOST)
         
-        try:
-            response = yield from h.register(notifier, t)
-            response['result'] = 'OK'
-        except Exception as exc:
-            response = {'result': 'ERROR', 'reason': exc.args[0]}
-            
-        return response
+        
+        response = yield from h.register(notifier, t)
+        assert response['result'] == 'OK'
     
     c = coro()
     loop.run_until_complete(c)
