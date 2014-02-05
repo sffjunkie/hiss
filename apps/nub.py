@@ -13,10 +13,10 @@ class Nub(Factory, object):
     def __init__(self, port=49999):
         self.protocol = NubProtocol
         self._notifiers = []
-        self._targets = []
+        self.targets = []
         self._hostname = socket.gethostname()
         self._ip = socket.gethostbyname(self._hostname)
-        self._port = find_open_port(from_port=port)
+        self.port = find_open_port(from_port=port)
         
         print(self._hostname, self._ip)
 
@@ -38,7 +38,7 @@ class Nub(Factory, object):
 
     def port():
         def fget(self):
-            return self._port
+            return self.port
             
         return locals()
         

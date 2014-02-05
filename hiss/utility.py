@@ -1,4 +1,4 @@
-# Copyright 2009-2012, Simon Kennedy, code@sffjunkie.co.uk
+# Copyright 2013-2014, Simon Kennedy, code@sffjunkie.co.uk
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,13 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Part of 'hiss' the Python notification library
+# Part of 'hiss' the asynchronous notification library
 
 import socket
+import logging
+from datetime import datetime
+
+DATETIME_FORMATS = ['%d %b %Y %H:%M:%S', '%Y-%m-%d %H:%M:%S', '%m-%d-%Y %H:%M:%S %p',
+                    '%Y-%m-%d %H:%M:%SZ']
 
 __all__ = ['find_local_address', 'xpl_format_source', 'xap_format_source',
     'format_ip_address', 'indent_text', 'indent_print', 'find_open_port',
-    'ip_to_int', 'int_to_ip', 'find_broadcast', 'netmask_valid', 'guess_broadcast']
+    'ip_to_int', 'int_to_ip', 'find_broadcast', 'netmask_valid', 'guess_broadcast',
+    'parse_datetime']
 
 def indent_text(text, indent=4):
     out = ''
@@ -122,3 +128,14 @@ def xap_format_source(vendor, device, instance):
 def format_ip_address(address):
     return ''.join(map(lambda n: "%03d" % int(n), address.split('.')))
 
+           
+def parse_datetime(string):
+    for df in DATETIME_FORMATS:
+        try:
+            dt = datetime.strptime(string, df)
+            return dt
+        except:
+            pass
+    
+    logging.debug('parse_datetime: Unable to parse datetime string %s' % string)
+    return string

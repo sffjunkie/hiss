@@ -1,4 +1,4 @@
-# Copyright 2009-2012, Simon Kennedy, code@sffjunkie.co.uk
+# Copyright 2013-2014, Simon Kennedy, code@sffjunkie.co.uk
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,84 +12,103 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import unicode_literals
+# Part of 'hiss' the asynchronous notification library
 
+import asyncio
+import aiohttp
 import json
-import httplib
-from urllib import quote_plus
-from mogul.json import rpc, buffer
+from urllib.parse import quote_plus
+from mogul.json.message import Request
 
 from hiss.resource import Icon
 from hiss.handler import Handler
 
 XBMC_DEFAULT_PORT = 8080
+XBMC_USERNAME = 'xbmc'
+XBMC_PASSWORD = 'xbmc'
 
 class XBMCError(Exception):
     pass
 
 
-class XBMC(Handler):
-    name = 'XBMC'
+class XBMCHandler(Handler):
+    """:class:`~hiss.handler.Handler` sub-class for XBMC messages"""
 
-    def __init__(self, notifier=None, response_handler=None,
-                 port=XBMC_DEFAULT_PORT):
-        Handler.__init__(self, notifier, port)
+    def __init__(self, username=XBMC_USERNAME, password=XBMC_PASSWORD, loop=None):
+        super().__init__(loop)
         
-        self.capabilities = {
-            'show_hide': False,
-            'register': False,
-            'unregister': False
-        }
+        self.port = XBMC_DEFAULT_PORT
+        self.username = username
+        self.password = password
+        self.capabilities = ['notify']
+    
+    @asyncio.coroutine
+    def connect(self, target):
+        protocol = XBMC()
+
+        target.handler = self        
+        target.port = self.port
+        target.username = self.username
+        target.password = self.password
         
-        self.response_handler = response_handler
-        
-    def notify(self, notification, notifier=None, targets=None, handler=None):
+        protocol.target = target
+        return protocol
+
+
+class XBMC(asyncio.Protocol):
+    """XBMC JSON Protocol."""
+    
+    @asyncio.coroutine
+    def notify(self, notification, notifier):
         """Send a notification
-        
-        Send to either to all known targets or a specific target or list of
-        targets
         
         :param notification: The notification to send
         :type notification: :class:`~hiss.notification.Notification`
         :param notifier: The notifier to send the notification for or None for
                          the default notifier.
         :type notifier:  :class:`~hiss.notifier.Notifier`
-        :param targets:  The target or list of targets to send the notification
-                         to or None for all targets
-        :type targets:   :class:`~hiss.target.Target` or list of Target
         """
 
-        targets = self._get_targets(targets)
-        notifier = self._get_notifier(notifier)
-        
-        request = _Request(notification)
-        responses = []
-        for target in targets:
-            response_data = self.send_request(request, target)
-            response = self.handle_response(response_data)
-            responses.append(response)
-        
-        if len(responses) == 1:
-            responses = responses[0]
-            
-        return responses
+        request = _NotificationRequest(notification)
+        response = yield from self.send_request(request, self.target)
+        return response
 
+    @asyncio.coroutine
     def send_request(self, request, target):
         request_data = request.marshall()
-        conn = httplib.HTTPConnection(target.host, target.port)
+        
+        auth = (target.username, target.password)
+        
+        client = aiohttp.HttpClient([(target.host, target.port)], method='POST',
+                                    path='/jsonrpc')
         headers = {'Content-Type': 'application/json'}
-        conn.request('POST', '/jsonrpc', request_data, headers)
-        response = conn.getresponse()
-        return response.read()
-    
-    def handle_response(self, response_data):
-        response = json.loads(response_data)
-        return {'id': response['id'], 'result': response['result']}
+        
+        result = {}
+        try:
+            http_response = yield from client.request(headers=headers, data=request_data, auth=auth)
+            if http_response.status == 200:
+                response_data = yield from http_response.read()
+                http_response.close()
+            
+                data = json.loads(response_data.decode('UTF-8'))
+                
+                result['status'] = data['result']
+                if data['result'] == 'OK':
+                    result['status_code'] = 0
+            else:
+                result['status'] = 'FAIL'
+                result['reason'] = http_response.reason
+            
+        except Exception as exc:
+            result['status'] = 'FAIL'
+            result['reason'] = exc.args[0]
+
+        return result
 
 
-class _Request(rpc.Request):
+class _NotificationRequest(Request):
     def __init__(self, notification):
-        rpc.Request.__init__(self, uid=notification.uid,
+        Request.__init__(self, uid=notification.uid,
                              method='GUI.ShowNotification')
         
         self.append('title', notification.title)
@@ -97,9 +116,9 @@ class _Request(rpc.Request):
         
         if notification.icon is not None:
             if isinstance(notification.icon, Icon):
-                raise ValueError('XBMC is unable to handle icon image data')
+                image = notification.icon.data
             elif notification.icon.startswith('image://'):
-                image = 'image://%s' % quote_plus(notification.icon[8:])
+                image = quote_plus('image://%s' % notification.icon[8:])
             else:
                 image = notification.icon
                 

@@ -1,4 +1,4 @@
-# Copyright 2009-2012, Simon Kennedy, code@sffjunkie.co.uk
+# Copyright 2013-2014, Simon Kennedy, code@sffjunkie.co.uk
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,14 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Part of 'hiss' the Python notification library
+# Part of 'hiss' the asynchronous notification library
 
-from __future__ import unicode_literals
-
+import socket
 try:
     import urllib.parse as urlparse
 except ImportError:
     import urlparse
+
+from hiss.exception import TargetError
 
 SNP_SCHEME = 'snp'
 GNTP_SCHEME = 'gntp'
@@ -43,28 +44,26 @@ for s in [SNP_SCHEME, GNTP_SCHEME, XBMC_SCHEME]:
         urlparse.uses_query.append(s)
 
 
-class TargetError(Exception):
-    pass
-
-
 class Target(object):
+    """A target for notifications.
+    
+    Targets are specified using a URL like string of the form ::
+    
+        scheme://[password@]host[:port]
+    
+    where scheme is one of ``snp``, ``gntp`` or ``xbmc``.
+    
+    If no port number is specified then the default port for the target type will be used
+    
+    All values can be specified using named parameters.
+    """
+        
     def __init__(self, url='', **kwargs):
-        """Create a new target for notifications.
-        
-        Targets are specified using a URL like string of the form ::
-        
-            scheme://[password@]host[:port]
-        
-        where scheme is one of ``snp``, ``gntp`` or ``xbmc``.
-        
-        All values can be overridden using named parameters.
-        """ 
-        
         if url == '':
             url = '%s:///' % DEFAULT_SCHEME
         
-        self.port = -1
         self.password = None
+        self.port = -1
         
         result = urlparse.urlparse(url)
         if result.scheme != '':
@@ -117,12 +116,24 @@ class Target(object):
 
     address = property(lambda self: (self.host, self.port))
 
+    @property    
+    def is_remote(self):
+        """Return True if host is on a remote machine.
+        
+        This is used to determine if the password information needs to be sent with each
+        message.
+        """
+        
+        local_hosts = ['127.0.0.1', 'localhost']
+        local_hosts.extend(socket.gethostbyname_ex(socket.gethostname())[2])
+        return self.host not in local_hosts
+
     def __repr__(self):
         return '%s://%s:%d' % (self.scheme, self.host, self.port)
 
     def __eq__(self, other):
-        """Tests that 2 targets are equal when ignoring password and password.
+        """Tests that 2 targets are equal ignoring the password.
         """ 
         
-        return (self.scheme, self.host, self.port, self.password) == \
-               (other.scheme, other.host, other.port, other.password)
+        return (self.scheme, self.host, self.port) == \
+               (other.scheme, other.host, other.port)

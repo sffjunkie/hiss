@@ -1,4 +1,4 @@
-# Copyright 2009-2012, Simon Kennedy, code@sffjunkie.co.uk
+# Copyright 2013-2014, Simon Kennedy, code@sffjunkie.co.uk
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,33 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from hiss.handler.gntp import _Response
+from hiss.handler.gntp import Response
 
 def test_GNTPResponse_Create():
-    _r = _Response()
+    _r = Response()
 
 def test_GNTPResponse_Marshall():
-    r = _Response()
+    r = Response()
     r.version = '1.0'
-    r.type = 'OK'
+    r.status = 'OK'
     r.command = 'REGISTER'
-    r.header['Origin-Machine-Name'] = 'OURAGAN'
+    r.body['Origin-Machine-Name'] = 'OURAGAN'
     
     msg = r.marshall()
-    assert msg == 'GNTP/1.0 -OK NONE\r\nResponse-Action: REGISTER\r\nOrigin-Machine-Name: OURAGAN\r\n'
+    # Unable to compare bytes as Response has a variable timestamp
+    assert len(msg) == len('GNTP/1.0 -OK NONE\r\nResponse-Action: REGISTER\r\nOrigin-Machine-Name: OURAGAN\r\n') + len('X-Timestamp: YYYY-mm-dd hh:mm:ssZ\r\n')
 
 
 def test_GNTPResponse_Unmarshall():
-    r = _Response()
-    msg = 'GNTP/1.0 -OK NONE\r\nResponse-Action: REGISTER\r\nOrigin-Machine-Name: OURAGAN\r\n'
+    r = Response()
+    msg = b'GNTP/1.0 -OK NONE\r\nResponse-Action: REGISTER\r\nOrigin-Machine-Name: OURAGAN\r\n'
     r.unmarshall(msg)
     
-    assert r.type == 'OK'
-    assert r.command == 'REGISTER'
-
-
-if __name__ == '__main__':
-    test_GNTPResponse_Create()
-    test_GNTPResponse_Marshall()
-    test_GNTPResponse_Unmarshall()
+    assert r.status == 'OK'
+    assert r.command == 'register'
     

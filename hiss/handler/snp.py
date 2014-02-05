@@ -1,4 +1,4 @@
-# Copyright 2009-2012, Simon Kennedy, code@sffjunkie.co.uk
+# Copyright 2013-2014, Simon Kennedy, code@sffjunkie.co.uk
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,33 +12,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Part of 'hiss' the twisted notification library
+# Part of 'hiss' the asynchronous notification library
 
-from __future__ import unicode_literals
-
+import asyncio
 import base64
 import logging
 import random
 import string
-import hashlib
+from pprint import pformat
 from collections import namedtuple
+from os import urandom
+from hashlib import sha256
+from binascii import unhexlify
+from operator import attrgetter
 
-from twisted.internet import reactor, defer
-from twisted.internet.protocol import Factory
-from twisted.internet.endpoints import TCP4ClientEndpoint
-from twisted.protocols.basic import LineReceiver
-
-from hiss.handler import TargetList
+from hiss.hash import HashInfo, generate_hash, validate_hash
+from hiss.encryption import PY_CRYPTO, encrypt, decrypt
+from hiss.exception import HissError
+from hiss.handler import Handler, Factory
+from hiss.utility import parse_datetime
 from hiss.resource import Icon
-from hiss.event import NotificationEvent
-
-logging.basicConfig(level=logging.DEBUG, format='%(message)s')
+from hiss.notification import NotificationPriority
 
 SNP_SCHEME = 'snp'
 SNP_DEFAULT_PORT = 9887
 SNP_BASE_VERSION = '2.0'
 SNP_DEFAULT_VERSION = '3.0'
 SNP_VALID_VERSIONS = ['2.0', '3.0']
+
+DEFAULT_HASH_ALGORITHM = 'SHA256'
+ENCRYPTION_ALGORITHM = 'AES'
 
 SNARL_STATUS = {
     0:   'OK',
@@ -71,6 +74,8 @@ SNARL_STATUS = {
     308: 'ActionSelected',
 }
 
+ACCEPTABLE_ERRORS = [203, 204]
+
 EVENT_MAPPING = {
     '304': 0,
     '303': 1,
@@ -79,13 +84,13 @@ EVENT_MAPPING = {
 }
 
 ATTR_MAPPING = {
-    'event-code': 'status_code',
-    'event-name': 'status_name',
-    'notification-uid': 'nid',
-    'event-data': 'data',
-    'x-timestamp': 'timestamp',
-    'x-daemon': 'daemon',
-    'x-host': 'host',
+    b'event-code': 'status_code',
+    b'event-name': 'status',
+    b'notification-uid': 'nid',
+    b'event-data': 'data',
+    b'x-timestamp': 'timestamp',
+    b'x-daemon': 'daemon',
+    b'x-host': 'host',
 }
 
 BOOL_MAPPING = {
@@ -94,186 +99,183 @@ BOOL_MAPPING = {
 }
 
 
-class SNPError(Exception):
+class SNPError(HissError):
     pass
 
 
-class SNP(object):
-    def __init__(self, response_handler=None):
-        """Snarl Network Protocol handler.
+class SNPHandler(Handler):
+    """:class:`~hiss.handler.Handler` sub-class for SNP messages"""
+    
+    def __init__(self, loop=None):
+        super().__init__(loop)
         
-        :param response_handler: A callable which is provided with an
-                              :class:`hiss.NotificationEvent` when an SNP callback
-                              event is received.
-        :type response_handler:  A callable
-        """
-        
-        self._targets = TargetList()
-        self._handler = response_handler
-        self._factory = SNPFactory(self._snp_event_handler)
-        self._notifications = {}
-        
+        self.port = SNP_DEFAULT_PORT
+        self.factory = Factory(SNP)
+        self.async_factory = Factory(SNPAsync)
+        self.capabilities = ['register', 'unregister', 'async', 'show', 'hide']
+    
+    @asyncio.coroutine
     def connect(self, target):
-        """Connect to a target
+        """Override the default connect method to call the get_version method after connecting."""
         
-        :param target: Target to connect to
-        :type target:  :class:`hiss.Target`
-        :returns:      A :class:`defer.Deferred` which fires when
-                       connected to the target 
-        """
+        protocol = yield from super().connect(target)
         
-        logging.debug('SNP: Connecting to %s' % str(target))
-        if target not in self._targets:
-            deferred = defer.Deferred()
+        if not hasattr(target, 'api_version'):
+            response = yield from protocol.get_version()
+            target.api_version = int(response.result.decode('UTF-8'))
+            target.protocol_version = response.max_version
             
-            def failed(fail):
-                reactor.callLater(0, deferred.errback, True)
-                deferred.errback(False)
-            
-            def version(response):
-                if float(response.max_version) > float(target.protocol_version):
-                    logging.debug('SNP: Upgrading protocol version to %s' % response.max_version)
-                
-                target.protocol_version = response.max_version
-                deferred.callback(True)
-            
-            def connected(protocol):
-                self._targets.append(target)
-                
-                request_version = defer.Deferred()
-                request_version.addCallback(version)
-                request_version.addErrback(failed)
+        return protocol
+        
 
-                request = Request(version=SNP_BASE_VERSION)
-                request.append(('version', {}))
-                data = request.marshall()
-                
-                protocol.deferred = request_version
-                protocol.transport.write(data)
-                
-                return request_version
-            
-            if target.port == -1:
-                target.port = SNP_DEFAULT_PORT
-            
-            if target.protocol_version == '':
-                target.protocol_version = SNP_BASE_VERSION
+class SNP(asyncio.Protocol):
+    """Snarl Network Protocol."""
+    
+    def __init__(self):
+        self.use_encryption = False
+        self.use_hash = False
 
-            point = TCP4ClientEndpoint(reactor, target.host, target.port)
-            
-            d = point.connect(self._factory)
-            d.addCallback(connected)
-            d.addErrback(failed)
-            return deferred
+        self._target = None
+        self._buffer = None
+        
+    @property
+    def target(self):
+        return self._target
+    
+    @target.setter
+    def target(self, value):
+        self._target = value
+        if value.is_remote:
+            self.use_hash = True
+
+    def connection_made(self, transport):
+        self.response = None
+        self._buffer = bytearray()
+        self._transport = transport
+        
+    def data_received(self, data):
+        self._buffer.extend(data)
+        
+        version = self.target.protocol_version
+        if version == '2.0':
+            end_of_response_marker = b'\r\n'
         else:
-            return defer.succeed(True)
+            end_of_response_marker = b'END\r\n'
 
-    def disconnect(self, target):
-        """Disconnect from a target
-        
-        :param target: Target to disconnect from
-        :type target:  :class:`hiss.Target`
-        :returns:      A :class:`defer.Deferred` which fires when
-                       disconnected from the target 
-        """
-        
-        if target in self._targets:
-            protocol = self._factory.find_protocol(target.host, target.port)
-            if protocol is not None:
-                protocol.loseConnection()
+        end = self._buffer.find(end_of_response_marker)
+        if end != -1:
+            if version == '2.0':
+                data = self._buffer[:end]
+                del self._buffer[:end + 2]
+            else:
+                data = self._buffer[:end + 3]
+                del self._buffer[:end + 5]
             
-            target.handler = None
-            del self._targets[target]
-            
-            return defer.succeed(True)
-        else:
-            return defer.fail(False)
+            response = Response()
+            response.version = version
+            response.unmarshall(data)
+            self.response = response
+
+    @asyncio.coroutine
+    def get_version(self):
+        """Get details of the SNP version that the target can handle."""
         
-    def register(self, notifier, targets=None):
-        """Register a notifier with a list of targets
+        request_info = _VersionRequestInfo()
+
+        yield from self._send_request(request_info)
+        return self.response
+         
+    @asyncio.coroutine
+    def register(self, notifier):
+        """Register ``notifier`` with a our target 
         
         :param notifier: Notifier to register
-        :type notifier:  :class:`hiss.Notifier`
-        :param targets:  list of targets to register with or None to
-                         register with all targets
-        :type targets:   list of :class:`hiss.Target` or None
-        :returns:        A :class:`defer.Deferred` which fires when a response
-                         has been received.
+        :type notifier:  :class:`hiss.notifier.Notifier`
         """
+        
+        assert self.target.protocol_version != ''
 
-        deferred = defer.Deferred()
+        request_info = _RegisterRequestInfo(notifier)
+        yield from self._send_request(request_info)
         
-        def ok(response):
-            reactor.callLater(0, deferred.callback, True)
-        
-        def failed(fail):
-            reactor.callLater(0, deferred.errback, False)
-        
-        request = _RegisterRequest(notifier)
-        targets = self._targets.valid_targets(targets)
-        d = self._send_request(request, targets)
-        d.addCallback(ok)
-        d.addErrback(failed)
-        return deferred
-        
-    def notify(self, notifier, notification, targets=None):
-        """Send a notification to a list of targets
-        
-        :param notifier: Notifier to use for 
-        :type notifier:  :class:`hiss.Notification`
-        :param notifier: Notification to send
-        :type notifier:  :class:`hiss.Notification`
-        :param targets:  list of targets to notify or None to
-                         send to all targets
-        :type targets:   list of :class:`hiss.Target` or None
-        :returns:        A :class:`defer.Deferred` which fires when a response
-                         has been received.
-        """
-
-        deferred = defer.Deferred()
-        
-        def ok(response):
-            reactor.callLater(0, deferred.callback, True)
-        
-        def failed(fail):
-            reactor.callLater(0, deferred.errback, False)
-        
-        request = _NotifyRequest(notifier, notification)
-        targets = self._targets.valid_targets(targets)
-        d = self._send_request(request, targets)
-        d.addCallback(ok)
-        d.addErrback(failed)
-        return deferred
+        result = self._build_result('register')
+        logging.debug(pformat(result))
+        return result
     
-    def add_action(self, notification, targets=None):
+    @asyncio.coroutine
+    def unregister(self, notifier):
+        """Unregister a notifier
+        
+        :param notifier: Notifier to unregister
+        :type notifier:  hiss.Notifier
+        """
+        
+        request_info = _UnregisterRequestInfo(notifier)
+        yield from self._send_request(request_info)
+        
+        result = self._build_result('unregister')
+        logging.debug(pformat(result))
+        return result
+        
+    @asyncio.coroutine
+    def notify(self, notification, notifier):
+        """Send a notification to a target
+        
+        :param notification: Notification to send
+        :type notification:  :class:`hiss.Notification`
+        :param notifier: Notifier to use 
+        :type notifier:  :class:`hiss.notifier.Notifier`
+        """
+        
+        assert self.target.protocol_version != ''
+
+        request_info = _NotifyRequestInfo(notification, notifier)
+        yield from self._send_request(request_info)
+        
+        result = self._build_result('notify')
+        logging.debug(pformat(result))
+        return result
+    
+    @asyncio.coroutine
+    def add_action(self, notification):
         raise NotImplementedError
     
-    def clear_action(self, notification, targets=None):
+    @asyncio.coroutine
+    def clear_action(self, notification):
         raise NotImplementedError
     
-    def show(self, notifier, uid, targets=None):
+    @asyncio.coroutine
+    def show(self, notification):
         """Show a hidden notification 
         
-        :param notifier: Notification to send
-        :type notifier:  :class:`hiss.Notification`
-        :param uid:      uid of notification to show
-        :param targets:  list of targets to notify or None to
-                         send to all targets
-        :type targets:   list of :class:`hiss.Target` or None
-        :returns:        A :class:`defer.Deferred` which fires when a response
-                         has been received.
+        :param notification: Notification to show
+        :type notification:  :class:`hiss.notification.Notification`
         """
         
-        request = _ShowRequest(uid)
-        targets = self._targets.valid_targets(targets)
-        return self._send_request(request, targets)
+        request_info = _ShowRequestInfo(notification.uid)
+        yield from self._send_request(request_info)
+        
+        result = self._build_result('show')
+        logging.debug(pformat(result))
+        return result
     
+    @asyncio.coroutine
     def hide(self, uid, targets=None):
-        request = _HideRequest(uid)
-        targets = self._targets.valid_targets(targets)
-        return self._send_request(request, targets)
+        """Hide a notification 
+        
+        :param notification: Notification to show
+        :type notification:  :class:`hiss.notification.Notification`
+        """
+        
+        request_info = _HideRequestInfo(uid)
+        yield from self._send_request(request_info)
+        
+        result = self._build_result('hide')
+        logging.debug(pformat(result))
+        return result
     
-    def is_visible(self, notification, notifier=None, targets=None):
+    @asyncio.coroutine
+    def isvisible(self, notification, notifier=None, targets=None):
         def response():
             return True
         
@@ -283,12 +285,112 @@ class SNP(object):
             else:
                 raise ValueError('No valid notifier instance available.')
             
-        request = _IsVisibleRequest(notifier, notification)
-        targets = self._targets.valid_targets(targets)
-        d = self._send_request(request, targets)
-        d.addCallback(response)
-        return d
+        request_info = _IsVisibleRequestInfo(notifier, notification)
+        yield from self._send_request(request_info)
+        
+        result = self._build_result('isvisible')
+        logging.debug(pformat(result))
+        return result
     
+    @asyncio.coroutine
+    def _send_request(self, request_info):
+        """Send a request_info to a list of targets
+        
+        :param request_info:  Info for request to send
+        """
+
+        if self.target.protocol_version == '':
+            self.target.protocol_version = SNP_BASE_VERSION
+            
+        if self.target.protocol_version == '3.0' or len(request_info.commands) == 1:
+            response = yield from self._send_single(request_info,
+                                                    self.target.protocol_version)
+        else:
+            response = yield from self._send_multiple(request_info,
+                                                      self.target.protocol_version)
+
+        return response
+
+    @asyncio.coroutine
+    def _send_single(self, request_info, version):
+        request = Request(version)
+        for command in request_info.commands:
+            request.append(command)
+        
+        data = request.marshall()
+        self._transport.write(data)
+        yield from self._wait_for_response()
+        return self.response
+
+    @asyncio.coroutine
+    def _send_multiple(self, commands, version):
+        responses = []
+        for command in commands:
+            response = yield from self._send_single([command], version)
+            responses.append(response)
+        return responses
+
+    @asyncio.coroutine
+    def _wait_for_response(self):
+        while True:
+            if self.response is not None:
+                return
+            else:
+                yield from asyncio.sleep(0.1)
+
+    def _build_result(self, command):        
+        result = {}
+        result['handler'] = 'SNP'
+        result['command'] = command
+        result['status'] = self.response.status
+        result['status_code'] = self.response.status_code
+        result['result'] = self.response.result
+
+        if hasattr(self.response, 'timestamp'):
+            result['timestamp'] = parse_datetime(self.response.timestamp)
+
+        if hasattr(self.response, 'daemon'):
+            result['daemon'] = self.response.daemon
+            
+        return result
+
+
+class SNPAsync(asyncio.Protocol):
+    """ """
+
+    def connection_made(self, transport):
+        self.responses = []
+        self.async_responses = []
+        
+        self._buffer = bytearray()
+        self._transport = transport
+        
+    def data_received(self, data):
+        self._buffer.extend(data)
+        
+        version = self.target.protocol_version
+        if version == '2.0':
+            end_of_response_marker = b'\r\n'
+        else:
+            end_of_response_marker = b'END\r\n'
+
+        end = self._buffer.find(end_of_response_marker)
+        while end != -1:
+            if version == '2.0':
+                data = self._buffer[:end]
+                del self._buffer[:end + 2]
+            else:
+                data = self._buffer[:end + 3]
+                del self._buffer[:end + 5]
+            
+            response = Response()
+            response.version = version
+            response.unmarshall(data)
+            self.responses.append(response)
+
+            end = self._buffer.find(end_of_response_marker)
+    
+    @asyncio.coroutine
     def subscribe(self, notifier, signatures=[], targets=None):
         """Subscribe to notifications from a list of signatures
         
@@ -300,151 +402,31 @@ class SNP(object):
         :param targets:    list of targets to notify or None to
                            send to all targets
         :type targets:     list of :class:`hiss.Target` or None
-        """
-                           
-        request = _SubscribeRequest(notifier, signatures)
-        targets = self._targets.valid_targets(targets)
-        return self._send_request(request, targets)
-    
-    def unregister(self, notifier, targets=None):
-        """Unregister a notifier with a list of targets
-        
-        :param notifier: Notifier to unregister
-        :type notifier:  hiss.Notifier
-        :param targets:  list of targets to unregister with or None to
-                         unregister with all targets
-        :type targets:   list of :class:`hiss.Target` or None
-        :returns:        A :class:`defer.Deferred` which fires when a response
-                         has been received.
+        :returns:        The Response received.
         """
         
-        request = _UnregisterRequest(notifier)
-        targets = self._targets.valid_targets(targets)
-        return self._send_request(request, targets)
-    
-    def _send_request(self, request, targets):
-        """Send a request to a list of targets
+        self.response_handler = notifier._handler
         
-        :param request:  Request to send
-        :type request:   Request
-        :param targets:  List of targets to send request to
-        :type targets:   list of hiss.Target
-        :returns:        A defer.Deferred or defer.DeferredList to wait on
-        """
-
-        commands = request.commands
-
-        ds = []
-
-        for target in targets:
-            if target.protocol_version == '':
-                target.protocol_version = SNP_BASE_VERSION
-            
-            protocol = self._factory._protocol_for_target(target)
-            if target.protocol_version == '3.0' or len(commands) == 1:
-                logging.debug('Sending single request')
-                d = self._send_single_request(commands,
-                                              target.protocol_version,
-                                              protocol)
-            else:
-                d = self._send_multiple_requests(commands,
-                                                 target.protocol_version,
-                                                 protocol)
-
-            logging.debug('to %s' % str(target))
-            
-            ds.append(d)
-
-        if len(ds) == 1:
-            return ds[0]
-        else:            
-            return defer.DeferredList(ds)
-
-    def _send_single_request(self, commands, version, protocol):
-        request = Request(version)
-        for command in commands:
-            request.append(command)
-        
-        data = request.marshall()
-        logging.debug('Sending: %s' % data.replace('\r\n', '\r').rstrip('\r'))
-        
-        deferred = defer.Deferred()
-        protocol.deferred = deferred
-        protocol.transport.write(data)
-        return deferred
-
-    @defer.inlineCallbacks
-    def _send_multiple_requests(self, commands, version, protocol):
-        for command in commands:
-            logging.debug('one of multiple')
-            result = yield self._send_single_request([command], version, protocol)
-            print(result)
-    
-    def _snp_event_handler(self, response):
-        event = NotificationEvent()
-        event.nid = response.nid
-        event.code = EVENT_MAPPING[response.status_code]
-        event.data = response.data
-        
-        self._handler(event)
-    
-
-class SNPFactory(Factory):
-    def __init__(self, default_handler=None):
-        self._protocols = []
-        self._default_handler = default_handler
-
-    def buildProtocol(self, address):
-        protocol = SNPProtocol(self._default_handler)
-        self._protocols.append(protocol)
-        return protocol
+        request_info = _SubscribeRequestInfo(notifier, signatures)
+        response = yield from self._send_request(request_info)
+        return response
 
 
-class SNPProtocol(LineReceiver):
-    """SNPProtocol has 2 responsibilities
-    
-    1. Sends a single Request and compiles a response as data arrives.
-       When a complete response is received it executes the callback on the
-       deferred set up when sending the request.
-       
-    2. Compiles any callback data into an Response. When a complete response
-       is received it calls the registered event handler 
-    """
-    
-    def __init__(self, response_handler=None):
-        self._response = Response()
-        self._response_handler = response_handler
-        
-    def sendRequest(self, request):
-        self._response = Response()
-        data = request.marshall()
-        self.transport.write(data)
-    
-    def lineReceived(self, line):
-        """Receive lines of data until a complete response has been received."""
-        
-        logging.debug('Received: %s' % line)
-        self._response.append(line)
-        
-        if self._response.iscomplete:
-            self._response.unmarshall()
-            
-            if self._response_handler is not None:
-                self._response_handler(self._response)
-            
-
-
-SNPCommand = namedtuple('SNPCommand', ['name', 'parameters'])
+SNPCommand = namedtuple('SNPCommand', 'name parameters')
+SNPResult = namedtuple('SNPResult', 'command status_code reason')
 
 
 class Request(object):
-    def __init__(self, version=SNP_DEFAULT_VERSION, password='', use_hash=False):
+    def __init__(self, version=SNP_DEFAULT_VERSION):
         self.version = version
+        self.password = None
         self.commands = []
-        self.password = password
-        self.use_hash = use_hash
-        self.hash = None
-        self.cypher = None
+        
+        self.use_hash = False
+        self.use_encryption = False
+        
+        self._hash = None
+        self._encryption = None
         
     def append(self, command, **kwargs):
         """Append a command to the message
@@ -470,6 +452,23 @@ class Request(object):
     
     def marshall(self):
         """Marshall the request ready to send over the wire."""
+
+        if self.use_hash or self.use_encryption:
+            if self.password is None:
+                raise Exception('Password required to generate hash for marshall of request.')
+            
+            self._hash = generate_hash(self.password.encode('UTF-8'))
+
+        if self.use_encryption:
+            if not PY_CRYPTO:
+                raise Exception('Unable to encrypt message. PyCrypto not available')
+            
+            if ENCRYPTION_ALGORITHM == 'AES':
+                iv = urandom(16)
+            else:
+                iv = urandom(8)
+            
+            self._encryption = (ENCRYPTION_ALGORITHM, iv)
         
         if self.version == '2.0':
             return self._marshall_20()
@@ -481,16 +480,17 @@ class Request(object):
     def unmarshall(self, data):
         """Unmarshall data received over the wire into a valid request"""
         
-        if data.lower().startswith('snp://'):
+        if data.startswith(b'snp://'):
             self._unmarshall_20(data)
-        elif data.startswith('SNP/3.0'):
+        elif data.startswith(b'SNP/3.0'):
             self._unmarshall_30(data)
         else:
             raise SNPError('Invalid SNP Request.')
 
     def _marshall_20(self):
-        data = self._marshall_command(self.commands[0])
-        return 'snp://%s\r\n' % data
+        data = self._marshall_command(self.commands[0]).encode('UTF-8')
+        data = b'snp://' + data + b'\r\n' 
+        return data
     
     def _marshall_30(self):
         if self.use_hash and self.password != '':
@@ -502,15 +502,15 @@ class Request(object):
             data += '%s\r\n' % self._marshall_command(command)
 
         data += 'END\r\n'
-        return data 
+        return data.encode('UTF-8') 
 
     def _marshall_command(self, command):
-        if len(command[1]) == 0:
+        if len(command.parameters) == 0:
             return command.name
         else:
             data = ''
     
-            names = command.parameters.keys()
+            names = list(command.parameters.keys())
             names.sort()
     
             for name in names:
@@ -519,6 +519,8 @@ class Request(object):
                     for item in value:
                         item = self._escape(self._expand_tuple(item))
                         data += '%s=%s&' % (name, item)
+                elif isinstance(value, (bytearray, bytes)):
+                    data += '%s=%s&' % (name, value.decode('ascii'))
                 else:
                     value = self._escape(self._expand_tuple(value))
                     data += '%s=%s&' % (name, value)
@@ -526,36 +528,40 @@ class Request(object):
             data = data[:-1]
             
             if len(data) > 0:
-                return '%s?%s' % (command.name, data)
+                data = '%s?%s' % (command.name, data)
+                return data
             else:
                 return command.name
 
     def _unmarshall_20(self, data):
-        data = data[6:].strip('\r\n')
+        data = data[6:].strip(b'\r\n')
         command = self._extract_command(data)           
         self.commands = [command]
         self.version = '2.0'
 
     def _unmarshall_30(self, data):
-        if not data.endswith('END\r\n'):
+        if not data.endswith(b'END\r\n'):
             raise SNPError('Invalid SNP 3.0 request')
         
         data = data[:-2]
-        lines = data.split('\r\n')
+        lines = data.split(b'\r\n')
         header = lines[0]
 
         try:
-            items = header.split(' ')
-            if len(items) == 3:
-                self.cypher = tuple(items[2].split(':'))
-                
+            items = header.split(b' ')
             if len(items) >= 2:
-                hash_and_salt = items[1]
-                htype, rest = hash_and_salt.split(':')
-                hkey, hsalt = rest.split('.')
-                self.hash = (htype.lower(), hkey, hsalt)
+                if items[1] != b'NONE':
+                    self._encryption = tuple(items[1].split(b':'))
+                    self.use_encryption = True
+                
+            if len(items) >= 3:
+                hash_and_salt = items[2]
+                htype, rest = hash_and_salt.split(b':')
+                hkey, hsalt = rest.split(b'.')
+                self._hash = HashInfo(htype.upper(), unhexlify(hkey), unhexlify(hsalt))
+                self.use_hash = True
         except:
-            raise SNPError('Invalid SNP header format: %s' % str(header))
+            raise SNPError('Invalid SNP body format: %s' % str(header))
         
         self.commands = []
         for line in lines[1:-1]:
@@ -565,12 +571,12 @@ class Request(object):
 
     def _extract_command(self, data):
         try:
-            command, rest = data.split('?', 1)
+            command, rest = data.split(b'?', 1)
     
             params = {}
-            items = rest.split('&')
+            items = rest.split(b'&')
             for item in items:
-                name, value = item.split('=', 1)
+                name, value = item.split(b'=', 1)
                 value = self._unescape(value)
                 
                 params[name] = value
@@ -593,9 +599,9 @@ class Request(object):
         return data
 
     def _unescape(self, data):
-        data = data.replace('==', '=')
-        data = data.replace('&&', '&')
-        data = data.replace('\\n', '\r\n')
+        data = data.replace(b'==', b'=')
+        data = data.replace(b'&&', b'&')
+        data = data.replace(b'\\n', b'\r\n')
         return data
         
     def _salt(self):
@@ -615,109 +621,102 @@ class Request(object):
 
     def _hash(self):
         if self.password == '':
-            raise SNPError('Password not set. Required for hash generation.')
+            raise SNPError('Password not set. Required for _hash generation.')
 
         salt = self._salt()
-        h = hashlib.sha256()
+        h = sha256()
         h.update(self._password())
         h.update(salt)
         
-        self.hash = ('sha256', h.hexdigest(), salt)
+        self._hash = ('sha256', h.hexdigest(), salt)
 
-        return '%s:%s.%s' % self.hash
+        return '%s:%s.%s' % self._hash
+        
+    def _encrypt(self, data):
+        encryption_algorithm, iv = self._encryption
+        return encrypt(encryption_algorithm, iv, self._hash.key_hash, data)
 
-    def _encrypt(self):
-        pass
-
-    def _decrypt(self):
-        pass
+    def _decrypt(self, data):
+        encryption_algorithm, iv = self._encryption
+        return decrypt(encryption_algorithm, iv, self._hash.key_hash, data)
 
 
 class Response(object):
-    def __init__(self):
-        self.version = ''
+    def __init__(self, version=SNP_DEFAULT_VERSION):
+        self.version = version
         """The SNP protocol version number of this response"""
             
         self.max_version = ''
         """The maximum SNP protocol version the SNP receiver can handle"""
             
-        self.status_code = 200
+        self.status_code = 0
         """The status code for the response
         
+        0       = OK
         100-199 = System or transport error
         200-299 = Application errors
         300-399 = Events
         """
         
-        self.data = ''
-        self.isevent = False
-        self.header = {}
-        
-        self._lines = []
-        
-    def append(self, line):
-        """Append a line of data"""
-        
-        if len(self._lines) == 0:
-            if line.count('/') == 1:
-                self.version = '3.0'
-            else:
-                self.version = '2.0'
-        
-        self._lines.append(line)
-        
-    def iscomplete():
-        doc = """Test if a complete response has been received"""
-        
-        def fget(self):
-            if self.version == '3.0':
-                return self._lines[-1] == 'END'
-            else:
-                return True
-            
-        return locals()
+        self.data = b''
+        self.body = {}
     
-    iscomplete = property(**iscomplete())
+    def clear(self):
+        self.data = b''
     
-    def reset(self):
-        self._data = []
+    @property
+    def is_ok(self):
+        return self.status_code == 0
     
-    def unmarshall(self):
-        """Unmarshall _data received over the wire into a valid response"""
+    @property
+    def is_error(self):
+        return self.status_code > 100 and self.status_code < 300
+    
+    @property
+    def is_event(self):
+        return self.status_code > 300 and self.status_code < 400
+    
+    def unmarshall(self, data):
+        """Unmarshall data received over the wire into a valid response"""
 
+        lines = data.split(b'\r\n')
         if self.version == '2.0':
-            self._unmarshall2()
+            self._unmarshall2(lines)
         elif self.version == '3.0':
-            self._unmarshall3()
+            self._unmarshall3(lines)
     
-    def _unmarshall2(self):
-        elems = self._lines[0].split('/')
-        self.max_version = elems[1]
-        self.status_code = int(elems[2])
+    def _unmarshall2(self, lines):
+        elems = lines[0].split(b'/')
+        self.max_version = elems[1].decode('UTF-8')
+        self.status_code = int(elems[2].decode('UTF-8'))
         
         try:
-            self.status_name = SNARL_STATUS[self.status_code]
+            self.status = SNARL_STATUS[self.status_code]
         except:
-            self.status_name = 'Unknown'
+            self.status = 'Unknown'
             
         self.isevent = (self.status_code >= 300 and self.status_code <= 399)
         
         if len(elems) > 4:
-            self.data = elems[4]
             if self.isevent:
                 self.nid = elems[4]
             else:
+                self.result = elems[4]
                 self.nid = ''
+        else:
+            self.result = None
 
-    def _unmarshall3(self):
-        header = self._lines[0]
-        items = header.split(' ')
+    def _unmarshall3(self, lines):
+        results = []
         
-        _snp, self.max_version = items[0].split('/')
+        header = lines[0]
+        items = header.split(b' ')
+        
+        _snp, self.max_version = items[0].split(b'/')
         
         if len(items) > 1:
-            self.status = items[1].lower()
-            self.isevent = (self.status == 'callback')
+            status = items[1].upper()
+            self.isevent = (status == 'callback')
         else:
             self.isevent = False
         
@@ -728,21 +727,46 @@ class Response(object):
             self.cypher_type = items[3]
 
         self.nid = ''
-        for line in self._lines[1:-2]:
-            name, value = line.split(':', 1)
-            value = value.strip()
-            
-            if name in ATTR_MAPPING:
-                attr = ATTR_MAPPING[name]
+        for line in lines[1:-1]:
+            key, value = line.split(b':', 1)
+            key = bytes(key)
+            value = value.decode('UTF-8').strip()
+
+            if key == b'result':
+                command, status_code, reason = value.split(' ')
+                status_code = int(status_code)
+                results.append(SNPResult(command, status_code, reason))
+            elif key in ATTR_MAPPING:
+                attr = ATTR_MAPPING[key]
                 self.__setattr__(attr, value)
             else:
-                if name not in self.header:
-                    self.header[name] = value
+                if key not in self.body:
+                    self.body[key] = value
                 else:
-                    if not isinstance(self.header[name], list):
-                        self.header[name] = [self.header[name]]
+                    if not isinstance(self.body[key], list):
+                        self.body[key] = [self.body[key]]
     
-                    self.header[name].append(value)
+                    self.body[key].append(value)
+
+        status_ok = True
+        for result in results:
+            if result.status_code != 0 and result.status_code not in ACCEPTABLE_ERRORS:
+                status_ok = False
+        
+        # Compute an overall status
+        if status_ok:
+            self.status = 'OK'
+            self.status_code = 0
+        else:
+            self.status = 'FAIL'
+            result = max(results, key=attrgetter('status_code'))
+            self.status_code = result.status_code
+            self.reason = result.reason
+            
+        if len(results) == 1:
+            self.result = results[0]
+        else:
+            self.result = results
 
     def _encrypt(self):
         pass
@@ -751,12 +775,12 @@ class Response(object):
         pass
                     
 
-class _VersionRequest(object):
+class _VersionRequestInfo(object):
     def __init__(self):
         self.commands = [('version', {})]
                     
 
-class _RegisterRequest(object):
+class _RegisterRequestInfo(object):
     def __init__(self, notifier):
         self.commands = []
 
@@ -779,9 +803,9 @@ class _RegisterRequest(object):
             parameters = {}
             parameters['app-sig'] = notifier.signature
             parameters['id'] = class_id
-            parameters['password'] = notifier.uid
             parameters['name'] = info.name
             parameters['enabled'] = BOOL_MAPPING[info.enabled]
+            parameters['password'] = notifier.uid
 
             if info.icon is not None:
                 if isinstance(info.icon, Icon):
@@ -793,7 +817,7 @@ class _RegisterRequest(object):
             self.commands.append(('addclass', parameters))
 
 
-class _ClearClassesRequest(object):
+class _ClearClassesRequestInfo(object):
     def __init__(self, notifier):
         self.commands = []
 
@@ -804,7 +828,7 @@ class _ClearClassesRequest(object):
         self.commands.append(('clearclasses', parameters))
 
 
-class _UnregisterRequest(object):
+class _UnregisterRequestInfo(object):
     def __init__(self, notifier):
         self.commands = []
 
@@ -815,14 +839,13 @@ class _UnregisterRequest(object):
         self.commands.append(('unregister', parameters))
 
 
-class _NotifyRequest(object):
-    def __init__(self, notifier, notification):
+class _NotifyRequestInfo(object):
+    def __init__(self, notification, notifier):
         self.commands = []
 
         parameters = {}
-        if notification.notifier is not None:
-            parameters['app-sig'] = notification.notifier.signature
-            parameters['password'] = notification.notifier.uid
+        parameters['app-sig'] = notifier.signature
+        parameters['password'] = notifier.uid
          
         if notification.class_id != '':
             parameters['id'] = notification.class_id
@@ -860,12 +883,14 @@ class _NotifyRequest(object):
                 parameters['callback-label'] = notification.callback[1]
 
         # Clamp priority to +-1        
-        priority = notification.priority
-        if priority < -1:
-            priority = -1
-        elif priority > 1:
-            priority = 1
-        parameters['priority'] = priority
+        if notification.priority == NotificationPriority.very_low:
+            priority = NotificationPriority.moderate
+        elif notification.priority == NotificationPriority.emergency:
+            priority = NotificationPriority.high
+        else:
+            priority = notification.priority
+            
+        parameters['priority'] = priority.value
         
         if notification.percentage != -1:
             parameters['value-percent'] = notification.percentage
@@ -878,7 +903,7 @@ class _NotifyRequest(object):
         self.commands.append(('notify', parameters))
 
 
-class _SubscribeRequest(object):
+class _SubscribeRequestInfo(object):
     def __init__(self, notifier, signatures):
         self.commands = []
 
@@ -889,7 +914,7 @@ class _SubscribeRequest(object):
         self.commands.append(('subscribe', parameters))
 
 
-class _AddActionRequest(object):
+class _AddActionRequestInfo(object):
     def __init__(self, notifier, notification, command, label):
         self.commands = []
 
@@ -903,7 +928,7 @@ class _AddActionRequest(object):
         self.commands.append(('addaction', parameters))
 
 
-class _ClearActionsRequest(object):
+class _ClearActionsRequestInfo(object):
     def __init__(self, notifier, notification):
         self.commands = []
 
@@ -915,7 +940,7 @@ class _ClearActionsRequest(object):
         self.commands.append(('clearactions', parameters))
 
 
-class _IsVisibleRequest(object):
+class _IsVisibleRequestInfo(object):
     def __init__(self, notifier, notification):
         self.commands = []
 
@@ -927,7 +952,7 @@ class _IsVisibleRequest(object):
         self.commands.append(('isvisible', parameters))
                     
 
-class _ShowRequest(object):
+class _ShowRequestInfo(object):
     def __init__(self, notifier, uid):
         self.commands = []
 
@@ -939,7 +964,7 @@ class _ShowRequest(object):
         self.commands.append(('show', parameters))
                     
 
-class _HideRequest(object):
+class _HideRequestInfo(object):
     def __init__(self, notifier, uid):
         self.commands = []
 
@@ -952,8 +977,14 @@ class _HideRequest(object):
 
 
 def snp64(data):
-    data = base64.encode(data)
-    data = data.replace('\r\n', '#')
-    data = data.replace('=', '%')
+    data = bytearray(base64.b64encode(data))
+    data = data.replace(b'\r\n', b'#')
+    
+    # Replace trailing = with %
+    pos = -1
+    while data[pos] == 61:
+        data[pos] = 37
+        pos -= 1
+        
     return data
     

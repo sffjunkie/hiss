@@ -1,4 +1,4 @@
-# Copyright 2009-2012, Simon Kennedy, code@sffjunkie.co.uk
+# Copyright 2013-2014, Simon Kennedy, code@sffjunkie.co.uk
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,13 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from hiss.handler.snp import SNPRequest
+from hiss.hash import HashInfo
+from hiss.handler.snp import Request
 
-def test_SNPRequest_Create():
-	m = SNPRequest()
+def test_Request_Create():
+	m = Request()
 
-def test_SNPRequest_Append():
-	m = SNPRequest()
+def test_Request_Append():
+	m = Request()
 	m.append('register', signature='sig', uid='1', title='ww')
 	
 	assert len(m.commands) == 1
@@ -35,52 +36,52 @@ def test_SNPRequest_Append():
 	m.append('add_class', name='sig')
 	assert len(m.commands) == 3
 
-def test_SNPRequest_Marshall2():
-	m = SNPRequest(version='2.0')
+def test_Request_Marshall2():
+	m = Request(version='2.0')
 	m.append('register', signature='application/x-vnd-sffjunkie.hiss', uid='1', title='ww')
 
 	cmd = m.marshall()
-	assert cmd == 'snp://register?signature=application/x-vnd-sffjunkie.hiss&title=ww&uid=1\r\n'
+	assert cmd == b'snp://register?signature=application/x-vnd-sffjunkie.hiss&title=ww&uid=1\r\n'
 
-def test_SNPRequest_Marshall3():
-	m = SNPRequest(version='3.0')
+def test_Request_Marshall3():
+	m = Request(version='3.0')
 	m.append('register', signature='application/x-vnd-sffjunkie.hiss', uid='1', title='ww')
 
 	cmd = m.marshall()
-	assert cmd == 'SNP/3.0\r\nregister?signature=application/x-vnd-sffjunkie.hiss&title=ww&uid=1\r\nEND\r\n'
+	assert cmd == b'SNP/3.0\r\nregister?signature=application/x-vnd-sffjunkie.hiss&title=ww&uid=1\r\nEND\r\n'
 
-def test_SNPRequest_Unmarshall2():
-	cmd = 'snp://register?signature=x-vnd-sffjunkie.hiss&title=ww&uid=1\r\n'
-	request = SNPRequest()
+def test_Request_Unmarshall2():
+	cmd = b'snp://register?signature=x-vnd-sffjunkie.hiss&title=ww&uid=1\r\n'
+	request = Request()
 	request.unmarshall(cmd)
 	assert len(request.commands) == 1
-	assert request.commands[0][0] == 'register'
-	assert request.commands[0].name == 'register'
+	assert request.commands[0][0] == b'register'
+	assert request.commands[0].name == b'register'
 	assert len(request.commands[0][1]) == 3
 	assert len(request.commands[0].parameters) == 3
 	
-def test_SNPRequest_Unmarshall3():
-	cmd = ('SNP/3.0 MD5:b7c903901cab976ee5db15792eb15a03.1A2B3C4D5E6F\r\n'
-		   'register?signature=x-vnd-sffjunkie.hiss&title=ww&uid=1\r\n'
-		   'add_class?signature=x-vnd-sffjunkie.hiss\r\n'
-		   'END\r\n')
+def test_Request_Unmarshall3():
+	cmd = (b'SNP/3.0 NONE MD5:b7c903901cab976ee5db15792eb15a03.1A2B3C4D5E6F\r\n'
+		   b'register?signature=x-vnd-sffjunkie.hiss&title=ww&uid=1\r\n'
+		   b'add_class?signature=x-vnd-sffjunkie.hiss\r\n'
+		   b'END\r\n')
 	
-	request = SNPRequest()
+	request = Request()
 	request.unmarshall(cmd)
 	
 	assert len(request.commands) == 2
-	assert request.commands[0].name == 'register'
+	assert request.commands[0].name == b'register'
 	assert len(request.commands[0].parameters) == 3
-	assert request.commands[1].name == 'add_class'
+	assert request.commands[1].name == b'add_class'
 	
-	assert request.hash == ('md5',
+	assert request._hash == HashInfo('md5',
 						    'b7c903901cab976ee5db15792eb15a03',
 						    '1A2B3C4D5E6F')
 
 if __name__ == '__main__':
-	test_SNPRequest_Create()
-	test_SNPRequest_Append()
-	test_SNPRequest_Marshall2()
-	test_SNPRequest_Marshall3()
-	test_SNPRequest_Unmarshall2()
-	test_SNPRequest_Unmarshall3()
+	test_Request_Create()
+	test_Request_Append()
+	test_Request_Marshall2()
+	test_Request_Marshall3()
+	test_Request_Unmarshall2()
+	test_Request_Unmarshall3()

@@ -12,7 +12,7 @@ class App(object):
         ]
 
         for n in self._notifications:
-            self._notifier.add_notification(n)
+            self._notifier.add_notification_class(n)
 
         target = NotificationTarget('snarl') # Snarl on local machine
         target = NotificationTarget('snarl@127.0.0.1') # Snarl Network Protocol

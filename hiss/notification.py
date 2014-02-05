@@ -1,4 +1,4 @@
-# Copyright 2009-2012, Simon Kennedy, code@sffjunkie.co.uk
+# Copyright 2013-2014, Simon Kennedy, code@sffjunkie.co.uk
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,61 +12,68 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Part of 'hiss' the twisted notification library
-
-from __future__ import unicode_literals
+# Part of 'hiss' the asynchronous notification library
 
 import uuid
+from enum import Enum
 from collections import namedtuple
+
+from hiss.exception import HissError
 
 __all__ = ['Notification', 'NotificationPriority']
 
-class NotificationPriority(object):
-    """Notification display priority. Valid values are ``VeryLow``,
-    ``Moderate``, ``Normal``, ``High`` or ``Emergency``.
+class NotificationPriority(Enum):
+    """Notification display priority. Valid values are ``very_low``,
+    ``moderate``, ``normal``, ``high`` or ``emergency``.
     
     .. note::
     
-        Not all targets can handle ``VeryLow`` or ``Emergency`` values and will
+        Not all targets can handle ``very_low`` or ``emergency`` values and will
         be clamped to acceptable limits.  
     """
     
-    VeryLow = -2
-    Moderate = -1
-    Normal = 0
-    High = 1
-    Emergency = 2
+    very_low = -2
+    moderate = -1
+    normal = 0
+    high = 1
+    emergency = 2
 
 
 NotificationCommand = namedtuple('NotificationCommand', ['command', 'label'])
 
 
-class Notification(object):
+class Notification():
+    """Manages the data necessary to display a notification
+    
+    :param title:      Notification title.
+    :type title:       string or None for no title
+    :param text:       The text to display below the title
+    :type text:        string or None for no text
+    :param icon:       Icon to display
+    :type icon:        string or None for no icon
+    :param priority:   Notification display priority.
+                       Default priority = ``NotificationPriority.normal``
+    :type priority:    :class:`~hiss.NotificationPriority`
+    :param timeout:    The duration in seconds to display the notification. A value of 0 for some
+                       targets means the notification will be displayed until acted on by the user.
+    :type timeout:     integer
+    :param uid:        UUID for this notification. Notifications created by a :class:`Notifier`
+                       have this information filled in automatically.
+    :type uid:         string
+    
+    Even though *title*, *text* and *icon* are optional at least one of these must be specified or
+    a :class:`~hiss.exception.HissError` will be raised.
+    """
+    
     def __init__(self, title=None, text=None,
                  icon=None, sound=None,
-                 priority=NotificationPriority.Normal,
-                 timeout=-1, signature=''):
-        """Create a new notification
+                 priority=NotificationPriority.normal,
+                 timeout=-1, uid=None):
         
-        :param title:      Notification title.
-        :type title:       string or None for no title
-        :param text:       The text to display below the title
-        :type text:        string
-        :param icon:       Icon to display
-        :type icon:        string or None for no icon
-        :param priority:   Notification display priority.
-                           Default priority = ``NotificationPriority.Normal``
-        :type priority:    :class:`~hiss.NotificationPriority`
-        :param timeout:    The duration in seconds to display the notification.
-        :type timeout:     integer
-        :param signature:  MIME style application signature to use for this
-                           notification.
-                           
-                           Notifications created by a Notifier
-                           have this information filled in automatically.
-        :type signature:   string
-        """
+        if title is None and text is None and icon is None:
+            raise HissError('One of title, text or icon must be used.') 
         
+        self._title = None
         self.title = title
         self.text = text
         self.icon = icon
@@ -77,56 +84,38 @@ class Notification(object):
         self.callback = None
         self.actions = []
 
-        self.signature = signature
         self.uid = self._unique_id()
         self.class_id = ''
         self.notifier = None
         
     def __repr__(self):
-        return '%s:%s' % (self.signature, self.uid)
+        return self.uid
 
-    def title():
-        doc = """The title of the displayed notification encoded as UTF-8."""
+    @property
+    def title(self):
+        """The title of the displayed notification."""
 
-        def fget(self):
-            return self._title
+        return self._title
 
-        def fset(self, value):
-            if len(value) > 1024:
-                raise ValueError('Maximum title length (1024) exceeded')
+    @title.setter
+    def title(self, value):
+        if len(value.encode('UTF-8')) > 1024:
+            raise ValueError('Maximum title length (1024) exceeded')
 
-            self._title = value.encode('utf-8')
+        self._title = value
 
-        return locals()
+    @property
+    def sticky(self):
+        return (self.timeout == 0)
 
-    title = property(**title())
-
-    def text():
-        doc = """The text displayed below the title encoded as UTF-8."""
-
-        def fget(self):
-            return self._text
-
-        def fset(self, value):
-            self._text = value.encode('utf-8')
-
-        return locals()
-
-    text = property(**text())
-    
-    def sticky():
-        def fget(self):
-            return (self.timeout == 0)
-        
-        def fset(self, value):
-            if value:
-                self.timeout = 0
-            else:
-                self.timeout = -1
-                
-        return locals()
-    
-    sticky = property(**sticky())
+    @sticky.setter        
+    def sticky(self, value):
+        if isinstance(value, int):
+            self.timeout = value
+        elif value:
+            self.timeout = 0
+        else:
+            self.timeout = -1
     
     def add_callback(self, command, label=''):
         """Add a callback for this notification.
@@ -161,15 +150,10 @@ class Notification(object):
         
         self.actions.append(NotificationCommand(command, label))
 
-    def visible():
-        doc = """Determine if the notification is currently being displayed."""
-
-        def fget(self):
-            raise NotImplementedError
-
-        return locals()
-
-    visible = property(**visible())
+    @property
+    def visible(self):
+        """Determine if the notification is currently being displayed."""
+        raise NotImplementedError
 
     has_callback = property(lambda self: self.callback is not None)
 
@@ -178,12 +162,18 @@ class Notification(object):
 
         if self.notifier is not None:
             self.notifier.show(self.uid)
+        else:
+            raise HissError(('Unable to show notification. '
+                             'Notification has not been sent to a notifier'))
 
     def hide(self):
         """Hide the notification"""
 
         if self.notifier is not None:
             self.notifier.hide(self.uid)
+        else:
+            raise HissError(('Unable to hide notification. '
+                             'Notification has not been sent to a notifier'))
 
     def update(self):
         """Update the title and text of an existing notification."""

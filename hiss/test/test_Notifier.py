@@ -1,4 +1,4 @@
-# Copyright 2009-2012, Simon Kennedy, code@sffjunkie.co.uk
+# Copyright 2013-2014, Simon Kennedy, code@sffjunkie.co.uk
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,109 +12,80 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Part of 'hiss' the twisted notification library
+# Part of 'hiss' the async notification library
 
-import sys
+import asyncio
+
 import pytest
-import logging
-logging.basicConfig(level=logging.DEBUG, format='%(message)s',
-                    stream=sys.__stdout__)
-
-from twisted.internet import reactor, defer
-
-try:
-    from nose.tools import nottest
-except ImportError:
-    def nottest(fn):
-        return fn
 
 from hiss.notifier import Notifier
 from hiss.target import Target
 
-@nottest
-def test_BadInit():
+asyncio.log.logger.setLevel(asyncio.log.logging.INFO)
+
+@pytest.fixture
+def notifier():
+    n = Notifier('A Notifier', 'application/x-vnd.sffjunkie.hiss',
+                 uid='0b57469a-c9dd-451b-8d86-f82ce11ad09f')
+    n.add_notification('New', 'New email received.')
+    n.add_notification('Old', 'Old as an old thing.')
+    return n
+
+def test_Notifier_BadInit():
     with pytest.raises(TypeError):
         _n = Notifier()
 
-def test_Init():
+def test_Notifier_Init():
     _n = Notifier('application/x-vnd.sffjunkie.test', 'Test')
 
-def test_Register():
-    n = Notifier('application/x-vnd.sffjunkie.test', 'Hiss',
-                 uid='b6d92249-b5aa-49de-8c17-75f147ef04dd')
-    n.icon = '!reminder'
+def test_Notifier_RegisterTarget(notifier):
+    loop = asyncio.get_event_loop()
     
-    n.add_notification('General Alert', icon='!dev-ipod')
-    _class_id = n.add_notification('Big and beautiful')
-    
-    t = Target('snp://127.0.0.1')
-    #t = Target('gntp://127.0.0.1')
-    
-    def done():
-        print('done')
+    def coro():
+        #target = Target('snp://127.0.0.1')
+        target = Target('gntp://127.0.0.1')
         
-    def callback(value):
-        print('callback')
-    
-    def notify():
-        m = n.create_notification(name='General Alert', title='Alert',
-                                  text=u'This is an alert')
-        d = n.notify(m)
-        d.addCallback(done)
-        return d
-    
-    def register():
-        d = n.register()
-        d.addCallback(notify)
-        return d
+        _response = yield from notifier.add_target(target)
+        _response = yield from notifier.register(target)
+        pass
+        
+    c = coro()
+    loop.run_until_complete(c)
 
-    def go2():    
-        d = n.add_target(t)
-        d.addCallback(register)
-        return d
+def test_Notifier_Notify(notifier):
+    loop = asyncio.get_event_loop()
     
-    m = n.create_notification(name='General Alert', title='Alert',
-                              text=u'This is an alert')
+    def coro():
+        #target = Target('snp://127.0.0.1')
+        target = Target('gntp://127.0.0.1')
+        
+        notification = notifier.create_notification(name='Old',
+                                                    title='A notification',
+                                                    text='This is a wonderful notification')
+        
+        _response = yield from notifier.add_target(target)
+        _response = yield from notifier.notify(notification, target)
+        pass
+        
+    c = coro()
+    loop.run_until_complete(c)
 
-    @defer.inlineCallbacks
-    def go():
-        print('go')
-        added = yield n.add_target(t)
-        if added:
-            print('added target')
-        else:
-            print('unable to add target')
-            
-        sys.stdout.flush()
-        
-        print('registering')
-        registered = yield n.register()
-        if registered:
-            print('registered')
-        sys.stdout.flush()
-        
-        notification_id = yield n.notify(m)
-        #print('notified')
-        #sys.stdout.flush()
-        
-        #unregistered = yield n.unregister()
-        
-        #print('unregistered')
-        #sys.stdout.flush()
-        
-        #defer.returnValue(True)
+def test_Notifier_Notify_MultipleTargets(notifier):
+    loop = asyncio.get_event_loop()
     
-    reactor.callWhenRunning(go)
-#    reactor.callWhenRunning(n.add_target, t)
-#    reactor.callLater(0.5, n.register)
-#    reactor.callLater(2.5, n.notify, m)
-#    reactor.callLater(1, n.subscribe)
-#    reactor.callLater(9.5, n.unregister)
-    reactor.callLater(30, reactor.stop)
-    reactor.run()
-    
-if __name__ == '__main__':
-    test_BadInit()
-    test_Init()
-    test_Register()
-    
+    def coro():
+        #target = Target('snp://127.0.0.1')
+        t1 = Target('gntp://127.0.0.1')
+        t2 = Target('xbmc://127.0.0.1')
+        
+        notification = notifier.create_notification(name='New',
+                                                    title='One notification',
+                                                    text='Sent to multiple targets')
+        
+        _response = yield from notifier.add_target([t1, t2])
+        _response = yield from notifier.notify(notification)
+        pass
+        
+    c = coro()
+    loop.run_until_complete(c)
+        
