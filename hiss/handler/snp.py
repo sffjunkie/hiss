@@ -106,6 +106,8 @@ class SNPError(HissError):
 class SNPHandler(Handler):
     """:class:`~hiss.handler.Handler` sub-class for SNP messages"""
     
+    __handler__ = 'SNP'
+    
     def __init__(self, loop=None):
         super().__init__(loop)
         
@@ -126,7 +128,7 @@ class SNPHandler(Handler):
             target.protocol_version = response.max_version
             
         return protocol
-        
+
 
 class SNP(asyncio.Protocol):
     """Snarl Network Protocol."""

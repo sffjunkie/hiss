@@ -33,6 +33,8 @@ class XBMCError(Exception):
 
 class XBMCHandler(Handler):
     """:class:`~hiss.handler.Handler` sub-class for XBMC messages"""
+    
+    __handler__ = 'XBMC'
 
     def __init__(self, username=XBMC_USERNAME, password=XBMC_PASSWORD, loop=None):
         super().__init__(loop)

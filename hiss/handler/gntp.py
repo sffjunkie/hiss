@@ -44,6 +44,8 @@ class GNTPError(Exception):
 class GNTPHandler(Handler):
     """:class:`~hiss.handler.Handler` sub-class for GNTP messages"""
     
+    __handler__ = 'GNTP'
+    
     def __init__(self, loop=None):
         super().__init__(loop)
         
