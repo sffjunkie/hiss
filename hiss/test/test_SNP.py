@@ -55,7 +55,7 @@ def test_connect():
     def coro():
         h = SNPHandler(loop=loop)
         t = Target('snp://%s' % HOST)
-        protocol = yield from h.connect(t)
+        _protocol = yield from h.connect(t)
         assert t.handler == h
         
     loop.run_until_complete(coro())
