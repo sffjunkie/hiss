@@ -40,6 +40,12 @@ def icon():
     fname = fname.replace('\\', '/')
     return Icon('file:///%s' % fname)
 
+@pytest.fixture
+def icon_inverted():
+    fname = os.path.abspath(os.path.join(os.path.dirname(__file__), 'python-powered-h-50x65-inverted.png'))
+    fname = fname.replace('\\', '/')
+    return Icon('file:///%s' % fname)
+
 def test_connect():
     loop = asyncio.get_event_loop()
 
@@ -164,7 +170,7 @@ def test_notification_with_url_callback(notifier):
     c = coro()
     loop.run_until_complete(c)
 
-def test_notification_with_icon(notifier, icon):
+def test_notification_with_icon(notifier, icon_inverted):
     loop = asyncio.get_event_loop()
 
     @asyncio.coroutine
@@ -177,7 +183,7 @@ def test_notification_with_icon(notifier, icon):
         notification = notifier.create_notification(name='Old',
                                              title="A brave new world",
                                              text="This notification should have an icon",
-                                             icon=icon)
+                                             icon=icon_inverted)
         response = yield from h.notify(notification, t)
         assert response['status'] == 'OK'
     
