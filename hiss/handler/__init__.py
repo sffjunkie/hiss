@@ -38,7 +38,7 @@ class Handler():
         
         logging.debug('Handler: Connecting to %s' % target)
 
-        (transport, protocol) = yield from self._loop.create_connection(self.factory,
+        (_transport, protocol) = yield from self._loop.create_connection(self.factory,
             target.host, target.port)
 
         protocol.target = target
@@ -56,8 +56,13 @@ class Handler():
         """
         
         if 'register' in self.capabilities:
-            protocol = yield from self.connect(target)
+            try:
+                protocol = yield from self.connect(target)
+            except Exception as exc:
+                return self._exception(exc)
+                
             response = yield from protocol.register(notifier)
+            response['handler'] = self.__handler__
         else:
             response = self._unsupported()
 
@@ -73,8 +78,13 @@ class Handler():
         :type target:        :class:`~hiss.target.Target`
         """
 
-        protocol = yield from self.connect(target)
+        try:
+            protocol = yield from self.connect(target)
+        except Exception as exc:
+            return self._exception(exc)
+            
         response = yield from protocol.notify(notification, notification.notifier)
+        response['handler'] = self.__handler__
         return response
         
     @asyncio.coroutine
@@ -88,8 +98,13 @@ class Handler():
         """
         
         if 'unregister' in self.capabilities:
-            protocol = yield from self.connect(target)
+            try:
+                protocol = yield from self.connect(target)
+            except Exception as exc:
+                return self._exception(exc)
+                
             response = yield from protocol.unregister(notifier)
+            response['handler'] = self.__handler__
         else:
             response = self._unsupported()
 
@@ -106,8 +121,13 @@ class Handler():
         """
         
         if 'show' in self.capabilities:
-            protocol = yield from self.connect(target)
+            try:
+                protocol = yield from self.connect(target)
+            except Exception as exc:
+                return self._exception(exc)
+                
             response = yield from protocol.show(uid)
+            response['handler'] = self.__handler__
         else:
             response = self._unsupported()
 
@@ -124,8 +144,13 @@ class Handler():
         """
         
         if 'hide' in self.capabilities:
-            protocol = yield from self.connect(target)
+            try:
+                protocol = yield from self.connect(target)
+            except Exception as exc:
+                return self._exception(exc)
+                
             response = yield from protocol.hide(uid)
+            response['handler'] = self.__handler__
         else:
             response = self._unsupported()
 
@@ -142,15 +167,34 @@ class Handler():
         """
         
         if 'isvisible' in self.capabilities:
-            protocol = yield from self.connect(target)
+            try:
+                protocol = yield from self.connect(target)
+            except Exception as exc:
+                return self._exception(exc)
+                
             response = yield from protocol.isvisible(uid)
+            response['handler'] = self.__handler__
         else:
             response = self._unsupported()
 
         return response
 
+    def _exception(self, exc):
+        response = {
+            'handler': self.__handler__,
+            'status': 'FAIL',
+            'reason': str(exc),
+            'result': exc,
+        }
+        return response
+
     def _unsupported(self):
-        return {'status': 'ERROR', 'reason': 'Unsupported'}
+        response = {
+            'handler': self.__handler__,
+            'status': 'FAIL',
+            'reason': 'Unsupported',
+        }
+        return response
 
 
 class Factory():
