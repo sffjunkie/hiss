@@ -59,14 +59,13 @@ class Handler():
             try:
                 protocol = yield from self.connect(target)
             except Exception as exc:
-                return self._exception(exc)
+                return self._connect_exception(exc)
                 
             response = yield from protocol.register(notifier)
             response['handler'] = self.__handler__
+            return response
         else:
-            response = self._unsupported()
-
-        return response
+            return self._unsupported()
         
     @asyncio.coroutine
     def notify(self, notification, target):
@@ -81,7 +80,7 @@ class Handler():
         try:
             protocol = yield from self.connect(target)
         except Exception as exc:
-            return self._exception(exc)
+            return self._connect_exception(exc)
             
         response = yield from protocol.notify(notification, notification.notifier)
         response['handler'] = self.__handler__
@@ -101,14 +100,13 @@ class Handler():
             try:
                 protocol = yield from self.connect(target)
             except Exception as exc:
-                return self._exception(exc)
+                return self._connect_exception(exc)
                 
             response = yield from protocol.unregister(notifier)
             response['handler'] = self.__handler__
+            return response
         else:
-            response = self._unsupported()
-
-        return response
+            return self._unsupported()
         
     @asyncio.coroutine
     def show(self, uid, target):
@@ -124,14 +122,13 @@ class Handler():
             try:
                 protocol = yield from self.connect(target)
             except Exception as exc:
-                return self._exception(exc)
+                return self._connect_exception(exc)
                 
             response = yield from protocol.show(uid)
             response['handler'] = self.__handler__
+            return response
         else:
-            response = self._unsupported()
-
-        return response
+            return self._unsupported()
         
     @asyncio.coroutine
     def hide(self, uid, target):
@@ -147,14 +144,13 @@ class Handler():
             try:
                 protocol = yield from self.connect(target)
             except Exception as exc:
-                return self._exception(exc)
+                return self._connect_exception(exc)
                 
             response = yield from protocol.hide(uid)
             response['handler'] = self.__handler__
+            return response
         else:
-            response = self._unsupported()
-
-        return response
+            return self._unsupported()
         
     @asyncio.coroutine
     def isvisible(self, uid, target):
@@ -170,18 +166,19 @@ class Handler():
             try:
                 protocol = yield from self.connect(target)
             except Exception as exc:
-                return self._exception(exc)
+                return self._connect_exception(exc)
                 
             response = yield from protocol.isvisible(uid)
             response['handler'] = self.__handler__
+            return response
         else:
-            response = self._unsupported()
+            return self._unsupported()
 
-        return response
-
-    def _exception(self, exc):
+    def _connect_exception(self, exc):
+        logging.exception('%s: %s' % (exc.__class__.__qualname__, str(exc)))
         response = {
             'handler': self.__handler__,
+            'command': 'connect',
             'status': 'FAIL',
             'reason': str(exc),
             'result': exc,
