@@ -61,5 +61,6 @@ class Resource(object):
         else:
             return 0
 
+
 class Icon(Resource):
     pass

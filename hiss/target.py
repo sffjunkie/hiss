@@ -43,6 +43,7 @@ for s in [SNP_SCHEME, GNTP_SCHEME, XBMC_SCHEME]:
     if s not in urlparse.uses_query:
         urlparse.uses_query.append(s)
 
+
 class Target(object):
     """A target for notifications.
 

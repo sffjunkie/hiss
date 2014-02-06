@@ -38,7 +38,9 @@ class NotificationPriority(Enum):
     high = 1
     emergency = 2
 
+
 NotificationCommand = namedtuple('NotificationCommand', ['command', 'label'])
+
 
 class Notification():
     """Manages the data necessary to display a notification

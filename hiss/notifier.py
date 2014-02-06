@@ -387,6 +387,7 @@ class Notifier(object):
     def _unique_id(self):
         return str(uuid.uuid4())
 
+
 class TargetList(object):
     def __init__(self):
         self.targets = []

@@ -93,6 +93,7 @@ class HashInfo():
                              hexlify(self.key_hash).decode('UTF-8'),
                              hexlify(self.salt).decode('UTF-8'))
 
+
 def generate_hash(password, hash_algorithm=DEFAULT_HASH_ALGORITHM):
     """Create a :class:`~hiss.hash.HashInfo` instance for the password using
     the specified hash algorithm.
