@@ -70,7 +70,7 @@ def test_register(notifier):
         t = Target('snp://%s' % HOST)
 
         response = yield from h.register(notifier, t)
-        assert response['result'] == 'OK'
+        assert response['status'] == 'OK'
 
     c = coro()
     loop.run_until_complete(c)
