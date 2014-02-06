@@ -18,7 +18,7 @@ import hashlib
 from os import urandom
 from binascii import hexlify, unhexlify
 
-from hiss.exception import HissError
+from hiss.exception import HissValidationError
 
 DEFAULT_HASH_ALGORITHM = 'SHA256'
 
@@ -55,7 +55,7 @@ class HashInfo():
         value = value.upper()
         
         if value not in ['MD5', 'SHA1', 'SHA256']:
-            raise ValueError('Unknown hash algorithm %s specified.' % value)
+            raise HissValidationError('Unknown hash algorithm %s specified.' % value)
         
         self._algorithm = value
 
@@ -106,7 +106,7 @@ def generate_hash(password, hash_algorithm=DEFAULT_HASH_ALGORITHM):
     """
 
     if hash_algorithm not in ['MD5', 'SHA1', 'SHA256', 'SHA512']:
-        raise HissError("Don't know how to handle hash algorithm %s" % hash_algorithm)
+        raise HissValidationError("Don't know how to handle hash algorithm %s" % hash_algorithm)
 
     if isinstance(password, str):
         password = password.encode('UTF-8')
@@ -162,4 +162,4 @@ def validate_hash(password, hash_to_validate):
         key_hash = hashlib.sha512(key).digest()
 
     if hash_to_validate.key_hash != key_hash:
-        raise HissError('Invalid hash in request') 
+        raise HissValidationError('Invalid hash in request') 
