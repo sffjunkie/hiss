@@ -48,7 +48,7 @@ def test_SNP_Request_Marshall3():
 	m.append('register', signature='application/x-vnd-sffjunkie.hiss', uid='1', title='ww')
 
 	cmd = m.marshall()
-	assert cmd == b'SNP/3.0\r\nregister?signature=application/x-vnd-sffjunkie.hiss&title=ww&uid=1\r\nEND\r\n'
+	assert cmd == b'SNP/3.0 NONE\r\nregister?signature=application/x-vnd-sffjunkie.hiss&title=ww&uid=1\r\nEND\r\n'
 
 def test_SNP_Request_Unmarshall2():
 	cmd = b'snp://register?signature=x-vnd-sffjunkie.hiss&title=ww&uid=1\r\n'
