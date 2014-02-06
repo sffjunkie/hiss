@@ -22,7 +22,7 @@ except ImportError:
 
 from binascii import hexlify, unhexlify
 
-__all__ = ['encrypt', 'decrypt']
+__all__ = ['encrypt', 'decrypt', 'EncryptionInfo', 'PY_CRYPTO']
 
 class EncryptionInfo():
     """Records the encryption information required to be sent to remote hosts.
