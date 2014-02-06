@@ -101,6 +101,7 @@ BOOL_MAPPING = {
 class SNPError(HissError):
     pass
 
+
 class SNPHandler(Handler):
     """:class:`~hiss.handler.Handler` sub-class for SNP messages"""
 
@@ -126,6 +127,7 @@ class SNPHandler(Handler):
             target.protocol_version = response.max_version
 
         return protocol
+
 
 class SNP(asyncio.Protocol):
     """Snarl Network Protocol."""
@@ -353,6 +355,7 @@ class SNP(asyncio.Protocol):
 
         return result
 
+
 class SNPAsync(asyncio.Protocol):
     """ """
 
@@ -409,8 +412,10 @@ class SNPAsync(asyncio.Protocol):
         response = yield from self._send_request(request_info)
         return response
 
+
 SNPCommand = namedtuple('SNPCommand', 'name parameters')
 SNPResult = namedtuple('SNPResult', 'command status_code reason')
+
 
 class Request(object):
     def __init__(self, version=SNP_DEFAULT_VERSION):
@@ -569,7 +574,7 @@ class Request(object):
                     validate_hash(self.password, self._hash)
                     
                 self.use_hash = True
-        except:
+        except ValueError:
             raise SNPError('Invalid SNP body format: %s' % str(header))
 
         self.commands = []
@@ -648,6 +653,7 @@ class Request(object):
     def _decrypt(self, data):
         encryption_algorithm, iv = self._encryption
         return decrypt(encryption_algorithm, iv, self._hash.key_hash, data)
+
 
 class Response(object):
     def __init__(self, version=SNP_DEFAULT_VERSION):
@@ -782,9 +788,11 @@ class Response(object):
     def _decrypt(self):
         pass
 
+
 class _VersionRequestInfo(object):
     def __init__(self):
         self.commands = [('version', {})]
+
 
 class _RegisterRequestInfo(object):
     def __init__(self, notifier):
@@ -822,6 +830,7 @@ class _RegisterRequestInfo(object):
 
             self.commands.append(('addclass', parameters))
 
+
 class _ClearClassesRequestInfo(object):
     def __init__(self, notifier):
         self.commands = []
@@ -832,6 +841,7 @@ class _ClearClassesRequestInfo(object):
 
         self.commands.append(('clearclasses', parameters))
 
+
 class _UnregisterRequestInfo(object):
     def __init__(self, notifier):
         self.commands = []
@@ -841,6 +851,7 @@ class _UnregisterRequestInfo(object):
         parameters['password'] = notifier.uid
 
         self.commands.append(('unregister', parameters))
+
 
 class _NotifyRequestInfo(object):
     def __init__(self, notification, notifier):
@@ -905,6 +916,7 @@ class _NotifyRequestInfo(object):
 
         self.commands.append(('notify', parameters))
 
+
 class _SubscribeRequestInfo(object):
     def __init__(self, notifier, signatures):
         self.commands = []
@@ -914,6 +926,7 @@ class _SubscribeRequestInfo(object):
         parameters['password'] = notifier.uid
 
         self.commands.append(('subscribe', parameters))
+
 
 class _AddActionRequestInfo(object):
     def __init__(self, notifier, notification, command, label):
@@ -928,6 +941,7 @@ class _AddActionRequestInfo(object):
 
         self.commands.append(('addaction', parameters))
 
+
 class _ClearActionsRequestInfo(object):
     def __init__(self, notifier, notification):
         self.commands = []
@@ -938,6 +952,7 @@ class _ClearActionsRequestInfo(object):
         parameters['password'] = notifier.uid
 
         self.commands.append(('clearactions', parameters))
+
 
 class _IsVisibleRequestInfo(object):
     def __init__(self, notifier, notification):
@@ -950,6 +965,7 @@ class _IsVisibleRequestInfo(object):
 
         self.commands.append(('isvisible', parameters))
 
+
 class _ShowRequestInfo(object):
     def __init__(self, notifier, uid):
         self.commands = []
@@ -961,6 +977,7 @@ class _ShowRequestInfo(object):
 
         self.commands.append(('show', parameters))
 
+
 class _HideRequestInfo(object):
     def __init__(self, notifier, uid):
         self.commands = []
@@ -971,6 +988,7 @@ class _HideRequestInfo(object):
         parameters['uid'] = uid
 
         self.commands.append(('hide', parameters))
+
 
 def snp64(data):
     data = bytearray(base64.b64encode(data))

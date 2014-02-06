@@ -40,6 +40,7 @@ ENCRYPTION_ALGORITHM = 'AES'
 class GNTPError(Exception):
     pass
 
+
 class GNTPHandler(Handler):
     """:class:`~hiss.handler.Handler` sub-class for GNTP messages"""
 
@@ -51,6 +52,7 @@ class GNTPHandler(Handler):
         self.port = GNTP_DEFAULT_PORT
         self.factory = Factory(GNTP)
         self.capabilities = ['register', 'async']
+
 
 class GNTP(asyncio.Protocol):
     """Growl Network Transport Protocol."""
@@ -170,6 +172,7 @@ class GNTP(asyncio.Protocol):
                 return
             else:
                 yield from asyncio.sleep(0.1)
+
 
 class Request(object):
     def __init__(self, version=GNTP_BASE_VERSION):
@@ -365,6 +368,7 @@ class Request(object):
         def __repr__(self):
             return self.reference
 
+
 class Response(object):
     """GNTP/1.0 -(OK|ERROR|CALLBACK) <encryptionAlgoritm>
     <body>: <value>
@@ -515,6 +519,7 @@ class Response(object):
     def _decrypt(self, lines):
         pass
 
+
 class _RegisterRequest(Request):
     def __init__(self, notifier):
         Request.__init__(self)
@@ -534,6 +539,7 @@ class _RegisterRequest(Request):
             section['Notification-Enabled'] = info.enabled
 
             self.sections.append(section)
+
 
 class _NotifyRequest(Request):
     def __init__(self, notification, notifier):
@@ -567,6 +573,7 @@ class _NotifyRequest(Request):
                 self.body['Notification-Callback-Context'] = callback.command
                 self.body['Notification-Callback-Context-Type'] = 'string'
 
+
 class _SubscribeRequest(Request):
     def __init__(self, notifier):
         Request.__init__(self)
@@ -574,6 +581,7 @@ class _SubscribeRequest(Request):
         self.command = 'SUBSCRIBE'
         self.body['Subscriber-ID'] = notifier.uid
         self.body['Subscriber-Name'] = notifier.name
+
 
 class _UnregisterRequest(Request):
     def __init__(self, notifier):

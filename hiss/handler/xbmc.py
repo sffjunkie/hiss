@@ -30,6 +30,7 @@ XBMC_PASSWORD = 'xbmc'
 class XBMCError(Exception):
     pass
 
+
 class XBMCHandler(Handler):
     """:class:`~hiss.handler.Handler` sub-class for XBMC messages"""
 
@@ -54,6 +55,7 @@ class XBMCHandler(Handler):
 
         protocol.target = target
         return protocol
+
 
 class XBMC(asyncio.Protocol):
     """XBMC JSON Protocol."""
@@ -104,6 +106,7 @@ class XBMC(asyncio.Protocol):
             result['reason'] = exc.args[0]
 
         return result
+
 
 class _NotificationRequest(Request):
     def __init__(self, notification):
