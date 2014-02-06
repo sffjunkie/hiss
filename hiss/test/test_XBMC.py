@@ -32,7 +32,7 @@ def notifier():
     n.add_notification('Old', 'Old as an old thing.')
     return n
 
-def test_notification(notifier):
+def test_XBMC_Notification(notifier):
     loop = asyncio.get_event_loop()
 
     @asyncio.coroutine
@@ -53,7 +53,3 @@ def test_notification(notifier):
 
     c = coro()
     loop.run_until_complete(c)
-
-if __name__ == '__main__':
-    test_notification()
-    
