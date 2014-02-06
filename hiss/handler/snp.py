@@ -564,6 +564,10 @@ class Request(object):
                 htype, rest = hash_and_salt.split(b':')
                 hkey, hsalt = rest.split(b'.')
                 self._hash = HashInfo(htype.upper(), unhexlify(hkey), unhexlify(hsalt))
+                
+                if self.password is not None:
+                    validate_hash(self.password, self._hash)
+                    
                 self.use_hash = True
         except:
             raise SNPError('Invalid SNP body format: %s' % str(header))
