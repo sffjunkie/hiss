@@ -23,13 +23,19 @@ class Handler():
         self._loop = loop
 
     @asyncio.coroutine
-    def connect(self, target):
+    def connect(self, target, factory=None):
         """Connect to a Target and return the protocol handling the connection.
 
         :param target: The target to connect to
         :type target:  :class:`~hiss.target.Target`
+        :param factory: The factory to use for the connection or None for the
+                        standard factory
+        :type factory:  :class:`~hiss.handler.Factory` subclass
 
         The target is added to the protocol instance"""
+        
+        if factory is None:
+            factory = self.factory
 
         if self._loop is None:
             self._loop = asyncio.get_event_loop()
@@ -39,7 +45,7 @@ class Handler():
 
         logging.debug('Handler: Connecting to %s' % target)
 
-        (_transport, protocol) = yield from self._loop.create_connection(self.factory,
+        (_transport, protocol) = yield from self._loop.create_connection(factory,
             target.host, target.port)
 
         protocol.target = target
