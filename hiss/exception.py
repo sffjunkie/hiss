@@ -14,9 +14,12 @@
 
 # Part of 'hiss' the asynchronous notification library
 
-__all__ = ['HissError', 'MessageError', 'NotifierError', 'TargetError']
+__all__ = ['HissError', 'HissValidationError', 'MessageError', 'NotifierError', 'TargetError']
 
 class HissError(Exception):
+    pass
+
+class HissValidationError(Exception):
     pass
 
 class MessageError(HissError):
