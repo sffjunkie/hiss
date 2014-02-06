@@ -27,20 +27,43 @@ __all__ = ['encrypt', 'decrypt', 'EncryptionInfo', 'PY_CRYPTO']
 class EncryptionInfo():
     """Records the encryption information required to be sent to remote hosts.
 
-    Exposes the following properties
-
-    * algorithm - The algorithm used to generate the hash (str)
-    * iv        - The initial value (bytes)
+    :param algorithm: The algorithm used to generate the hash.
+    :type algorithm:  str
+    :param iv:        The initial value.
+    :type iv:         bytes
     """
 
     def __init__(self, algorithm, iv):
-        if isinstance(algorithm, (bytes, bytearray)):
-            algorithm = algorithm.decode('UTF-8')
-        self.algorithm = algorithm.upper()
+        self._algorithm = None
+        self._iv = None
 
-        if isinstance(iv, str):
-            iv = unhexlify(iv.encode('UTF-8'))
+        self.algorithm = algorithm
         self.iv = iv
+
+    @property
+    def algorithm(self):
+        return self._algorithm
+    
+    @algorithm.setter
+    def algorithm(self, value):
+        if isinstance(value, (bytes, bytearray)):
+            value = value.decode('UTF-8')
+
+        value = value.upper()
+        if value not in ['AES', 'DES', '3DES']:
+            raise ValueError('Unknown encryption algorithm %s specified.' % value)
+
+        self._algorithm = value
+
+    @property
+    def iv(self):
+        return self._iv
+    
+    @iv.setter
+    def iv(self, value):
+        if isinstance(value, str):
+            value = unhexlify(value.encode('UTF-8'))
+        self._iv = value
 
     def __eq__(self, other):
         return self.algorithm == other.algorithm and \
