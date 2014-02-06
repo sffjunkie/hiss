@@ -48,7 +48,7 @@ def icon_inverted():
     fname = fname.replace('\\', '/')
     return Icon('file:///%s' % fname)
 
-def test_connect():
+def test_SNP_Connect():
     loop = asyncio.get_event_loop()
 
     @asyncio.coroutine
@@ -60,7 +60,7 @@ def test_connect():
 
     loop.run_until_complete(coro())
 
-def test_register(notifier):
+def test_SNP_Register(notifier):
     loop = asyncio.get_event_loop()
 
     @asyncio.coroutine
@@ -75,7 +75,7 @@ def test_register(notifier):
     c = coro()
     loop.run_until_complete(c)
 
-def test_unregister(notifier):
+def test_SNP_Unregister(notifier):
     loop = asyncio.get_event_loop()
 
     def coro():
@@ -91,7 +91,7 @@ def test_unregister(notifier):
     c = coro()
     loop.run_until_complete(c)
 
-def test_register_with_icon(notifier, icon):
+def test_SNP_Register_WithIcon(notifier, icon):
     loop = asyncio.get_event_loop()
 
     @asyncio.coroutine
@@ -108,7 +108,7 @@ def test_register_with_icon(notifier, icon):
     c = coro()
     loop.run_until_complete(c)
 
-def test_notification(notifier):
+def test_SNP_Notification(notifier):
     loop = asyncio.get_event_loop()
 
     @asyncio.coroutine
@@ -126,7 +126,7 @@ def test_notification(notifier):
     c = coro()
     loop.run_until_complete(c)
 
-def test_notification_with_string_callback(notifier):
+def test_SNP_Notification_WithStringCallback(notifier):
     loop = asyncio.get_event_loop()
 
     @asyncio.coroutine
@@ -145,7 +145,7 @@ def test_notification_with_string_callback(notifier):
     c = coro()
     loop.run_until_complete(c)
 
-def test_notification_with_url_callback(notifier):
+def test_SNP_Notification_WithUrlCallback(notifier):
     loop = asyncio.get_event_loop()
 
     @asyncio.coroutine
@@ -164,7 +164,7 @@ def test_notification_with_url_callback(notifier):
     c = coro()
     loop.run_until_complete(c)
 
-def test_notification_with_icon(notifier, icon_inverted):
+def test_SNP_Notification_WithIcon(notifier, icon_inverted):
     loop = asyncio.get_event_loop()
 
     @asyncio.coroutine
