@@ -67,11 +67,11 @@ class EncryptionInfo():
 
     def __eq__(self, other):
         return self.algorithm == other.algorithm and \
-            self.iv == other.key_hash
+            self.iv == other.iv
 
     def __repr__(self):
         return '%s:%s' % (self.algorithm,
-                          hexlify(self.key_hash).decode('UTF-8'))
+                          hexlify(self.iv).decode('UTF-8'))
 
 def encrypt(encryption_algorithm, iv, key, data):
     def _pkcs7_pad(self, data, block_length):
