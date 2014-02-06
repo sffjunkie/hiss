@@ -44,6 +44,8 @@ class HashInfo():
 
     @property
     def algorithm(self):
+        """Hash algorithm. One of MD5, SHA1 or SHA256"""
+        
         return self._algorithm
     
     @algorithm.setter
@@ -59,6 +61,8 @@ class HashInfo():
 
     @property
     def key_hash(self):
+        """algorithm(password + salt)"""
+        
         return self._key_hash
     
     @key_hash.setter
@@ -69,6 +73,8 @@ class HashInfo():
 
     @property
     def salt(self):
+        """Salt used to compute the key_hash."""
+        
         return self._salt
     
     @salt.setter
