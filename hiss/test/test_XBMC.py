@@ -38,9 +38,9 @@ def test_notification(notifier):
     @asyncio.coroutine
     def coro():
         h = XBMCHandler(loop=loop)
-        
+
         t = Target('xbmc://%s' % HOST)
-        
+
         notification = notifier.create_notification(name='New',
                                              title="A brave new world",
                                              text="Say hello to Prism",
@@ -50,10 +50,9 @@ def test_notification(notifier):
             assert response['reason'] == 'All hosts are unreachable.'
         else:
             assert response['status_code'] == 0
-    
+
     c = coro()
     loop.run_until_complete(c)
-
 
 if __name__ == '__main__':
     test_notification()

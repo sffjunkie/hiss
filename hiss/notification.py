@@ -25,26 +25,24 @@ __all__ = ['Notification', 'NotificationPriority']
 class NotificationPriority(Enum):
     """Notification display priority. Valid values are ``very_low``,
     ``moderate``, ``normal``, ``high`` or ``emergency``.
-    
+
     .. note::
-    
+
         Not all targets can handle ``very_low`` or ``emergency`` values and will
         be clamped to acceptable limits.  
     """
-    
+
     very_low = -2
     moderate = -1
     normal = 0
     high = 1
     emergency = 2
 
-
 NotificationCommand = namedtuple('NotificationCommand', ['command', 'label'])
-
 
 class Notification():
     """Manages the data necessary to display a notification
-    
+
     :param title:      Notification title.
     :type title:       string or None for no title
     :param text:       The text to display below the title
@@ -60,19 +58,19 @@ class Notification():
     :param uid:        UUID for this notification. Notifications created by a :class:`Notifier`
                        have this information filled in automatically.
     :type uid:         string
-    
+
     Even though *title*, *text* and *icon* are optional at least one of these must be specified or
     a :class:`~hiss.exception.HissError` will be raised.
     """
-    
+
     def __init__(self, title=None, text=None,
                  icon=None, sound=None,
                  priority=NotificationPriority.normal,
                  timeout=-1, uid=None):
-        
+
         if title is None and text is None and icon is None:
             raise HissError('One of title, text or icon must be used.') 
-        
+
         self._title = None
         self.title = title
         self.text = text
@@ -87,7 +85,7 @@ class Notification():
         self.uid = self._unique_id()
         self.class_id = ''
         self.notifier = None
-        
+
     def __repr__(self):
         return self.uid
 
@@ -116,38 +114,38 @@ class Notification():
             self.timeout = 0
         else:
             self.timeout = -1
-    
+
     def add_callback(self, command, label=''):
         """Add a callback for this notification.
-        
+
         :param command: The command to execute.
         :type command:  string
         :param label:   Label to use. If not provided the target will add a
                         defaultlabel.
         :type label:    string
-        
+
         .. note::
-        
+
             Only 1 callback can be added. Calling this multiple times will
             overwrite the existing callback.
         """
 
         self.callback = NotificationCommand(command, label)
-        
+
     def add_action(self, command, label):
         """Add an action to this notification.
-        
+
         :param command: The command to execute
         :type command:  string
         :param label:   The label to display
         :type label:    string
-        
+
         .. note::
-        
+
             Unlike the :meth:`~hiss.Notification.add_callback` multiple actions
             can be added.
         """
-        
+
         self.actions.append(NotificationCommand(command, label))
 
     @property

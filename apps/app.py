@@ -13,9 +13,9 @@ class Application(Notifier):
 
     def startApp(self):
         """Called automatically by the Notifier class."""
-        
+
         self.call_later(0, self.loop)
-        
+
     def loop(self):
         if self._count < 2:
             print('Sending %d...' % self._count)

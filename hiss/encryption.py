@@ -19,33 +19,33 @@ try:
     PY_CRYPTO = True
 except ImportError:
     PY_CRYPTO = False
-    
+
 from binascii import hexlify, unhexlify
-    
+
 __all__ = ['encrypt', 'decrypt']
 
 class EncryptionInfo():
     """Records the encryption information required to be sent to remote hosts.
-    
+
     Exposes the following properties
-    
+
     * algorithm - The algorithm used to generate the hash (str)
     * iv        - The initial value (bytes)
     """
-    
+
     def __init__(self, algorithm, iv):
         if isinstance(algorithm, (bytes, bytearray)):
             algorithm = algorithm.decode('UTF-8')
         self.algorithm = algorithm.upper()
-        
+
         if isinstance(iv, str):
             iv = unhexlify(iv.encode('UTF-8'))
         self.iv = iv
-        
+
     def __eq__(self, other):
         return self.algorithm == other.algorithm and \
             self.iv == other.key_hash
-        
+
     def __repr__(self):
         return '%s:%s' % (self.algorithm,
                           hexlify(self.key_hash).decode('UTF-8'))
@@ -54,7 +54,7 @@ def encrypt(encryption_algorithm, iv, key, data):
     def _pkcs7_pad(self, data, block_length):
         padding = block_length - (len(data) % block_length)
         data.extend(chr(padding) * padding)
-        
+
     cipher, block_length = _create_cipher(encryption_algorithm, iv, key)
     _pkcs7_pad(data, block_length)
     encrypted_data = cipher.encrypt(data)
@@ -66,7 +66,7 @@ def decrypt(encryption_algorithm, iv, key, data):
     padding_length = ord(decrypted_data[-1])
     decrypted_data = decrypted_data[:-padding_length]
     return decrypted_data
-    
+
 def _create_cipher(self, encryption_algorithm, iv, key):
     # AES = AES192 = key length=24, block length=16, iv length=16
     if encryption_algorithm == 'AES':
@@ -75,7 +75,7 @@ def _create_cipher(self, encryption_algorithm, iv, key):
         key = key[:key_length]
         mode = crypto.Cipher.AES.MODE_CBC
         cipher = crypto.Cipher.AES.new(key, mode, IV=iv)
-        
+
     # DES = key length=8, block length=8, iv length=8
     elif encryption_algorithm == 'DES':
         key_length = 8
@@ -83,7 +83,7 @@ def _create_cipher(self, encryption_algorithm, iv, key):
         key = key[:key_length]
         mode = crypto.Cipher.DES.MODE_CBC
         cipher = crypto.Cipher.DES.new(key, mode, IV=iv)
-        
+
     # 3DES = key length=24, block length=8, iv length=8
     elif encryption_algorithm == '3DES':
         key_length = 24
@@ -91,6 +91,6 @@ def _create_cipher(self, encryption_algorithm, iv, key):
         key = key[:key_length]
         mode = crypto.Cipher.DES3.MODE_CBC
         cipher = crypto.Cipher.DES3.new(key, mode, IV=iv)
-    
+
     return (cipher, block_length)
-    
+

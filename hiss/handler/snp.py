@@ -98,52 +98,49 @@ BOOL_MAPPING = {
     0: '0', False: '0', 'false': '0', 'no': '0',
 }
 
-
 class SNPError(HissError):
     pass
 
-
 class SNPHandler(Handler):
     """:class:`~hiss.handler.Handler` sub-class for SNP messages"""
-    
+
     __handler__ = 'SNP'
-    
+
     def __init__(self, loop=None):
         super().__init__(loop)
-        
+
         self.port = SNP_DEFAULT_PORT
         self.factory = Factory(SNP)
         self.async_factory = Factory(SNPAsync)
         self.capabilities = ['register', 'unregister', 'async', 'show', 'hide']
-    
+
     @asyncio.coroutine
     def connect(self, target):
         """Override the default connect method to call the get_version method after connecting."""
-        
+
         protocol = yield from super().connect(target)
-        
+
         if not hasattr(target, 'api_version'):
             response = yield from protocol.get_version()
             target.api_version = int(response.result.decode('UTF-8'))
             target.protocol_version = response.max_version
-            
-        return protocol
 
+        return protocol
 
 class SNP(asyncio.Protocol):
     """Snarl Network Protocol."""
-    
+
     def __init__(self):
         self.use_encryption = False
         self.use_hash = False
 
         self._target = None
         self._buffer = None
-        
+
     @property
     def target(self):
         return self._target
-    
+
     @target.setter
     def target(self, value):
         self._target = value
@@ -154,10 +151,10 @@ class SNP(asyncio.Protocol):
         self.response = None
         self._buffer = bytearray()
         self._transport = transport
-        
+
     def data_received(self, data):
         self._buffer.extend(data)
-        
+
         version = self.target.protocol_version
         if version == '2.0':
             end_of_response_marker = b'\r\n'
@@ -172,7 +169,7 @@ class SNP(asyncio.Protocol):
             else:
                 data = self._buffer[:end + 3]
                 del self._buffer[:end + 5]
-            
+
             response = Response()
             response.version = version
             response.unmarshall(data)
@@ -181,129 +178,129 @@ class SNP(asyncio.Protocol):
     @asyncio.coroutine
     def get_version(self):
         """Get details of the SNP version that the target can handle."""
-        
+
         request_info = _VersionRequestInfo()
 
         yield from self._send_request(request_info)
         return self.response
-         
+
     @asyncio.coroutine
     def register(self, notifier):
         """Register ``notifier`` with a our target 
-        
+
         :param notifier: Notifier to register
         :type notifier:  :class:`hiss.notifier.Notifier`
         """
-        
+
         assert self.target.protocol_version != ''
 
         request_info = _RegisterRequestInfo(notifier)
         yield from self._send_request(request_info)
-        
+
         result = self._build_result('register')
         logging.debug(pformat(result))
         return result
-    
+
     @asyncio.coroutine
     def unregister(self, notifier):
         """Unregister a notifier
-        
+
         :param notifier: Notifier to unregister
         :type notifier:  hiss.Notifier
         """
-        
+
         request_info = _UnregisterRequestInfo(notifier)
         yield from self._send_request(request_info)
-        
+
         result = self._build_result('unregister')
         logging.debug(pformat(result))
         return result
-        
+
     @asyncio.coroutine
     def notify(self, notification, notifier):
         """Send a notification to a target
-        
+
         :param notification: Notification to send
         :type notification:  :class:`hiss.Notification`
         :param notifier: Notifier to use 
         :type notifier:  :class:`hiss.notifier.Notifier`
         """
-        
+
         assert self.target.protocol_version != ''
 
         request_info = _NotifyRequestInfo(notification, notifier)
         yield from self._send_request(request_info)
-        
+
         result = self._build_result('notify')
         logging.debug(pformat(result))
         return result
-    
+
     @asyncio.coroutine
     def add_action(self, notification):
         raise NotImplementedError
-    
+
     @asyncio.coroutine
     def clear_action(self, notification):
         raise NotImplementedError
-    
+
     @asyncio.coroutine
     def show(self, notification):
         """Show a hidden notification 
-        
+
         :param notification: Notification to show
         :type notification:  :class:`hiss.notification.Notification`
         """
-        
+
         request_info = _ShowRequestInfo(notification.uid)
         yield from self._send_request(request_info)
-        
+
         result = self._build_result('show')
         logging.debug(pformat(result))
         return result
-    
+
     @asyncio.coroutine
     def hide(self, uid, targets=None):
         """Hide a notification 
-        
+
         :param notification: Notification to show
         :type notification:  :class:`hiss.notification.Notification`
         """
-        
+
         request_info = _HideRequestInfo(uid)
         yield from self._send_request(request_info)
-        
+
         result = self._build_result('hide')
         logging.debug(pformat(result))
         return result
-    
+
     @asyncio.coroutine
     def isvisible(self, notification, notifier=None, targets=None):
         def response():
             return True
-        
+
         if notifier is None:
             if notification.notifier is not None:
                 notifier = notification.notifier
             else:
                 raise ValueError('No valid notifier instance available.')
-            
+
         request_info = _IsVisibleRequestInfo(notifier, notification)
         yield from self._send_request(request_info)
-        
+
         result = self._build_result('isvisible')
         logging.debug(pformat(result))
         return result
-    
+
     @asyncio.coroutine
     def _send_request(self, request_info):
         """Send a request_info to a list of targets
-        
+
         :param request_info:  Info for request to send
         """
 
         if self.target.protocol_version == '':
             self.target.protocol_version = SNP_BASE_VERSION
-            
+
         if self.target.protocol_version == '3.0' or len(request_info.commands) == 1:
             response = yield from self._send_single(request_info,
                                                     self.target.protocol_version)
@@ -318,7 +315,7 @@ class SNP(asyncio.Protocol):
         request = Request(version)
         for command in request_info.commands:
             request.append(command)
-        
+
         data = request.marshall()
         self._transport.write(data)
         yield from self._wait_for_response()
@@ -353,9 +350,8 @@ class SNP(asyncio.Protocol):
 
         if hasattr(self.response, 'daemon'):
             result['daemon'] = self.response.daemon
-            
-        return result
 
+        return result
 
 class SNPAsync(asyncio.Protocol):
     """ """
@@ -363,13 +359,13 @@ class SNPAsync(asyncio.Protocol):
     def connection_made(self, transport):
         self.responses = []
         self.async_responses = []
-        
+
         self._buffer = bytearray()
         self._transport = transport
-        
+
     def data_received(self, data):
         self._buffer.extend(data)
-        
+
         version = self.target.protocol_version
         if version == '2.0':
             end_of_response_marker = b'\r\n'
@@ -384,18 +380,18 @@ class SNPAsync(asyncio.Protocol):
             else:
                 data = self._buffer[:end + 3]
                 del self._buffer[:end + 5]
-            
+
             response = Response()
             response.version = version
             response.unmarshall(data)
             self.responses.append(response)
 
             end = self._buffer.find(end_of_response_marker)
-    
+
     @asyncio.coroutine
     def subscribe(self, notifier, signatures=[], targets=None):
         """Subscribe to notifications from a list of signatures
-        
+
         :param notifier:   Notifier to use.
         :type notifier:    :class:`hiss.Notifier`
         :param signatures: Application signatures to receive messages from
@@ -406,44 +402,42 @@ class SNPAsync(asyncio.Protocol):
         :type targets:     list of :class:`hiss.Target` or None
         :returns:        The Response received.
         """
-        
+
         self.response_handler = notifier._handler
-        
+
         request_info = _SubscribeRequestInfo(notifier, signatures)
         response = yield from self._send_request(request_info)
         return response
 
-
 SNPCommand = namedtuple('SNPCommand', 'name parameters')
 SNPResult = namedtuple('SNPResult', 'command status_code reason')
-
 
 class Request(object):
     def __init__(self, version=SNP_DEFAULT_VERSION):
         self.version = version
         self.password = None
         self.commands = []
-        
+
         self.use_hash = False
         self.use_encryption = False
-        
+
         self._hash = None
         self._encryption = None
-        
+
     def append(self, command, **kwargs):
         """Append a command to the message
-        
+
         :param command:  The command to append
         :type command:   A 2 element tuple containing a name and a dictionary
                          of parameters or
                          A separate command name as a string and keyword 
                          arguments
         """
-        
+
         if self.version == '2.0' and len(self.commands) == 1:
             raise SNPError(("Version 2.0 messages don't "
                               "support multiple commands"))
-        
+
         if len(kwargs) != 0:
             self.commands.append(SNPCommand(command, kwargs))
         else:
@@ -451,37 +445,37 @@ class Request(object):
                 self.commands.append(SNPCommand(command[0], command[1]))
             else:
                 self.commands.append(SNPCommand(command, {}))
-    
+
     def marshall(self):
         """Marshall the request ready to send over the wire."""
 
         if self.use_hash or self.use_encryption:
             if self.password is None:
                 raise Exception('Password required to generate hash for marshall of request.')
-            
+
             self._hash = generate_hash(self.password.encode('UTF-8'))
 
         if self.use_encryption:
             if not PY_CRYPTO:
                 raise Exception('Unable to encrypt message. PyCrypto not available')
-            
+
             if ENCRYPTION_ALGORITHM == 'AES':
                 iv = urandom(16)
             else:
                 iv = urandom(8)
-            
+
             self._encryption = (ENCRYPTION_ALGORITHM, iv)
-        
+
         if self.version == '2.0':
             return self._marshall_20()
         elif self.version == '3.0':
             return self._marshall_30()
         elif self.version == '1.0':
             raise SNPError('SNP protocol version 1.0 is unsupported.')
-    
+
     def unmarshall(self, data):
         """Unmarshall data received over the wire into a valid request"""
-        
+
         if data.startswith(b'snp://'):
             self._unmarshall_20(data)
         elif data.startswith(b'SNP/3.0'):
@@ -493,13 +487,13 @@ class Request(object):
         data = self._marshall_command(self.commands[0]).encode('UTF-8')
         data = b'snp://' + data + b'\r\n' 
         return data
-    
+
     def _marshall_30(self):
         if self.use_hash and self.password != '':
             data = 'SNP/3.0 %s\r\n' % self._hash()
         else:
             data = 'SNP/3.0\r\n'
-            
+
         for command in self.commands:
             data += '%s\r\n' % self._marshall_command(command)
 
@@ -511,10 +505,10 @@ class Request(object):
             return command.name
         else:
             data = ''
-    
+
             names = list(command.parameters.keys())
             names.sort()
-    
+
             for name in names:
                 value = command.parameters[name]
                 if isinstance(value, list):
@@ -526,9 +520,9 @@ class Request(object):
                 else:
                     value = self._escape(self._expand_tuple(value))
                     data += '%s=%s&' % (name, value)
-                
+
             data = data[:-1]
-            
+
             if len(data) > 0:
                 data = '%s?%s' % (command.name, data)
                 return data
@@ -544,7 +538,7 @@ class Request(object):
     def _unmarshall_30(self, data):
         if not data.endswith(b'END\r\n'):
             raise SNPError('Invalid SNP 3.0 request')
-        
+
         data = data[:-2]
         lines = data.split(b'\r\n')
         header = lines[0]
@@ -555,7 +549,7 @@ class Request(object):
                 if items[1] != b'NONE':
                     self._encryption = tuple(items[1].split(b':'))
                     self.use_encryption = True
-                
+
             if len(items) >= 3:
                 hash_and_salt = items[2]
                 htype, rest = hash_and_salt.split(b':')
@@ -564,7 +558,7 @@ class Request(object):
                 self.use_hash = True
         except:
             raise SNPError('Invalid SNP body format: %s' % str(header))
-        
+
         self.commands = []
         for line in lines[1:-1]:
             self.commands.append(self._extract_command(line))
@@ -574,15 +568,15 @@ class Request(object):
     def _extract_command(self, data):
         try:
             command, rest = data.split(b'?', 1)
-    
+
             params = {}
             items = rest.split(b'&')
             for item in items:
                 name, value = item.split(b'=', 1)
                 value = self._unescape(value)
-                
+
                 params[name] = value
-                
+
             return SNPCommand(command, params)
         except:
             raise SNPError('Invalid command format found: %s', str(data))
@@ -605,7 +599,7 @@ class Request(object):
         data = data.replace(b'&&', b'&')
         data = data.replace(b'\\n', b'\r\n')
         return data
-        
+
     def _salt(self):
         # http://stackoverflow.com/a/2257449
         s = ''.join(random.choice(string.ascii_uppercase + \
@@ -629,11 +623,11 @@ class Request(object):
         h = sha256()
         h.update(self._password())
         h.update(salt)
-        
+
         self._hash = ('sha256', h.hexdigest(), salt)
 
         return '%s:%s.%s' % self._hash
-        
+
     def _encrypt(self, data):
         encryption_algorithm, iv = self._encryption
         return encrypt(encryption_algorithm, iv, self._hash.key_hash, data)
@@ -642,42 +636,41 @@ class Request(object):
         encryption_algorithm, iv = self._encryption
         return decrypt(encryption_algorithm, iv, self._hash.key_hash, data)
 
-
 class Response(object):
     def __init__(self, version=SNP_DEFAULT_VERSION):
         self.version = version
         """The SNP protocol version number of this response"""
-            
+
         self.max_version = ''
         """The maximum SNP protocol version the SNP receiver can handle"""
-            
+
         self.status_code = 0
         """The status code for the response
-        
+
         0       = OK
         100-199 = System or transport error
         200-299 = Application errors
         300-399 = Events
         """
-        
+
         self.data = b''
         self.body = {}
-    
+
     def clear(self):
         self.data = b''
-    
+
     @property
     def is_ok(self):
         return self.status_code == 0
-    
+
     @property
     def is_error(self):
         return self.status_code > 100 and self.status_code < 300
-    
+
     @property
     def is_event(self):
         return self.status_code > 300 and self.status_code < 400
-    
+
     def unmarshall(self, data):
         """Unmarshall data received over the wire into a valid response"""
 
@@ -686,19 +679,19 @@ class Response(object):
             self._unmarshall2(lines)
         elif self.version == '3.0':
             self._unmarshall3(lines)
-    
+
     def _unmarshall2(self, lines):
         elems = lines[0].split(b'/')
         self.max_version = elems[1].decode('UTF-8')
         self.status_code = int(elems[2].decode('UTF-8'))
-        
+
         try:
             self.status = SNARL_STATUS[self.status_code]
         except:
             self.status = 'Unknown'
-            
+
         self.isevent = (self.status_code >= 300 and self.status_code <= 399)
-        
+
         if len(elems) > 4:
             if self.isevent:
                 self.nid = elems[4]
@@ -710,21 +703,21 @@ class Response(object):
 
     def _unmarshall3(self, lines):
         results = []
-        
+
         header = lines[0]
         items = header.split(b' ')
-        
+
         _snp, self.max_version = items[0].split(b'/')
-        
+
         if len(items) > 1:
             status = items[1].upper()
             self.isevent = (status == 'callback')
         else:
             self.isevent = False
-        
+
         if len(items) > 2:
             self.hash_type = items[2]
-            
+
         if len(items) > 3:
             self.cypher_type = items[3]
 
@@ -747,14 +740,14 @@ class Response(object):
                 else:
                     if not isinstance(self.body[key], list):
                         self.body[key] = [self.body[key]]
-    
+
                     self.body[key].append(value)
 
         status_ok = True
         for result in results:
             if result.status_code != 0 and result.status_code not in ACCEPTABLE_ERRORS:
                 status_ok = False
-        
+
         # Compute an overall status
         if status_ok:
             self.status = 'OK'
@@ -764,7 +757,7 @@ class Response(object):
             result = max(results, key=attrgetter('status_code'))
             self.status_code = result.status_code
             self.reason = result.reason
-            
+
         if len(results) == 1:
             self.result = results[0]
         else:
@@ -775,12 +768,10 @@ class Response(object):
 
     def _decrypt(self):
         pass
-                    
 
 class _VersionRequestInfo(object):
     def __init__(self):
         self.commands = [('version', {})]
-                    
 
 class _RegisterRequestInfo(object):
     def __init__(self, notifier):
@@ -790,7 +781,7 @@ class _RegisterRequestInfo(object):
         parameters['app-sig'] = notifier.signature
         parameters['title'] = notifier.name
         parameters['password'] = notifier.uid
-        
+
         icon = notifier.icon
         if icon is not None:
             if isinstance(icon, Icon):
@@ -798,7 +789,7 @@ class _RegisterRequestInfo(object):
                 parameters['icon-phat64'] = data
             else:
                 parameters['icon'] = icon
-        
+
         self.commands.append(('register', parameters))
 
         for class_id, info in notifier.notification_classes.items():
@@ -815,9 +806,8 @@ class _RegisterRequestInfo(object):
                     parameters['icon-base64'] = data
                 else:
                     parameters['icon'] = info.icon
-            
-            self.commands.append(('addclass', parameters))
 
+            self.commands.append(('addclass', parameters))
 
 class _ClearClassesRequestInfo(object):
     def __init__(self, notifier):
@@ -826,9 +816,8 @@ class _ClearClassesRequestInfo(object):
         parameters = {}
         parameters['app-sig'] = notifier.signature
         parameters['password'] = notifier.uid
-        
-        self.commands.append(('clearclasses', parameters))
 
+        self.commands.append(('clearclasses', parameters))
 
 class _UnregisterRequestInfo(object):
     def __init__(self, notifier):
@@ -837,9 +826,8 @@ class _UnregisterRequestInfo(object):
         parameters = {}
         parameters['app-sig'] = notifier.signature
         parameters['password'] = notifier.uid
-        
-        self.commands.append(('unregister', parameters))
 
+        self.commands.append(('unregister', parameters))
 
 class _NotifyRequestInfo(object):
     def __init__(self, notification, notifier):
@@ -848,13 +836,13 @@ class _NotifyRequestInfo(object):
         parameters = {}
         parameters['app-sig'] = notifier.signature
         parameters['password'] = notifier.uid
-         
+
         if notification.class_id != '':
             parameters['id'] = notification.class_id
-            
+
         parameters['title'] = notification.title
         parameters['text'] = notification.text
-        
+
         if notification.uid != '':
             parameters['uid'] = notification.uid
 
@@ -867,18 +855,18 @@ class _NotifyRequestInfo(object):
                     icon = notifier.icon
                 else:
                     icon = notification.icon
-                    
+
                 parameters['icon'] = icon
-                
+
         if notification.sound is not None:
             parameters['sound'] = notification.sound
-                
+
         if notification.timeout != -1:
             parameters['timeout'] = notification.timeout
-            
+
         if notification.sticky:
             parameters['timeout'] = 0
-            
+
         if notification.callback is not None:
             parameters['callback'] = notification.callback[0]
             if notification.callback[1] != '':
@@ -891,19 +879,18 @@ class _NotifyRequestInfo(object):
             priority = NotificationPriority.high
         else:
             priority = notification.priority
-            
+
         parameters['priority'] = priority.value
-        
+
         if notification.percentage != -1:
             parameters['value-percent'] = notification.percentage
-        
+
         if len(notification.actions) > 0:
             parameters['action'] = []
             for cmd, label in notification.actions:
                 parameters['action'].append((label, cmd))
-        
-        self.commands.append(('notify', parameters))
 
+        self.commands.append(('notify', parameters))
 
 class _SubscribeRequestInfo(object):
     def __init__(self, notifier, signatures):
@@ -912,9 +899,8 @@ class _SubscribeRequestInfo(object):
         parameters = {}
         parameters['app-sig'] = signatures
         parameters['password'] = notifier.uid
-        
-        self.commands.append(('subscribe', parameters))
 
+        self.commands.append(('subscribe', parameters))
 
 class _AddActionRequestInfo(object):
     def __init__(self, notifier, notification, command, label):
@@ -926,9 +912,8 @@ class _AddActionRequestInfo(object):
         parameters['password'] = notifier.uid
         parameters['cmd'] = command
         parameters['label'] = label
-        
-        self.commands.append(('addaction', parameters))
 
+        self.commands.append(('addaction', parameters))
 
 class _ClearActionsRequestInfo(object):
     def __init__(self, notifier, notification):
@@ -938,9 +923,8 @@ class _ClearActionsRequestInfo(object):
         parameters['app-sig'] = notifier.signature
         parameters['uid'] = notification.uid
         parameters['password'] = notifier.uid
-        
-        self.commands.append(('clearactions', parameters))
 
+        self.commands.append(('clearactions', parameters))
 
 class _IsVisibleRequestInfo(object):
     def __init__(self, notifier, notification):
@@ -950,9 +934,8 @@ class _IsVisibleRequestInfo(object):
         parameters['app-sig'] = notifier.signature
         parameters['uid'] = notification.uid
         parameters['password'] = notifier.uid
-        
+
         self.commands.append(('isvisible', parameters))
-                    
 
 class _ShowRequestInfo(object):
     def __init__(self, notifier, uid):
@@ -962,9 +945,8 @@ class _ShowRequestInfo(object):
         parameters['app-sig'] = notifier.signature
         parameters['password'] = notifier.uid
         parameters['uid'] = uid
-        
+
         self.commands.append(('show', parameters))
-                    
 
 class _HideRequestInfo(object):
     def __init__(self, notifier, uid):
@@ -974,19 +956,18 @@ class _HideRequestInfo(object):
         parameters['app-sig'] = notifier.signature
         parameters['password'] = notifier.uid
         parameters['uid'] = uid
-        
-        self.commands.append(('hide', parameters))
 
+        self.commands.append(('hide', parameters))
 
 def snp64(data):
     data = bytearray(base64.b64encode(data))
     data = data.replace(b'\r\n', b'#')
-    
+
     # Replace trailing = with %
     pos = -1
     while data[pos] == 61:
         data[pos] = 37
         pos -= 1
-        
+
     return data
     

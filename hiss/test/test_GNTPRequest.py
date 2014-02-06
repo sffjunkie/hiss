@@ -71,23 +71,23 @@ def test_GNTPRequest_Unmarshall():
 		   "Length: 16\r\n\r\nFGHIJKLMNOPQRSTU\r\n").encode('UTF-8'))
 
 	r.unmarshall(msg)
-	
+
 	assert r.version == '1.0'
 	assert r.command == 'REGISTER'
 	assert r._encryption is None
 	assert r._hash is None
-	
+
 	assert r.body['Application-Name'] == 'SurfWriter'
 
 def test_GNTPRequest_Unmarshall_WithHash():
 	password = 'testtest'
 	hash_ = generate_hash(password.encode('UTF-8'))
-	
+
 	r = Request()
 	r.password = password
 	msg = ("GNTP/1.0 REGISTER NONE %s\r\n" % hash_).encode('UTF-8')
 	r.unmarshall(msg)
-	
+
 	assert r.version == '1.0'
 	assert r.command == 'REGISTER'
 	assert r._hash == hash_

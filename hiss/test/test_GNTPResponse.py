@@ -23,17 +23,16 @@ def test_GNTPResponse_Marshall():
     r.status = 'OK'
     r.command = 'REGISTER'
     r.body['Origin-Machine-Name'] = 'OURAGAN'
-    
+
     msg = r.marshall()
     # Unable to compare bytes as Response has a variable timestamp
     assert len(msg) == len('GNTP/1.0 -OK NONE\r\nResponse-Action: REGISTER\r\nOrigin-Machine-Name: OURAGAN\r\n') + len('X-Timestamp: YYYY-mm-dd hh:mm:ssZ\r\n')
-
 
 def test_GNTPResponse_Unmarshall():
     r = Response()
     msg = b'GNTP/1.0 -OK NONE\r\nResponse-Action: REGISTER\r\nOrigin-Machine-Name: OURAGAN\r\n'
     r.unmarshall(msg)
-    
+
     assert r.status == 'OK'
     assert r.command == 'register'
     

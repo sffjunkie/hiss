@@ -23,17 +23,17 @@ def test_Target_Init_EmptyTarget():
     assert t.host == '127.0.0.1'
     assert t.port == -1
     assert t.password is None
-    
+
 def test_GNTPTarget_Init_SchemeOnly():
     t = Target('gntp://')
     assert t.scheme == 'gntp'
     assert t.host == '127.0.0.1'
-    
+
 def test_GNTPTarget_Init_Host():
     t = Target('gntp://192.168.1.1')
     assert t.scheme == 'gntp'
     assert t.host == '192.168.1.1'
-    
+
 def test_SNPTarget_Init_Empty():
     t = Target('snp')
     assert t.scheme == 'snp'
@@ -65,7 +65,7 @@ def test_Target_String_PasswordIsRemoved():
 def test_Traget_IsRemote():
     t = Target('snp://wally@192.168.1.1:9000')
     assert t.is_remote
-    
+
 def test_BadProtocol():
     with pytest.raises(TargetError):
         t = Target('wally')

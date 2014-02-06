@@ -21,9 +21,9 @@ def test_Request_Create():
 def test_Request_Append():
 	m = Request()
 	m.append('register', signature='sig', uid='1', title='ww')
-	
+
 	assert len(m.commands) == 1
-	
+
 	assert m.commands[0].name == 'register'
 	assert len(m.commands[0].parameters) == 3
 	assert m.commands[0].parameters['signature'] == 'sig'
@@ -59,21 +59,21 @@ def test_Request_Unmarshall2():
 	assert request.commands[0].name == b'register'
 	assert len(request.commands[0][1]) == 3
 	assert len(request.commands[0].parameters) == 3
-	
+
 def test_Request_Unmarshall3():
 	cmd = (b'SNP/3.0 NONE MD5:b7c903901cab976ee5db15792eb15a03.1A2B3C4D5E6F\r\n'
 		   b'register?signature=x-vnd-sffjunkie.hiss&title=ww&uid=1\r\n'
 		   b'add_class?signature=x-vnd-sffjunkie.hiss\r\n'
 		   b'END\r\n')
-	
+
 	request = Request()
 	request.unmarshall(cmd)
-	
+
 	assert len(request.commands) == 2
 	assert request.commands[0].name == b'register'
 	assert len(request.commands[0].parameters) == 3
 	assert request.commands[1].name == b'add_class'
-	
+
 	assert request._hash == HashInfo('md5',
 						    'b7c903901cab976ee5db15792eb15a03',
 						    '1A2B3C4D5E6F')

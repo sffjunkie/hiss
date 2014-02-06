@@ -35,7 +35,7 @@ USE_REGISTERED = -2
 
 class Notifier(object):
     """Maintains a list of targets to handle notifications for.
-        
+
     :param name:      The name of this notifier
     :type name:       string
     :param signature: The MIME style application signature for this notifier
@@ -47,7 +47,7 @@ class Notifier(object):
     :param loop:      :mod:`asyncio` event loop to use.
     :type loop:       :class:`asyncio.BaseEventLoop`
     """
-    
+
     def __init__(self, name, signature,
                  icon=None, sound=None,
                  event_handler=None,
@@ -65,12 +65,12 @@ class Notifier(object):
             self.uid = self._unique_id()
         else:
             self.uid = uid
-            
+
         if loop is None:
             self.loop = asyncio.get_event_loop()
         else:
             self.loop = loop
-        
+
         self._handlers = {}
         self._notifications = {}
 
@@ -78,7 +78,7 @@ class Notifier(object):
                          icon=None, sound=None,
                          enabled=True, class_id=None):
         """Add a notification class.
-        
+
         :param name:          Notification class name
         :type name:           string
         :param title:         Default notification title
@@ -96,27 +96,27 @@ class Notifier(object):
         """
 
         ni = NotificationInfo(name, title, text, icon, sound, enabled)
-        
+
         if class_id is None or class_id in self.notification_classes:
             if len(self.notification_classes) == 0:
                 class_id = 1
             else:
                 class_id = max(self.notification_classes.keys()) + 1
-        
+
         self.notification_classes[class_id] = ni
-        
+
         return class_id
- 
+
     def create_notification(self, class_id=-1, name='',
                             title=None, text=None,
                             icon=None, sound=None):
         """Create a notification that is ready to send.
-        
+
         Either ``class_id`` or ``name`` can be provided. If ``class_id`` is
         provided it will be used instead of ``name`` to
         lookup the defaults registered in
         :meth:`~Notifier.add_notification_class`
-        
+
         :param class_id:   The notification class id
         :type class_id:    integer
         :param name:       The notification name
@@ -138,7 +138,7 @@ class Notifier(object):
                            :data:`~hiss.USE_REGISTERED` 
                            to use sound provided during registration
         """
-        
+
         if class_id != -1:
             if class_id not in self.notification_classes:
                 raise ValueError('%d is not a known notification class id' % \
@@ -151,30 +151,30 @@ class Notifier(object):
 
         if title is USE_REGISTERED:
             title = info.title
-            
+
         if text is USE_REGISTERED:
             text = info.text
-            
+
         if icon is None:
             if info.icon is not None:
                 icon = info.icon
             else:
                 icon = self.icon
-            
+
         if sound is None:
             if info.sound is not None:
                 sound = info.sound
             else:
                 sound = self.sound
-        
+
         uid = self._unique_id()
-        
+
         n =  Notification(title, text, icon, sound, uid=uid)
         n.name = info.name
         n.class_id = class_id
         n.notifier = self
         return n
-   
+
     def find_notification(self, name):
         for value in self.notification_classes.values():
             if value.name == name:
@@ -183,15 +183,15 @@ class Notifier(object):
     @asyncio.coroutine
     def add_target(self, targets):
         """Add a single target or list of targets to the known targets and connects to them
-        
+
         :param targets: The Target or list of Targets to add.
         :type targets:  :class:`~hiss.target.Target`
         :returns:       dict or [dict] if more than one target added.
         """
-        
+
         if isinstance(targets, Target):
             targets = [targets]
-        
+
         wait_for = []
         for target in targets:
             if target.scheme in self._handlers:
@@ -205,11 +205,11 @@ class Notifier(object):
             elif target.scheme == 'xbmc':
                 handler = XBMCHandler()
                 self._handlers[target.scheme] = handler
-    
+
             wait_for.append(handler.connect(target))
-            
+
         done, pending = yield from asyncio.wait(wait_for)
-        
+
         results = []
         for task in done:
             tr = task.result()
@@ -222,44 +222,44 @@ class Notifier(object):
             else:
                 result['status'] = 'OK'            
                 self.targets.append(tr.target)
-                
+
             results.append(result)
 
         if len(results) == 1:
             return results[0]
         else:
             return results
- 
+
     def remove_target(self, target):
         """Remove a target from the known targets.
-        
+
         :param target: The Target to remove.
         :type target:  :class:`~hiss.target.Target`
         """
-        
+
         self.targets.remove(target)
 
     @asyncio.coroutine
     def register(self, targets=None):
         """Register this notifier with the target specified.
-        
+
         :param targets: The target or targets to register with or ``None`` to register
                         with all known target
         :type targets:  :class:`~hiss.target.Target` or [:class:`~hiss.target.Target`] or ``None``
         """
-        
+
         targets = self.targets.valid_targets(targets)
-            
+
         wait_for = []
         for target in targets:
             wait_for.append(target.handler.register(self, target))
-            
+
         done, pending = yield from asyncio.wait(wait_for)
-        
+
         results = []
         for task in done:
             result = task.result()
-            
+
             response = {}
             response.update(result)
             results.append(response)
@@ -268,11 +268,11 @@ class Notifier(object):
             return results[0]
         else:
             return results
-    
+
     @asyncio.coroutine
     def notify(self, notifications, targets=None):
         """Send a notification to a specific targets or all targets.
-        
+
         :param notifications:   A notification or list of notifications to send
         :type notifications:    :class:`hiss.notification.Notification`
         :param targets:         The targets to send the notification to. If no
@@ -280,27 +280,27 @@ class Notifier(object):
                                 be sent to all known targets.
         :type targets:          :class:`hiss.target.Target` or ``None``
         """
-        
+
         if isinstance(notifications, Notification):
             notifications = [notifications]
-        
+
         for notification in notifications:
             notification.notifier = self
-            
+
         targets = self.targets.valid_targets(targets)
-        
+
         wait_for = []
         combos = product(notifications, targets)
         for notification, target in combos:
             wait_for.append(target.handler.notify(notification, target))
-            
+
         done, pending = yield from asyncio.wait(wait_for)
-        
+
         #TODO: Handling of sticky notifications for show/hide
         responses = []
         for task in done:
             result = task.result()
-            
+
             response = {}
             response.update(result)
             responses.append(response)
@@ -313,25 +313,25 @@ class Notifier(object):
     @asyncio.coroutine
     def subscribe(self, signatures=[], targets=None):
         """Subscribe to notifications from a list of signatures.
-        
+
         :param signatures: List of signatures to listen to events from. If an
                            empty list is specified then subscribe to events
                            from all applications.
         :type signatures:  List of strings or empty list.
         """
-        
+
         targets = self.targets.valid_targets(targets)
-        
+
         responses = []
         for target in targets:
             if 'async' in target.handler.capabilities:
                 response = yield from target.handler.subscribe(self, signatures, targets)
             else:
                 response = {'result': 'ERROR', 'reason': 'Not Supported'}
-            
+
             response['handler'] = target.handler.name
             responses.append(response)
-        
+
         if len(responses) == 1:
             return responses[0]
         else:
@@ -340,13 +340,13 @@ class Notifier(object):
     @asyncio.coroutine
     def unregister(self, targets=None):
         """Unregister this notifier with all targets
-        
+
         :param targets: The targets to register with
                         If not specified or ``None`` then the notifier
                         will be registered with all known targets
         :type targets:  :class:`hiss.Target` or ``None``
         """
-        
+
         for handler in self._handlers.values():
             if handler.capabilities['unregister']:
                 handler.unregister(targets, notifier=self)
@@ -354,24 +354,24 @@ class Notifier(object):
     @asyncio.coroutine
     def show(self, uid):
         """If ``uid`` is in the list of current notifications then show it."""
-        
+
         if uid in self._notifications:
             for handler in self._handlers.values():
                 if 'show' in handler.capabilities:
                     handler.show(self, uid)
-    
+
     @asyncio.coroutine
     def hide(self, uid):
         """If ``uid`` is in the list of current notifications then hide it."""
-        
+
         if uid in self._notifications:
             for handler in self._handlers.values():
                 if 'hide' in handler.capabilities:
                     handler.show(self, uid)
-    
+
     def event_handler(self, async_response):
         """Event handler for callback events. Default handler does nothing.
-        
+
         :param async_response: The event
         :type async_response:  :class:`hiss.NotificationEvent`
         """
@@ -381,12 +381,11 @@ class Notifier(object):
         #if async_response.code >= 0 and async_response.code <= 2:
         #    if async_response.nid in self._notifications:
         #        del self._notifications[async_response.nid]
-                
+
         self.event_handler(async_response)
 
     def _unique_id(self):
         return str(uuid.uuid4())
-
 
 class TargetList(object):
     def __init__(self):
@@ -396,12 +395,12 @@ class TargetList(object):
         for t in self.targets:
             if target == t:
                 return True
-            
+
         return False
-        
+
     def __iter__(self):
         return self.targets.__iter__()
-        
+
     def append(self, target):
         self.targets.append(target)
 
@@ -411,7 +410,7 @@ class TargetList(object):
             if target == t:
                 index_to_delete = idx
                 break
-        
+
         if index_to_delete != -1:
             del self.targets[index_to_delete]
 
@@ -420,20 +419,20 @@ class TargetList(object):
             target_or_targets = self.targets
         else:
             target_or_targets = self._known_targets(target_or_targets)
-            
+
         return target_or_targets
 
     def _known_targets(self, target_or_targets):
         """Filter out unknown target_or_targets"""  
-        
+
         if isinstance(target_or_targets, Target) and target_or_targets in self.targets:
             return [target_or_targets]
-        
+
         _targets = []
         for target in target_or_targets:
             if target in self.targets:
                 _targets.append(target)
-                
+
         return _targets
-        
+
     

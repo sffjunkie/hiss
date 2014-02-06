@@ -30,20 +30,19 @@ XBMC_PASSWORD = 'xbmc'
 class XBMCError(Exception):
     pass
 
-
 class XBMCHandler(Handler):
     """:class:`~hiss.handler.Handler` sub-class for XBMC messages"""
-    
+
     __handler__ = 'XBMC'
 
     def __init__(self, username=XBMC_USERNAME, password=XBMC_PASSWORD, loop=None):
         super().__init__(loop)
-        
+
         self.port = XBMC_DEFAULT_PORT
         self.username = username
         self.password = password
         self.capabilities = ['notify']
-    
+
     @asyncio.coroutine
     def connect(self, target):
         protocol = XBMC()
@@ -52,18 +51,17 @@ class XBMCHandler(Handler):
         target.port = self.port
         target.username = self.username
         target.password = self.password
-        
+
         protocol.target = target
         return protocol
 
-
 class XBMC(asyncio.Protocol):
     """XBMC JSON Protocol."""
-    
+
     @asyncio.coroutine
     def notify(self, notification, notifier):
         """Send a notification
-        
+
         :param notification: The notification to send
         :type notification: :class:`~hiss.notification.Notification`
         :param notifier: The notifier to send the notification for or None for
@@ -78,44 +76,43 @@ class XBMC(asyncio.Protocol):
     @asyncio.coroutine
     def send_request(self, request, target):
         request_data = request.marshall()
-        
+
         auth = (target.username, target.password)
-        
+
         client = aiohttp.HttpClient([(target.host, target.port)], method='POST',
                                     path='/jsonrpc')
         headers = {'Content-Type': 'application/json'}
-        
+
         result = {}
         try:
             http_response = yield from client.request(headers=headers, data=request_data, auth=auth)
             if http_response.status == 200:
                 response_data = yield from http_response.read()
                 http_response.close()
-            
+
                 data = json.loads(response_data.decode('UTF-8'))
-                
+
                 result['status'] = data['result']
                 if data['result'] == 'OK':
                     result['status_code'] = 0
             else:
                 result['status'] = 'ERROR'
                 result['reason'] = http_response.reason
-            
+
         except Exception as exc:
             result['status'] = 'ERROR'
             result['reason'] = exc.args[0]
 
         return result
 
-
 class _NotificationRequest(Request):
     def __init__(self, notification):
         Request.__init__(self, uid=notification.uid,
                              method='GUI.ShowNotification')
-        
+
         self.append('title', notification.title)
         self.append('message', notification.text)
-        
+
         if notification.icon is not None:
             if isinstance(notification.icon, Icon):
                 image = notification.icon.data
@@ -123,7 +120,7 @@ class _NotificationRequest(Request):
                 image = quote_plus('image://%s' % notification.icon[8:])
             else:
                 image = notification.icon
-                
+
             self.append('image', image)
 
         if notification.timeout != -1:

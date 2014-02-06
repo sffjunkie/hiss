@@ -20,4 +20,3 @@ from hiss.notifier import Notifier
 from hiss.target import Target
 from hiss.notification import Notification
 from hiss.event import Event
-

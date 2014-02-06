@@ -33,7 +33,7 @@ __all__ = ['TargetError', 'Target']
 for s in [SNP_SCHEME, GNTP_SCHEME, XBMC_SCHEME]:
     if s not in urlparse.uses_relative:
         urlparse.uses_relative.append(s)
-        
+
     if s not in urlparse.uses_netloc:
         urlparse.uses_netloc.append(s)
 
@@ -43,39 +43,38 @@ for s in [SNP_SCHEME, GNTP_SCHEME, XBMC_SCHEME]:
     if s not in urlparse.uses_query:
         urlparse.uses_query.append(s)
 
-
 class Target(object):
     """A target for notifications.
-    
+
     Targets are specified using a URL like string of the form ::
-    
+
         scheme://[password@]host[:port]
-    
+
     where scheme is one of ``snp``, ``gntp`` or ``xbmc``.
-    
+
     If no port number is specified then the default port for the target type will be used
-    
+
     All values can be specified using named parameters.
     """
-        
+
     def __init__(self, url='', **kwargs):
         if url == '':
             url = '%s:///' % DEFAULT_SCHEME
-        
+
         self.password = None
         self.port = -1
-        
+
         result = urlparse.urlparse(url)
         if result.scheme != '':
             self.scheme = result.scheme
-            
+
             host = ''
             if result.netloc != '':
                 try:
                     self.password, hostport = result.netloc.split('@')
                 except:
                     hostport = result.netloc
-                        
+
                 try:
                     host, port = hostport.split(':')
                 except:
@@ -84,7 +83,7 @@ class Target(object):
             else:
                 host = '127.0.0.1'
                 port = -1
-                
+
             self.host = host
             self.port = int(port)
         elif url.startswith(SNP_SCHEME):
@@ -98,7 +97,7 @@ class Target(object):
             self.host = url[len(XBMC_SCHEME):].lstrip(':')
         else:
             self.scheme = url
-            
+
         if self.scheme not in [SNP_SCHEME, GNTP_SCHEME, XBMC_SCHEME]:
             raise TargetError('Unknown protocol %s' % url)
 
@@ -106,10 +105,10 @@ class Target(object):
         self.host = kwargs.get('host', self.host)
         self.port = kwargs.get('port', self.port)
         self.password = kwargs.get('password', self.password)
-        
+
         if self.host == '' or self.host == 'localhost':
             self.host = '127.0.0.1'
-        
+
         self.enabled = True
         self.handler = None
         self.protocol_version = ''
@@ -119,11 +118,11 @@ class Target(object):
     @property    
     def is_remote(self):
         """Return True if host is on a remote machine.
-        
+
         This is used to determine if the password information needs to be sent with each
         message.
         """
-        
+
         local_hosts = ['127.0.0.1', 'localhost']
         local_hosts.extend(socket.gethostbyname_ex(socket.gethostname())[2])
         return self.host not in local_hosts
@@ -134,6 +133,6 @@ class Target(object):
     def __eq__(self, other):
         """Tests that 2 targets are equal ignoring the password.
         """ 
-        
+
         return (self.scheme, self.host, self.port) == \
                (other.scheme, other.host, other.port)

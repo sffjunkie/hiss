@@ -19,14 +19,11 @@ __all__ = ['HissError', 'MessageError', 'NotifierError', 'TargetError']
 class HissError(Exception):
     pass
 
-
 class MessageError(HissError):
     pass
 
-
 class NotifierError(HissError):
     pass
-
 
 class TargetError(HissError):
     pass

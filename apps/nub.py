@@ -17,18 +17,18 @@ class Nub(Factory, object):
         self._hostname = socket.gethostname()
         self._ip = socket.gethostbyname(self._hostname)
         self.port = find_open_port(from_port=port)
-        
+
         print(self._hostname, self._ip)
 
     def startFactory(self):
         self.handlers = []
-    
+
     def stopFactory(self):
         pass
-    
+
     def connectionMade(self):
         print('Connection made')
-    
+
     def buildProtocol(self, addr):
         pass
         #print('%s:%s <%s>' % (addr.host, addr.port, addr.type))
@@ -39,9 +39,9 @@ class Nub(Factory, object):
     def port():
         def fget(self):
             return self.port
-            
+
         return locals()
-        
+
     port = property(**port())
 
 nub = Nub()

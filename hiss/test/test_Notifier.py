@@ -40,52 +40,52 @@ def test_Notifier_Init():
 
 def test_Notifier_RegisterTarget(notifier):
     loop = asyncio.get_event_loop()
-    
+
     def coro():
         #target = Target('snp://127.0.0.1')
         target = Target('gntp://127.0.0.1')
-        
+
         _response = yield from notifier.add_target(target)
         _response = yield from notifier.register(target)
         pass
-        
+
     c = coro()
     loop.run_until_complete(c)
 
 def test_Notifier_Notify(notifier):
     loop = asyncio.get_event_loop()
-    
+
     def coro():
         #target = Target('snp://127.0.0.1')
         target = Target('gntp://127.0.0.1')
-        
+
         notification = notifier.create_notification(name='Old',
                                                     title='A notification',
                                                     text='This is a wonderful notification')
-        
+
         _response = yield from notifier.add_target(target)
         _response = yield from notifier.notify(notification, target)
         pass
-        
+
     c = coro()
     loop.run_until_complete(c)
 
 def test_Notifier_Notify_MultipleTargets(notifier):
     loop = asyncio.get_event_loop()
-    
+
     def coro():
         #target = Target('snp://127.0.0.1')
         t1 = Target('gntp://127.0.0.1')
         t2 = Target('xbmc://127.0.0.1')
-        
+
         notification = notifier.create_notification(name='New',
                                                     title='One notification',
                                                     text='Sent to multiple targets')
-        
+
         _response = yield from notifier.add_target([t1, t2])
         _response = yield from notifier.notify(notification)
         pass
-        
+
     c = coro()
     loop.run_until_complete(c)
         

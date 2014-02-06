@@ -56,7 +56,7 @@ def test_connect():
         logging.debug('GNTP: connect')
         yield from h.connect(t)
         assert t.handler == h
-        
+
     loop.run_until_complete(coro())
 
 def test_register(notifier):
@@ -65,14 +65,14 @@ def test_register(notifier):
     @asyncio.coroutine
     def coro():
         h = GNTPHandler(loop=loop)
-        
+
         t = Target('gntp://%s' % HOST)
         notifier.add_target(t)
-        
+
         logging.debug('GNTP: register')
         response = yield from h.register(notifier, t)
         assert response['status'] == 'OK'
-    
+
     loop.run_until_complete(coro())
 
 def test_unregister(notifier):
@@ -81,14 +81,14 @@ def test_unregister(notifier):
     @asyncio.coroutine
     def coro():
         h = GNTPHandler(loop=loop)
-        
+
         t = Target('gntp://%s' % HOST)
-        
+
         logging.debug('GNTP: unregister')
         response = yield from h.unregister(notifier, t)
         assert response['status'] == 'ERROR'
         assert response['reason'] == 'Unsupported'
-    
+
     c = coro()
     loop.run_until_complete(c)
 
@@ -99,14 +99,14 @@ def test_register_with_icon(notifier, icon):
     def coro():
         h = GNTPHandler(loop=loop)
         notifier.icon = icon
-        
+
         t = Target('gntp://%s' % HOST)
-        
+
         logging.debug('GNTP: register with icon')
         response = yield from h.register(notifier, t)
         assert response['status'] == 'OK'
         assert response['status_code'] == 0
-    
+
     c = coro()
     loop.run_until_complete(c)
 
@@ -116,9 +116,9 @@ def test_notification(notifier):
     @asyncio.coroutine
     def coro():
         h = GNTPHandler(loop=loop)
-        
+
         t = Target('gntp://%s' % HOST)
-        
+
         notification = notifier.create_notification(name='New',
                                              title="A brave new world",
                                              text="Say hello to Prism")
@@ -126,7 +126,7 @@ def test_notification(notifier):
         response = yield from h.notify(notification, t)
         assert response['status'] == 'OK'
         assert response['status_code'] == 0
-    
+
     c = coro()
     loop.run_until_complete(c)
 
@@ -136,9 +136,9 @@ def test_notification_with_string_callback(notifier):
     @asyncio.coroutine
     def coro():
         h = GNTPHandler(loop=loop)
-        
+
         t = Target('gntp://%s' % HOST)
-        
+
         notification = notifier.create_notification(name='Old',
                                              title="With a string call back",
                                              text="Press me")
@@ -146,7 +146,7 @@ def test_notification_with_string_callback(notifier):
         logging.debug('GNTP: notify with string callback')
         response = yield from h.notify(notification, t)
         assert response['status'] == 'OK'
-    
+
     c = coro()
     loop.run_until_complete(c)
 
@@ -156,9 +156,9 @@ def test_notification_with_url_callback(notifier):
     @asyncio.coroutine
     def coro():
         h = GNTPHandler(loop=loop)
-        
+
         t = Target('gntp://%s' % HOST)
-        
+
         notification = notifier.create_notification(name='New',
                                              title="With a call back",
                                              text="Press me")
@@ -166,7 +166,7 @@ def test_notification_with_url_callback(notifier):
         logging.debug('GNTP: notify with url callback')
         response = yield from h.notify(notification, t)
         assert response['status'] == 'OK'
-    
+
     c = coro()
     loop.run_until_complete(c)
 
@@ -176,9 +176,9 @@ def test_notification_with_icon(notifier, icon_inverted):
     @asyncio.coroutine
     def coro():
         h = GNTPHandler(loop=loop)
-        
+
         t = Target('gntp://%s' % HOST)
-        
+
         logging.debug('GNTP: notify with icon')
         notification = notifier.create_notification(name='Old',
                                              title="A brave new world",
@@ -186,35 +186,35 @@ def test_notification_with_icon(notifier, icon_inverted):
                                              icon=icon_inverted)
         response = yield from h.notify(notification, t)
         assert response['status'] == 'OK'
-    
+
     c = coro()
     loop.run_until_complete(c)
-    
+
 def test_notification_multiple(notifier):
     loop = asyncio.get_event_loop()
 
     @asyncio.coroutine
     def coro():
         h = GNTPHandler(loop=loop)
-        
+
         t = Target('gntp://%s' % HOST)
-        
+
         n1 = notifier.create_notification(name='New',
                                    title="A brave new world",
                                    text="Say hello to Prism")
         n1.add_callback('callback_test')
-        
+
         n2 = notifier.create_notification(name='Old',
                                    title="A second Coming",
                                    text="Say hello to the Time Lords")
-        
+
         logging.debug('GNTP: multiply notify')
         done, pending = yield from asyncio.wait([h.notify(n1, t), h.notify(n2, t)])
-        
+
         for task in done:
             response = task.result()
             assert response['status'] == 'OK'
             assert response['status_code'] == 0
-    
+
     c = coro()
     loop.run_until_complete(c)

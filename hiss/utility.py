@@ -33,18 +33,14 @@ def indent_text(text, indent=4):
 
     return out
 
-
 def indent_print(text, indent=4):
     print(indent_text(text, indent))
-
 
 def find_hostname():
     return socket.gethostname()
 
-
 def find_local_address():
     return socket.gethostbyname(socket.gethostname())
-
 
 def find_open_port(from_port, interface='0.0.0.0'):
     UDPSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -60,7 +56,6 @@ def find_open_port(from_port, interface='0.0.0.0'):
     UDPSock.close()
     return port
 
-
 def netmask_valid(netmask):
     elems = netmask.split('.')
     if len(elems) != 4:
@@ -74,7 +69,6 @@ def netmask_valid(netmask):
 
     return (((neg + 1) & neg) == 0)
 
-
 def ip_to_int(ip):
     elems = ip.split('.')
 
@@ -84,7 +78,6 @@ def ip_to_int(ip):
 
     return num
 
-
 def int_to_ip(num):
     ip = []
     for i in range(4):
@@ -92,13 +85,11 @@ def int_to_ip(num):
 
     return '.'.join(ip)
 
-
 def find_broadcast(ip, netmask):
     i = ip_to_int(str(ip))
     n = ip_to_int(str(netmask))
 
     return int_to_ip((n & i) | ~n)
-
 
 def guess_broadcast(ip):
     elems = ip.split('.')
@@ -116,19 +107,15 @@ def guess_broadcast(ip):
     else:
         return find_broadcast(ip, '255.255.255.0')
 
-
 def xpl_format_source(vendor, device, instance):
     return '%s-%s.%s' % (vendor, device, instance)
-
 
 def xap_format_source(vendor, device, instance):
     return '%s.%s.%s' % (vendor, device, instance)
 
-
 def format_ip_address(address):
     return ''.join(map(lambda n: "%03d" % int(n), address.split('.')))
 
-           
 def parse_datetime(string):
     for df in DATETIME_FORMATS:
         try:
@@ -136,6 +123,6 @@ def parse_datetime(string):
             return dt
         except:
             pass
-    
+
     logging.debug('parse_datetime: Unable to parse datetime string %s' % string)
     return string

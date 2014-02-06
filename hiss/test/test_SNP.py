@@ -57,7 +57,7 @@ def test_connect():
         t = Target('snp://%s' % HOST)
         _protocol = yield from h.connect(t)
         assert t.handler == h
-        
+
     loop.run_until_complete(coro())
 
 def test_register(notifier):
@@ -66,29 +66,28 @@ def test_register(notifier):
     @asyncio.coroutine
     def coro():
         h = SNPHandler(loop=loop)
-        
+
         t = Target('snp://%s' % HOST)
-        
-        
+
         response = yield from h.register(notifier, t)
         assert response['result'] == 'OK'
-    
+
     c = coro()
     loop.run_until_complete(c)
 
 def test_unregister(notifier):
     loop = asyncio.get_event_loop()
-    
+
     def coro():
         h = SNPHandler(loop=loop)
         t = Target('snp://%s' % HOST)
-        
+
         response = yield from h.register(notifier, t)
         assert response['status'] == 'OK'
-    
+
         response = yield from h.unregister(notifier, t)
         assert response['status'] == 'OK'
-    
+
     c = coro()
     loop.run_until_complete(c)
 
@@ -100,12 +99,12 @@ def test_register_with_icon(notifier, icon):
         h = SNPHandler(loop=loop)
 
         notifier.icon = icon
-        
+
         t = Target('snp://%s' % HOST)
-        
+
         response = yield from h.register(notifier, t)
         assert response['status'] == 'OK'
-    
+
     c = coro()
     loop.run_until_complete(c)
 
@@ -115,15 +114,15 @@ def test_notification(notifier):
     @asyncio.coroutine
     def coro():
         h = SNPHandler(loop=loop)
-        
+
         t = Target('snp://%s' % HOST)
-        
+
         notification = notifier.create_notification(name='New',
                                              title="A brave new world",
                                              text="Say hello to Prism")
         response = yield from h.notify(notification, t)
         assert response['status'] == 'OK'
-    
+
     c = coro()
     loop.run_until_complete(c)
 
@@ -133,16 +132,16 @@ def test_notification_with_string_callback(notifier):
     @asyncio.coroutine
     def coro():
         h = SNPHandler(loop=loop)
-        
+
         t = Target('snp://%s' % HOST)
-        
+
         notification = notifier.create_notification(name='New',
                                              title="With a call back",
                                              text="Press me")
         notification.add_callback('callback_test')
         response = yield from h.notify(notification, t)
         assert response['status'] == 'OK'
-    
+
     c = coro()
     loop.run_until_complete(c)
 
@@ -152,16 +151,16 @@ def test_notification_with_url_callback(notifier):
     @asyncio.coroutine
     def coro():
         h = SNPHandler(loop=loop)
-        
+
         t = Target('snp://%s' % HOST)
-        
+
         notification = notifier.create_notification(name='New',
                                              title="With URL call back",
                                              text="Press me")
         notification.add_callback('http://news.bbc.co.uk/sport')
         response = yield from h.notify(notification, t)
         assert response['status'] == 'OK'
-    
+
     c = coro()
     loop.run_until_complete(c)
 
@@ -171,15 +170,15 @@ def test_notification_with_icon(notifier, icon_inverted):
     @asyncio.coroutine
     def coro():
         h = SNPHandler(loop=loop)
-        
+
         t = Target('snp://%s' % HOST)
-        
+
         notification = notifier.create_notification(name='Old',
                                              title="A brave new world",
                                              text="This notification should have an icon",
                                              icon=icon_inverted)
         response = yield from h.notify(notification, t)
         assert response['status'] == 'OK'
-    
+
     c = coro()
     loop.run_until_complete(c)

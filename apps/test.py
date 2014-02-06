@@ -22,7 +22,7 @@ class App(object):
         self._notifier.set_target(target)
         self._notifier.register()
         self._reactor.callLater(1, loop)
-        
+
     def run(self):
         self._reactor.run()
 
