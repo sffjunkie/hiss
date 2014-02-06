@@ -489,10 +489,19 @@ class Request(object):
         return data
 
     def _marshall_30(self):
-        if self.use_hash and self.password != '':
-            data = 'SNP/3.0 %s\r\n' % self._hash()
+        data = 'SNP/3.0'
+        if self.password != '':
+            if self.use_encryption:
+                data += ' %s' % self._encryption
+            else:
+                data += ' NONE'
+
+            if self.use_hash:
+                data += ' %s' % str(self._hash)
         else:
-            data = 'SNP/3.0\r\n'
+            data += 'NONE'
+            
+        data += '\r\n'
 
         for command in self.commands:
             data += '%s\r\n' % self._marshall_command(command)
