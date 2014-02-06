@@ -33,17 +33,48 @@ class HashInfo():
     """
 
     def __init__(self, algorithm, key_hash, salt):
-        if isinstance(algorithm, (bytes, bytearray)):
-            algorithm = algorithm.decode('UTF-8')
-        self.algorithm = algorithm.upper()
-
-        if isinstance(key_hash, str):
-            key_hash = unhexlify(key_hash.encode('UTF-8'))
+        self._algorithm = None
+        self._key_hash = None
+        self._salt = None
+    
+        self.algorithm = algorithm
         self.key_hash = key_hash
-
-        if isinstance(salt, str):
-            salt = unhexlify(salt.encode('UTF-8'))
         self.salt = salt
+
+    @property
+    def algorithm(self):
+        return self._algorithm
+    
+    @algorithm.setter
+    def algorithm(self, value):
+        if isinstance(value, (bytes, bytearray)):
+            value = value.decode('UTF-8')
+        value = value.upper()
+        
+        if value not in ['MD5', 'SHA1', 'SHA256']:
+            raise ValueError('Unknown hash algorithm %s specified.' % value)
+        
+        self._algorithm = value
+
+    @property
+    def key_hash(self):
+        return self._key_hash
+    
+    @key_hash.setter
+    def key_hash(self, value):
+        if isinstance(value, str):
+            value = unhexlify(value.encode('UTF-8'))
+        self._key_hash = value
+
+    @property
+    def salt(self):
+        return self._salt
+    
+    @salt.setter
+    def salt(self, value):
+        if isinstance(value, str):
+            value = unhexlify(value.encode('UTF-8'))
+        self._salt = value
 
     def __eq__(self, other):
         return self.algorithm == other.algorithm and \
