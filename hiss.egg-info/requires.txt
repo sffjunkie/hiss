@@ -1,5 +1,0 @@
-
-
-[xbmc]
-mogul.json
-aiohttp
