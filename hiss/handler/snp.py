@@ -730,10 +730,10 @@ class Response(object):
             if self.isevent:
                 self.nid = elems[4]
             else:
-                self.response = elems[4]
+                self.result = elems[4]
                 self.nid = ''
         else:
-            self.response = None
+            self.result = None
 
     def _unmarshall3(self, lines):
         results = []
@@ -793,9 +793,9 @@ class Response(object):
             self.reason = result.reason
 
         if len(results) == 1:
-            self.response = results[0]
+            self.result = results[0]
         else:
-            self.response = results
+            self.result = results
 
     def _encrypt(self):
         pass
