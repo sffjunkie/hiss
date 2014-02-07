@@ -380,14 +380,9 @@ class Notifier(object):
         """
 
     @asyncio.coroutine
-    def _handler(self, async_response):
-        ## If async_response is for a notification closing
-        #if async_response.code >= 0 and async_response.code <= 2:
-        #    if async_response.nid in self._notifications:
-        #        del self._notifications[async_response.nid]
-
-        logging.debug(async_response)
-        self.event_handler(async_response)
+    def _handler(self, responses):
+        logging.debug(responses)
+        self.event_handler(responses)
 
     def _unique_id(self):
         return str(uuid.uuid4())
