@@ -132,6 +132,7 @@ class SNPHandler(Handler):
 class SNPBaseProtocol(asyncio.Protocol):
     def __init__(self):
         self._target = None
+        self._buffer = None
 
     def connection_made(self, transport):
         self.response = None
@@ -729,10 +730,10 @@ class Response(object):
             if self.isevent:
                 self.nid = elems[4]
             else:
-                self.result = elems[4]
+                self.response = elems[4]
                 self.nid = ''
         else:
-            self.result = None
+            self.response = None
 
     def _unmarshall3(self, lines):
         results = []
@@ -792,9 +793,9 @@ class Response(object):
             self.reason = result.reason
 
         if len(results) == 1:
-            self.result = results[0]
+            self.response = results[0]
         else:
-            self.result = results
+            self.response = results
 
     def _encrypt(self):
         pass
