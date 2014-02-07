@@ -16,6 +16,7 @@
 
 import uuid
 import asyncio
+import logging
 from itertools import product
 from collections import namedtuple
 
@@ -385,6 +386,7 @@ class Notifier(object):
         #    if async_response.nid in self._notifications:
         #        del self._notifications[async_response.nid]
 
+        logging.debug(async_response)
         self.event_handler(async_response)
 
     def _unique_id(self):
