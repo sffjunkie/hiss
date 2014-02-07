@@ -331,7 +331,7 @@ class Notifier(object):
             else:
                 response = {'result': 'ERROR', 'reason': 'Not Supported'}
 
-            response['handler'] = target.handler.name
+            response['handler'] = target.handler.__handler__
             responses.append(response)
 
         if len(responses) == 1:
