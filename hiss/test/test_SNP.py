@@ -23,8 +23,7 @@ from hiss.handler.snp import SNPHandler
 from hiss.resource import Icon
 
 HOST = '127.0.0.1'
-#HOST = '10.84.23.66'
-NOTIFIER_UID = 'a4327658-f020-4065-b5c7-5fd4c5dd1fc0'
+REMOTE_HOST = '10.84.23.66'
 
 asyncio.log.logger.setLevel(asyncio.log.logging.INFO)
 
@@ -174,6 +173,43 @@ def test_SNP_Notification_WithIcon(notifier, icon_inverted):
         t = Target('snp://%s' % HOST)
 
         notification = notifier.create_notification(name='Old',
+                                             title="A brave new world",
+                                             text="This notification should have an icon",
+                                             icon=icon_inverted)
+        response = yield from h.notify(notification, t)
+        assert response['status'] == 'OK'
+
+    c = coro()
+    loop.run_until_complete(c)
+
+def test_SNP_Subscribe(notifier):
+    loop = asyncio.get_event_loop()
+
+    @asyncio.coroutine
+    def coro():
+        h = SNPHandler(loop=loop)
+
+        t = Target('snp://%s' % HOST)
+
+        yield from notifier.add_target(t)
+        response = yield from h.subscribe(notifier, [], notifier._handler, t)
+        assert response['status'] == 'OK'
+
+    c = coro()
+    loop.run_until_complete(c)
+   
+
+@pytest.mark.skipif(True, reason='Need a second machine')
+def test_SNP_Notification_RemoteHost(notifier, icon_inverted):
+    loop = asyncio.get_event_loop()
+
+    @asyncio.coroutine
+    def coro():
+        h = SNPHandler(loop=loop)
+
+        t = Target('snp://%s' % REMOTE_HOST)
+
+        notification = notifier.create_notification(name='New',
                                              title="A brave new world",
                                              text="This notification should have an icon",
                                              icon=icon_inverted)
