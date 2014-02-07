@@ -192,7 +192,7 @@ def test_SNP_Subscribe(notifier):
         t = Target('snp://%s' % HOST)
 
         yield from notifier.add_target(t)
-        response = yield from h.subscribe(notifier, [], notifier._handler, t)
+        response = yield from h.subscribe(notifier, [], t)
         assert response['status'] == 'OK'
 
     c = coro()
