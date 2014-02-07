@@ -41,6 +41,7 @@ def test_Notifier_Init():
 def test_Notifier_RegisterTarget(notifier):
     loop = asyncio.get_event_loop()
 
+    @asyncio.coroutine
     def coro():
         #target = Target('snp://127.0.0.1')
         target = Target('gntp://127.0.0.1')
@@ -55,6 +56,7 @@ def test_Notifier_RegisterTarget(notifier):
 def test_Notifier_Notify(notifier):
     loop = asyncio.get_event_loop()
 
+    @asyncio.coroutine
     def coro():
         #target = Target('snp://127.0.0.1')
         target = Target('gntp://127.0.0.1')
@@ -73,6 +75,7 @@ def test_Notifier_Notify(notifier):
 def test_Notifier_Notify_MultipleTargets(notifier):
     loop = asyncio.get_event_loop()
 
+    @asyncio.coroutine
     def coro():
         #target = Target('snp://127.0.0.1')
         t1 = Target('gntp://127.0.0.1')
