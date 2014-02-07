@@ -38,6 +38,20 @@ def test_Notifier_BadInit():
 def test_Notifier_Init():
     _n = Notifier('application/x-vnd.sffjunkie.test', 'Test')
 
+def test_Notifier_AddTarget(notifier):
+    loop = asyncio.get_event_loop()
+
+    @asyncio.coroutine
+    def coro():
+        #target = Target('snp://127.0.0.1')
+        target = Target('gntp://127.0.0.1')
+
+        _response = yield from notifier.add_target(target)
+        pass
+
+    c = coro()
+    loop.run_until_complete(c)
+
 def test_Notifier_RegisterTarget(notifier):
     loop = asyncio.get_event_loop()
 
