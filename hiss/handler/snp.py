@@ -116,10 +116,10 @@ class SNPHandler(Handler):
         self.capabilities = ['register', 'unregister', 'async', 'show', 'hide']
 
     @asyncio.coroutine
-    def connect(self, target):
-        """Override the default connect method to call the get_version method after connecting."""
+    def connect(self, target, factory=None):
+        """Override the handler.connect to call the get_version method."""
 
-        protocol = yield from super().connect(target)
+        protocol = yield from super().connect(target, factory)
 
         if not hasattr(target, 'api_version'):
             response = yield from protocol.get_version()
@@ -129,15 +129,14 @@ class SNPHandler(Handler):
         return protocol
 
 
-class SNP(asyncio.Protocol):
-    """Snarl Network Protocol."""
-
+class SNPBaseProtocol(asyncio.Protocol):
     def __init__(self):
-        self.use_encryption = False
-        self.use_hash = False
-
         self._target = None
-        self._buffer = None
+
+    def connection_made(self, transport):
+        self.response = None
+        self._buffer = bytearray()
+        self._transport = transport
 
     @property
     def target(self):
@@ -149,10 +148,80 @@ class SNP(asyncio.Protocol):
         if value.is_remote:
             self.use_hash = True
 
-    def connection_made(self, transport):
-        self.response = None
-        self._buffer = bytearray()
-        self._transport = transport
+    @asyncio.coroutine
+    def _send_request(self, request_info):
+        """Send a request_info to a list of targets
+
+        :param request_info:  Info for request to send
+        """
+
+        if self.target.protocol_version == '':
+            self.target.protocol_version = SNP_BASE_VERSION
+
+        if self.target.protocol_version == '3.0' or \
+                len(request_info.commands) == 1:
+            response = yield from self._send_single(request_info,
+                self.target.protocol_version)
+        else:
+            response = yield from self._send_multiple(request_info,
+                self.target.protocol_version)
+
+        return response
+
+    @asyncio.coroutine
+    def _send_single(self, request_info, version):
+        request = Request(version)
+        for command in request_info.commands:
+            request.append(command)
+
+        data = request.marshall()
+        self._transport.write(data)
+        yield from self._wait_for_response()
+        return self.response
+
+    @asyncio.coroutine
+    def _send_multiple(self, commands, version):
+        responses = []
+        for command in commands:
+            response = yield from self._send_single([command], version)
+            responses.append(response)
+        return responses
+
+    @asyncio.coroutine
+    def _wait_for_response(self):
+        while True:
+            if self.response is not None:
+                return
+            else:
+                yield from asyncio.sleep(0.1)
+
+    def _build_result(self, command):        
+        result = {}
+        result['handler'] = 'SNP'
+        result['command'] = command
+        result['status'] = self.response.status
+        result['status_code'] = self.response.status_code
+        result['result'] = self.response.result
+
+        if hasattr(self.response, 'timestamp'):
+            result['timestamp'] = parse_datetime(self.response.timestamp)
+
+        if hasattr(self.response, 'daemon'):
+            result['daemon'] = self.response.daemon
+
+        return result
+
+
+class SNP(SNPBaseProtocol):
+    """Snarl Network Protocol."""
+
+    def __init__(self):
+        self.use_encryption = False
+        self.use_hash = False
+
+        self._buffer = None
+        
+        super().__init__()
 
     def data_received(self, data):
         self._buffer.extend(data)
@@ -293,78 +362,13 @@ class SNP(asyncio.Protocol):
         logging.debug(pformat(result))
         return result
 
-    @asyncio.coroutine
-    def _send_request(self, request_info):
-        """Send a request_info to a list of targets
 
-        :param request_info:  Info for request to send
-        """
+class SNPAsync(SNPBaseProtocol):
+    """Handling for asynchronous SNP responses."""
 
-        if self.target.protocol_version == '':
-            self.target.protocol_version = SNP_BASE_VERSION
-
-        if self.target.protocol_version == '3.0' or len(request_info.commands) == 1:
-            response = yield from self._send_single(request_info,
-                                                    self.target.protocol_version)
-        else:
-            response = yield from self._send_multiple(request_info,
-                                                      self.target.protocol_version)
-
-        return response
-
-    @asyncio.coroutine
-    def _send_single(self, request_info, version):
-        request = Request(version)
-        for command in request_info.commands:
-            request.append(command)
-
-        data = request.marshall()
-        self._transport.write(data)
-        yield from self._wait_for_response()
-        return self.response
-
-    @asyncio.coroutine
-    def _send_multiple(self, commands, version):
-        responses = []
-        for command in commands:
-            response = yield from self._send_single([command], version)
-            responses.append(response)
-        return responses
-
-    @asyncio.coroutine
-    def _wait_for_response(self):
-        while True:
-            if self.response is not None:
-                return
-            else:
-                yield from asyncio.sleep(0.1)
-
-    def _build_result(self, command):        
-        result = {}
-        result['handler'] = 'SNP'
-        result['command'] = command
-        result['status'] = self.response.status
-        result['status_code'] = self.response.status_code
-        result['result'] = self.response.result
-
-        if hasattr(self.response, 'timestamp'):
-            result['timestamp'] = parse_datetime(self.response.timestamp)
-
-        if hasattr(self.response, 'daemon'):
-            result['daemon'] = self.response.daemon
-
-        return result
-
-
-class SNPAsync(asyncio.Protocol):
-    """ """
-
-    def connection_made(self, transport):
-        self.responses = []
-        self.async_responses = []
-
-        self._buffer = bytearray()
-        self._transport = transport
+    def __init__(self):
+        self._async_handler = None
+        super().__init__()
 
     def data_received(self, data):
         self._buffer.extend(data)
@@ -375,6 +379,7 @@ class SNPAsync(asyncio.Protocol):
         else:
             end_of_response_marker = b'END\r\n'
 
+        responses = []
         end = self._buffer.find(end_of_response_marker)
         while end != -1:
             if version == '2.0':
@@ -387,30 +392,42 @@ class SNPAsync(asyncio.Protocol):
             response = Response()
             response.version = version
             response.unmarshall(data)
-            self.responses.append(response)
+            responses.append(response)
 
             end = self._buffer.find(end_of_response_marker)
 
+        if self.response is None:
+            self.response = responses.pop(0)
+        else:
+            asyncio.async(self._async_handler(responses))
+
     @asyncio.coroutine
-    def subscribe(self, notifier, signatures=[], targets=None):
+    def subscribe(self, notifier, signatures, async_handler):
         """Subscribe to notifications from a list of signatures
 
-        :param notifier:   Notifier to use.
-        :type notifier:    :class:`hiss.Notifier`
-        :param signatures: Application signatures to receive messages from
-        :type signatures:  List of string or [] for all
-                           applications
-        :param targets:    list of targets to notify or None to
-                           send to all targets
-        :type targets:     list of :class:`hiss.Target` or None
-        :returns:        The Response received.
+        :param notifier:      Notifier to use.
+        :type notifier:       :class:`hiss.Notifier`
+        :param signatures:    Application signatures to receive messages from
+        :type signatures:     List of string or [] for all
+                              applications
+        :param async_handler: A callable which receives a list of asynchronous
+                              reponses
+        :type async_handler:  A callable which accepts a single parameter
+        :returns:             The Response received.
         """
-
-        self.response_handler = notifier._handler
+        
+        if not callable(async_handler):
+            raise ValueError('%s: async_handler must be callable' % 
+                             self.__class__.__qualname__)
+        
+        self._async_handler = async_handler
 
         request_info = _SubscribeRequestInfo(notifier, signatures)
-        response = yield from self._send_request(request_info)
-        return response
+        yield from self._send_request(request_info)
+
+        result = self._build_result('subscribe')
+        logging.debug(pformat(result))
+        return result
 
 
 SNPCommand = namedtuple('SNPCommand', 'name parameters')
@@ -917,17 +934,6 @@ class _NotifyRequestInfo(object):
         self.commands.append(('notify', parameters))
 
 
-class _SubscribeRequestInfo(object):
-    def __init__(self, notifier, signatures):
-        self.commands = []
-
-        parameters = {}
-        parameters['app-sig'] = signatures
-        parameters['password'] = notifier.uid
-
-        self.commands.append(('subscribe', parameters))
-
-
 class _AddActionRequestInfo(object):
     def __init__(self, notifier, notification, command, label):
         self.commands = []
@@ -988,6 +994,17 @@ class _HideRequestInfo(object):
         parameters['uid'] = uid
 
         self.commands.append(('hide', parameters))
+
+
+class _SubscribeRequestInfo(object):
+    def __init__(self, notifier, signatures):
+        self.commands = []
+
+        parameters = {}
+        parameters['app-sig'] = signatures
+        parameters['password'] = notifier.uid
+
+        self.commands.append(('subscribe', parameters))
 
 
 def snp64(data):
