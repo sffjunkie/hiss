@@ -378,6 +378,7 @@ class Notifier(object):
         :type async_response:  :class:`hiss.NotificationEvent`
         """
 
+    @asyncio.coroutine
     def _handler(self, async_response):
         ## If async_response is for a notification closing
         #if async_response.code >= 0 and async_response.code <= 2:
