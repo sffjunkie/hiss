@@ -113,7 +113,7 @@ class SNPHandler(Handler):
         self.port = SNP_DEFAULT_PORT
         self.factory = Factory(SNP)
         self.async_factory = Factory(SNPAsync)
-        self.capabilities = ['register', 'unregister', 'async', 'show', 'hide']
+        self.capabilities = ['register', 'unregister', 'subscribe', 'show', 'hide']
 
     @asyncio.coroutine
     def connect(self, target, factory=None):

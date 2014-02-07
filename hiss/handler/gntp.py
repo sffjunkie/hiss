@@ -51,7 +51,7 @@ class GNTPHandler(Handler):
 
         self.port = GNTP_DEFAULT_PORT
         self.factory = Factory(GNTP)
-        self.capabilities = ['register', 'async']
+        self.capabilities = ['register', 'subscribe']
 
 
 class GNTP(asyncio.Protocol):

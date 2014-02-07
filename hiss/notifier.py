@@ -368,17 +368,17 @@ class Notifier(object):
                 if 'hide' in handler.capabilities:
                     handler.show(self, uid)
 
-    def event_handler(self, async_response):
+    def responses_received(self, responses):
         """Event handler for callback events. Default handler does nothing.
 
-        :param async_response: The event
-        :type async_response:  :class:`hiss.NotificationEvent`
+        :param responses: The event
+        :type responses:  :class:`hiss.NotificationEvent`
         """
 
     @asyncio.coroutine
     def _handler(self, responses):
         logging.debug(responses)
-        self.event_handler(responses)
+        self.responses_received(responses)
 
     def _unique_id(self):
         return str(uuid.uuid4())

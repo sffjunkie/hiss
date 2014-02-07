@@ -185,7 +185,7 @@ class Handler():
     def subscribe(self, notifier, signatures, target):
         """Subscribe to notifications from a list of signatures"""
 
-        if 'async' in self.capabilities:
+        if 'subscribe' in self.capabilities:
             try:
                 protocol = yield from self.connect(target, self.async_factory)
             except Exception as exc:
