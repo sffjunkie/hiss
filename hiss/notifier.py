@@ -325,7 +325,9 @@ class Notifier(object):
         responses = []
         for target in targets:
             if 'async' in target.handler.capabilities:
-                response = yield from target.handler.subscribe(self, signatures, targets)
+                response = yield from target.handler.subscribe(self, signatures,
+                                                               self._handler,
+                                                               target)
             else:
                 response = {'result': 'ERROR', 'reason': 'Not Supported'}
 
