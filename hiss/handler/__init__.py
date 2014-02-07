@@ -181,6 +181,23 @@ class Handler():
         else:
             return self._unsupported()
 
+    @asyncio.coroutine
+    def subscribe(self, notifier, signatures, async_handler, target):
+        """Subscribe to notifications from a list of signatures"""
+
+        if 'async' in self.capabilities:
+            try:
+                protocol = yield from self.connect(target, self.async_factory)
+            except Exception as exc:
+                return self._connect_exception(exc)
+
+            response = yield from protocol.subscribe(notifier, signatures,
+                                                     async_handler)
+            response['handler'] = self.__handler__
+            return response
+        else:
+            return self._unsupported()
+
     def _connect_exception(self, exc):
         logging.exception('%s: %s' % (exc.__class__.__qualname__, str(exc)))
         response = {
