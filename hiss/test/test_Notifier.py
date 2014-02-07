@@ -105,4 +105,18 @@ def test_Notifier_Notify_MultipleTargets(notifier):
 
     c = coro()
     loop.run_until_complete(c)
+
+def test_Notifier_Subscribe(notifier):
+    loop = asyncio.get_event_loop()
+
+    @asyncio.coroutine
+    def coro():
+        target = Target('snp://127.0.0.1')
+
+        _response = yield from notifier.add_target(target)
+        _response = yield from notifier.subscribe()
+        pass
+
+    c = coro()
+    loop.run_until_complete(c)
         
