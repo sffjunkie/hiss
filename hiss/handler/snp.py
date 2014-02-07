@@ -402,7 +402,7 @@ class SNPAsync(SNPBaseProtocol):
             asyncio.async(self._async_handler(responses))
 
     @asyncio.coroutine
-    def subscribe(self, notifier, signatures, async_handler):
+    def subscribe(self, notifier, signatures):
         """Subscribe to notifications from a list of signatures
 
         :param notifier:      Notifier to use.
@@ -410,17 +410,14 @@ class SNPAsync(SNPBaseProtocol):
         :param signatures:    Application signatures to receive messages from
         :type signatures:     List of string or [] for all
                               applications
-        :param async_handler: A callable which receives a list of asynchronous
-                              reponses
-        :type async_handler:  A callable which accepts a single parameter
         :returns:             The Response received.
         """
         
-        if not callable(async_handler):
+        if not callable(notifier._handler):
             raise ValueError('%s: async_handler must be callable' % 
                              self.__class__.__qualname__)
         
-        self._async_handler = async_handler
+        self._async_handler = notifier._handler
 
         request_info = _SubscribeRequestInfo(notifier, signatures)
         yield from self._send_request(request_info)
