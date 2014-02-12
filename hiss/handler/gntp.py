@@ -27,6 +27,7 @@ from hiss.handler import Handler, Factory
 from hiss.utility import parse_datetime
 from hiss.resource import Icon
 
+from hiss.exception import HissError
 from hiss.hash import HashInfo, generate_hash, validate_hash
 from hiss.encryption import PY_CRYPTO, encrypt, decrypt
 
@@ -37,7 +38,7 @@ GNTP_BASE_VERSION = '1.0'
 DEFAULT_HASH_ALGORITHM = 'SHA256'
 ENCRYPTION_ALGORITHM = 'AES'
 
-class GNTPError(Exception):
+class GNTPError(HissError):
     pass
 
 
@@ -354,7 +355,7 @@ class Request(object):
                         info['Data'] = section[:length]
                         next_section_is_data = False
         else:
-            raise GNTPError('hiss.GNTP.unmarshall: Invalid GNTP message')
+            raise GNTPError('hiss.handler.gntp.Response.unmarshall: Invalid GNTP message')
 
     def _add_resource(self, key, resource):
         uid = resource.uid
@@ -542,7 +543,8 @@ class Response(object):
 
                             self.body[name].append(value)
                 except ValueError:
-                    logging.debug('hiss.GTNP.unmarshall - Error splitting %s' % line)
+                    logging.debug('hiss.handler.GNTP.Response.unmarshall - Error splitting %s' % line)
+                    raise
 
     def _encrypt(self, data):
         pass
