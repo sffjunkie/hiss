@@ -23,7 +23,7 @@ from hiss.handler.snp import SNPHandler
 from hiss.resource import Icon
 
 HOST = '127.0.0.1'
-BAD_HOST = '10.0.0.1'
+INVALID_HOST = '10.0.0.1'
 REMOTE_HOST = '10.84.23.66'
 
 asyncio.log.logger.setLevel(asyncio.log.logging.INFO)
@@ -54,7 +54,7 @@ def test_SNP_Connect_InvalidHost():
     @asyncio.coroutine
     def coro():
         h = SNPHandler(loop=loop)
-        t = Target('snp://%s' % BAD_HOST)
+        t = Target('snp://%s' % INVALID_HOST)
         
         with pytest.raises(ConnectionError):
             _protocol = yield from h.connect(t)
