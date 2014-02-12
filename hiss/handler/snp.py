@@ -74,6 +74,7 @@ SNARL_STATUS = {
     308: 'ActionSelected',
 }
 
+# The following error codes do not constitute a failed response  
 ACCEPTABLE_ERRORS = [203, 204]
 
 EVENT_MAPPING = {
