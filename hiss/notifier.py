@@ -49,6 +49,7 @@ class Notifier(object):
     :type loop:       :class:`asyncio.BaseEventLoop`
     """
 
+    #TODO: standardised icon and sound handling between handler types
     def __init__(self, name, signature,
                  icon=None, sound=None,
                  event_handler=None,
@@ -57,6 +58,7 @@ class Notifier(object):
         self.signature = signature
         self.icon = icon
         self.sound = sound
+        
         self.notification_classes = {}
         self.targets = TargetList()
 
