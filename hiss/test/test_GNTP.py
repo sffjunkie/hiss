@@ -232,3 +232,23 @@ def test_GNTP_Notification_Multiple(notifier):
 
     c = coro()
     loop.run_until_complete(c)
+
+@pytest.mark.skipif(True, reason='Need a second machine')
+def test_GNTP_Notification_RemoteHost(notifier, icon_inverted):
+    loop = asyncio.get_event_loop()
+
+    @asyncio.coroutine
+    def coro():
+        h = GNTPHandler(loop=loop)
+
+        t = Target('snp://%s' % REMOTE_HOST)
+
+        notification = notifier.create_notification(name='New',
+                                             title="A brave new world",
+                                             text="This notification should have an icon",
+                                             icon=icon_inverted)
+        response = yield from h.notify(notification, t)
+        assert response['status'] == 'OK'
+
+    c = coro()
+    loop.run_until_complete(c)
