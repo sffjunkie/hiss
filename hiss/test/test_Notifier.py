@@ -23,6 +23,8 @@ from hiss.target import Target
 
 asyncio.log.logger.setLevel(asyncio.log.logging.INFO)
 
+HOST = '127.0.0.1'
+
 @pytest.fixture
 def notifier():
     n = Notifier('A Notifier', 'application/x-vnd.sffjunkie.hiss',
@@ -43,8 +45,8 @@ def test_Notifier_AddTarget(notifier):
 
     @asyncio.coroutine
     def coro():
-        #target = Target('snp://127.0.0.1')
-        target = Target('gntp://127.0.0.1')
+        #target = Target('snp://%s' % HOST)
+        target = Target('gntp://%s' % HOST)
 
         _response = yield from notifier.add_target(target)
         pass
@@ -57,8 +59,8 @@ def test_Notifier_RegisterTarget(notifier):
 
     @asyncio.coroutine
     def coro():
-        #target = Target('snp://127.0.0.1')
-        target = Target('gntp://127.0.0.1')
+        #target = Target('snp://%s' % HOST)
+        target = Target('gntp://%s' % HOST)
 
         _response = yield from notifier.add_target(target)
         _response = yield from notifier.register(target)
@@ -72,8 +74,8 @@ def test_Notifier_Notify(notifier):
 
     @asyncio.coroutine
     def coro():
-        #target = Target('snp://127.0.0.1')
-        target = Target('gntp://127.0.0.1')
+        #target = Target('snp://%s' % HOST)
+        target = Target('gntp://%s' % HOST)
 
         notification = notifier.create_notification(name='Old',
                                                     title='A notification',
@@ -91,9 +93,9 @@ def test_Notifier_Notify_MultipleTargets(notifier):
 
     @asyncio.coroutine
     def coro():
-        #target = Target('snp://127.0.0.1')
-        t1 = Target('gntp://127.0.0.1')
-        t2 = Target('xbmc://127.0.0.1')
+        #target = Target('snp://%s' % HOST)
+        t1 = Target('gntp://%s' % HOST)
+        t2 = Target('xbmc://%s' % HOST)
 
         notification = notifier.create_notification(name='New',
                                                     title='One notification',
@@ -111,7 +113,7 @@ def test_Notifier_Subscribe(notifier):
 
     @asyncio.coroutine
     def coro():
-        target = Target('snp://127.0.0.1')
+        target = Target('snp://%s' % HOST)
 
         _response = yield from notifier.add_target(target)
         _response = yield from notifier.subscribe()
