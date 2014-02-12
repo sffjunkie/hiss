@@ -220,8 +220,6 @@ class SNP(SNPBaseProtocol):
     def __init__(self):
         self.use_encryption = False
         self.use_hash = False
-
-        self._buffer = None
         
         super().__init__()
 
