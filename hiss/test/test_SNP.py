@@ -23,6 +23,7 @@ from hiss.handler.snp import SNPHandler
 from hiss.resource import Icon
 
 HOST = '127.0.0.1'
+BAD_HOST = '10.0.0.1'
 REMOTE_HOST = '10.84.23.66'
 
 asyncio.log.logger.setLevel(asyncio.log.logging.INFO)
@@ -46,6 +47,19 @@ def icon_inverted():
     fname = os.path.abspath(os.path.join(os.path.dirname(__file__), 'python-powered-h-50x65-inverted.png'))
     fname = fname.replace('\\', '/')
     return Icon('file:///%s' % fname)
+
+def test_SNP_Connect_InvalidHost():
+    loop = asyncio.get_event_loop()
+
+    @asyncio.coroutine
+    def coro():
+        h = SNPHandler(loop=loop)
+        t = Target('snp://%s' % BAD_HOST)
+        
+        with pytest.raises(ConnectionError):
+            _protocol = yield from h.connect(t)
+
+    loop.run_until_complete(coro())
 
 def test_SNP_Connect():
     loop = asyncio.get_event_loop()
