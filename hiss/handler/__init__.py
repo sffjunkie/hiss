@@ -53,7 +53,7 @@ class Handler():
         return protocol
 
     @asyncio.coroutine
-    def register(self, notifier, target):
+    def register(self, notifier, target, **kwargs):
         """Connect to a target and register the notifier.
 
         :param notifier: Notifier to register
@@ -68,7 +68,7 @@ class Handler():
             except Exception as exc:
                 return self._connect_exception(exc)
 
-            response = yield from protocol.register(notifier)
+            response = yield from protocol.register(notifier, **kwargs)
             response['handler'] = self.__handler__
             return response
         else:
