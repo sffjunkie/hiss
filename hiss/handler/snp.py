@@ -245,6 +245,8 @@ class SNP(SNPBaseProtocol):
             response.version = version
             response.unmarshall(data)
             self.response = response
+            
+            self._transport.close()
 
     @asyncio.coroutine
     def get_version(self):
@@ -256,7 +258,7 @@ class SNP(SNPBaseProtocol):
         return self.response
 
     @asyncio.coroutine
-    def register(self, notifier):
+    def register(self, notifier, **kwargs):
         """Register ``notifier`` with a our target 
 
         :param notifier: Notifier to register
@@ -265,7 +267,7 @@ class SNP(SNPBaseProtocol):
 
         assert self.target.protocol_version != ''
 
-        request_info = _RegisterRequestInfo(notifier)
+        request_info = _RegisterRequestInfo(notifier, **kwargs)
         yield from self._send_request(request_info)
 
         result = self._build_result('register')
@@ -809,13 +811,17 @@ class _VersionRequestInfo(object):
 
 
 class _RegisterRequestInfo(object):
-    def __init__(self, notifier):
+    def __init__(self, notifier, **kwargs):
         self.commands = []
 
         parameters = {}
         parameters['app-sig'] = notifier.signature
         parameters['title'] = notifier.name
         parameters['password'] = notifier.uid
+        
+        keep_alive = kwargs.get('keep_alive', False)
+        if keep_alive:
+            parameters['keep-alive'] = '1'
 
         icon = notifier.icon
         if icon is not None:
