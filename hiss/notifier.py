@@ -21,6 +21,7 @@ from itertools import product
 from collections import namedtuple
 
 from hiss.target import Target
+from hiss.exception import NotifierError
 from hiss.notification import Notification
 from hiss.handler.gntp import GNTPHandler
 from hiss.handler.snp import SNPHandler
@@ -144,13 +145,13 @@ class Notifier(object):
 
         if class_id != -1:
             if class_id not in self.notification_classes:
-                raise ValueError('%d is not a known notification class id' % \
+                raise NotifierError('%d is not a known notification class id' % \
                                  str(class_id))
             info = self.notification_classes[class_id]
         elif name != '':
             info = self.find_notification(name)
         else:
-            raise ValueError('hiss.Notifier: Either a class id or name must be specified.')
+            raise NotifierError('hiss.Notifier: Either a class id or name must be specified.')
 
         if title is USE_REGISTERED:
             title = info.title
