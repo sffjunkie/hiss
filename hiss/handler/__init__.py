@@ -31,7 +31,7 @@ class Handler():
         :type target:  :class:`~hiss.target.Target`
         :param factory: The factory to use for the connection or None for the
                         standard factory
-        :type factory:  :class:`~hiss.handler.Factory` subclass
+        :type factory:  :class:`~hiss.handler.Factory`
 
         The target is added to the protocol instance"""
         
