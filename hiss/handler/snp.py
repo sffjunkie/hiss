@@ -17,12 +17,9 @@
 import asyncio
 import base64
 import logging
-import random
-import string
 from pprint import pformat
 from collections import namedtuple
 from os import urandom
-from hashlib import sha256
 from binascii import unhexlify
 from operator import attrgetter
 
@@ -453,9 +450,10 @@ class Request(object):
                          arguments
         """
 
-        if self.version == '2.0' and len(self.commands) == 1:
-            raise SNPError(("Version 2.0 messages don't "
-                              "support multiple commands"))
+        if self.version == '2.0' and len(self.commands) > 1:
+            raise SNPError(("Version 2.0 messages do not "
+                            "support multiple commands"),
+                           'Request.append')
 
         if len(kwargs) != 0:
             self.commands.append(SNPCommand(command, kwargs))
@@ -470,13 +468,15 @@ class Request(object):
 
         if self.use_hash or self.use_encryption:
             if self.password is None:
-                raise Exception('Password required to generate hash for marshall of request.')
+                raise MarshallError('Password required to generate hash for marshall of request.',
+                                    'Request.marshall')
 
             self._hash = generate_hash(self.password.encode('UTF-8'))
 
         if self.use_encryption:
             if not PY_CRYPTO:
-                raise Exception('Unable to encrypt message. PyCrypto not available')
+                raise MarshallError('Unable to encrypt message. PyCrypto not available',
+                                    'Request.marshall')
 
             if ENCRYPTION_ALGORITHM == 'AES':
                 iv = urandom(16)
@@ -490,7 +490,8 @@ class Request(object):
         elif self.version == '3.0':
             return self._marshall_30()
         elif self.version == '1.0':
-            raise MarshallError('SNP protocol version 1.0 is unsupported.')
+            raise MarshallError('SNP protocol version 1.0 is unsupported.',
+                                'Request.marshall')
 
     def unmarshall(self, data):
         """Unmarshall data received over the wire into a valid request"""
@@ -500,7 +501,8 @@ class Request(object):
         elif data.startswith(b'SNP/3.0'):
             self._unmarshall_30(data)
         else:
-            raise MarshallError('Invalid SNP Request.')
+            raise MarshallError('Invalid SNP Request.',
+                                'Request.unmarshall')
 
     def _marshall_20(self):
         data = self._marshall_command(self.commands[0]).encode('UTF-8')
@@ -565,7 +567,8 @@ class Request(object):
 
     def _unmarshall_30(self, data):
         if not data.endswith(b'END\r\n'):
-            raise MarshallError('Request.unmarshall: Invalid SNP 3.0 request')
+            raise MarshallError('Invalid SNP 3.0 request',
+                                'Request.unmarshall')
 
         data = data[:-2]
         lines = data.split(b'\r\n')
@@ -589,7 +592,8 @@ class Request(object):
                     
                 self.use_hash = True
         except ValueError:
-            raise MarshallError('Request.unmarshall: Invalid SNP body format: %s' % str(header))
+            raise MarshallError('Invalid SNP body format: %s' % str(header),
+                                'Request.unmarshall')
 
         self.commands = []
         for line in lines[1:-1]:
@@ -611,7 +615,8 @@ class Request(object):
 
             return SNPCommand(command, params)
         except ValueError:
-            raise MarshallError('Request.unmarshall: Invalid command format found: %s', str(data))
+            raise MarshallError('Invalid command format found: %s', str(data),
+                                'Request.unmarshall')
 
     def _expand_tuple(self, t):
         if isinstance(t, tuple):
