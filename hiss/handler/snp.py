@@ -115,7 +115,8 @@ class SNPHandler(Handler):
 
     @asyncio.coroutine
     def connect(self, target, factory=None):
-        """Override the handler.connect to call the get_version method."""
+        """Override the :meth:`hiss.handler.Handler.connect` to call the
+        :meth:`get_version` method."""
 
         protocol = yield from super().connect(target, factory)
 
@@ -139,6 +140,8 @@ class SNPBaseProtocol(asyncio.Protocol):
 
     @property
     def target(self):
+        """The :class:`hiss.target.Target` to send notifications to."""
+        
         return self._target
 
     @target.setter
