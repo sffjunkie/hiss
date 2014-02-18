@@ -112,7 +112,7 @@ def generate_hash(password, hash_algorithm=DEFAULT_HASH_ALGORITHM):
     if isinstance(password, str):
         password = password.encode('UTF-8')
 
-    salt = urandom(16)
+    salt = generate_salt()
     key_basis = password + salt
 
     if hash_algorithm == 'MD5':
@@ -164,3 +164,6 @@ def validate_hash(password, hash_to_validate):
 
     if hash_to_validate.key_hash != key_hash:
         raise ValidationError('Invalid hash in request') 
+
+def generate_salt(size=16):
+    return urandom(size)
