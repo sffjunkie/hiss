@@ -27,7 +27,7 @@ from hiss.handler import Handler, Factory
 from hiss.utility import parse_datetime
 from hiss.resource import Icon
 
-from hiss.exception import HissError
+from hiss.exception import HissError, MarshallError
 from hiss.hash import HashInfo, generate_hash, validate_hash
 from hiss.encryption import PY_CRYPTO, encrypt, decrypt
 
@@ -226,13 +226,14 @@ class Request(object):
 
         if self.use_hash or self.use_encryption:
             if self.password is None:
-                raise Exception('Password required to generate hash for marshall of request.')
+                raise MarshallError('Password required to generate hash for marshalling of request.',
+                                    'Request.marshall')
 
             self._hash = generate_hash(self.password.encode('UTF-8'))
 
         if self.use_encryption:
             if not PY_CRYPTO:
-                raise Exception('Unable to encrypt message. PyCrypto not available')
+                raise MarshallError('Unable to encrypt message. PyCrypto not available')
 
             if ENCRYPTION_ALGORITHM == 'AES':
                 iv = urandom(16)
@@ -299,7 +300,7 @@ class Request(object):
         """Unmarshall data received over the wire into a valid request"""
 
         if self._encryption is not None and not PY_CRYPTO:
-            raise Exception('PyCrypto required to decrypt message')
+            raise MarshallError('PyCrypto required to decrypt message')
 
         sections = data.split(b'\r\n\r\n')
 
@@ -326,7 +327,7 @@ class Request(object):
                 self._hash = None
             else:
                 if self.password is None:
-                    raise Exception('Password required to validate hash for unmarshall of request.')
+                    raise MarshallError('Password required to validate hash for unmarshall of request.')
 
                 self._hash = HashInfo(d['keyHashAlgorithmID'].decode(encoding),
                                       unhexlify(d['keyHash']),
@@ -355,7 +356,7 @@ class Request(object):
                         info['Data'] = section[:length]
                         next_section_is_data = False
         else:
-            raise GNTPError('hiss.handler.gntp.Response.unmarshall: Invalid GNTP message')
+            raise MarshallError('Response.unmarshall: Invalid GNTP message')
 
     def _add_resource(self, key, resource):
         uid = resource.uid
@@ -462,7 +463,7 @@ class Response(object):
         """Unmarshall data received over the wire into a valid response"""
 
         if self._encryption is not None and not PY_CRYPTO:
-            raise Exception('Unable to decrypt message. PyCrypto not available')
+            raise MarshallError('Unable to decrypt message. PyCrypto not available')
 
         header, data = data.split(b'\r\n', maxsplit=1)
 
