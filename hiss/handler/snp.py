@@ -151,7 +151,7 @@ class SNPBaseProtocol(asyncio.Protocol):
             self.use_hash = True
 
     @asyncio.coroutine
-    def _send_request(self, request_info):
+    def send_request(self, request_info):
         """Send a request_info to a list of targets
 
         :param request_info:  Info for request to send
@@ -252,7 +252,7 @@ class SNP(SNPBaseProtocol):
 
         request_info = _VersionRequestInfo()
 
-        yield from self._send_request(request_info)
+        yield from self.send_request(request_info)
         return self.response
 
     @asyncio.coroutine
@@ -266,7 +266,7 @@ class SNP(SNPBaseProtocol):
         assert self.target.protocol_version != ''
 
         request_info = _RegisterRequestInfo(notifier, **kwargs)
-        yield from self._send_request(request_info)
+        yield from self.send_request(request_info)
 
         result = self._build_result('register')
         logging.debug(pformat(result))
@@ -281,7 +281,7 @@ class SNP(SNPBaseProtocol):
         """
 
         request_info = _UnregisterRequestInfo(notifier)
-        yield from self._send_request(request_info)
+        yield from self.send_request(request_info)
 
         result = self._build_result('unregister')
         logging.debug(pformat(result))
@@ -300,7 +300,7 @@ class SNP(SNPBaseProtocol):
         assert self.target.protocol_version != ''
 
         request_info = _NotifyRequestInfo(notification, notifier)
-        yield from self._send_request(request_info)
+        yield from self.send_request(request_info)
 
         result = self._build_result('notify')
         logging.debug(pformat(result))
@@ -323,7 +323,7 @@ class SNP(SNPBaseProtocol):
         """
 
         request_info = _ShowRequestInfo(notification.uid)
-        yield from self._send_request(request_info)
+        yield from self.send_request(request_info)
 
         result = self._build_result('show')
         logging.debug(pformat(result))
@@ -338,7 +338,7 @@ class SNP(SNPBaseProtocol):
         """
 
         request_info = _HideRequestInfo(uid)
-        yield from self._send_request(request_info)
+        yield from self.send_request(request_info)
 
         result = self._build_result('hide')
         logging.debug(pformat(result))
@@ -356,7 +356,7 @@ class SNP(SNPBaseProtocol):
                 raise ValueError('No valid notifier instance available.')
 
         request_info = _IsVisibleRequestInfo(notifier, notification)
-        yield from self._send_request(request_info)
+        yield from self.send_request(request_info)
 
         result = self._build_result('isvisible')
         logging.debug(pformat(result))
@@ -420,7 +420,7 @@ class SNPAsync(SNPBaseProtocol):
         self._async_handler = notifier._handler
 
         request_info = _SubscribeRequestInfo(notifier, signatures)
-        yield from self._send_request(request_info)
+        yield from self.send_request(request_info)
 
         result = self._build_result('subscribe')
         logging.debug(pformat(result))
