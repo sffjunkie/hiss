@@ -152,7 +152,7 @@ class SNPBaseProtocol(asyncio.Protocol):
 
     @asyncio.coroutine
     def send_request(self, request_info):
-        """Send a request_info to a list of targets
+        """Send a request to our target
 
         :param request_info:  Info for request to send
         """
