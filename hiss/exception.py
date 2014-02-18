@@ -20,7 +20,7 @@ class HissError(Exception):
     pass
 
 
-class HissValidationError(Exception):
+class HissValidationError(HissError):
     pass
 
 
