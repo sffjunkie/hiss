@@ -29,9 +29,9 @@ class ValidationError(HissError):
 
 
 class NotifierError(HissError):
-    pass
+    """An error whilst calling notifier methods."""
 
 
 class TargetError(HissError):
-    pass
+    """An error whilst processing a target specification."""
 
