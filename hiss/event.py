@@ -58,6 +58,7 @@ class Event(object):
 
     name = property(**name())
 
+
 class NotificationEvent(Event):
     """Encapsulates a notification event returning from one of hiss' handlers"""
 
