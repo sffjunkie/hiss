@@ -84,19 +84,25 @@ class Notifier(object):
         """Add a notification class.
 
         :param name:          Notification class name
-        :type name:           string
+        :type name:           str
         :param title:         Default notification title
-        :type title:          string or ``None`` for no default
+        :type title:          str or None for no default
         :param text:          Default notification text
-        :type text:           string or ``None`` for no default
+        :type text:           str or None for no default
         :param icon:          Default notification icon
-        :type icon:           string or ``None`` for no default
+        :type icon:           str or None for no default
         :param sound:         Default notification sound
-        :type sound:          string or ``None`` for no default
+        :type sound:          str or None for no default
         :param enabled:       Whether the notification is enabled or not
-        :type enabled:        boolean
+        :type enabled:        bool
+        :param class_id:      The class id to use. If not provided one will be
+                              generated.
+        :type class_id:       int
         :returns:             The class id of the newly added notification
-        :rtype:               integer
+        :rtype:               int
+        
+        Default values will be used when creating a notification with
+        :meth:`~hiss.notifier.Notifier.create_notification`
         """
 
         ni = NotificationInfo(name, title, text, icon, sound, enabled)
@@ -112,34 +118,35 @@ class Notifier(object):
         return class_id
 
     def create_notification(self, class_id=-1, name='',
-                            title=None, text=None,
-                            icon=None, sound=None):
+                            title=USE_REGISTERED, text=USE_REGISTERED,
+                            icon=USE_REGISTERED, sound=USE_REGISTERED):
         """Create a notification that is ready to send.
 
         Either ``class_id`` or ``name`` can be provided. If ``class_id`` is
         provided it will be used instead of ``name`` to
         lookup the defaults registered in
-        :meth:`~Notifier.add_notification_class`
+        :meth:`~hiss.notifier.Notifier.add_notification`
 
         :param class_id:   The notification class id
-        :type class_id:    integer
+        :type class_id:    int
         :param name:       The notification name
-        :type name:        string
+        :type name:        str
         :param title:      The title of the notification
-        :type title:       string, ``None`` for no title or
-                           :data:`~hiss.USE_REGISTERED` to use
-                           title provided during registration
+        :type title:       str, None for no title or
+                           :data:`~hiss.notifier.USE_REGISTERED` (default)
+                           to use title provided during registration
         :param text:       The text to display in the notification
-        :type text:        string, ``None`` for no text or
-                           :data:`~hiss.USE_REGISTERED` to use
-                           text provided during registration
-        :param icon:       URL of icon to display
-        :type icon:        string, :class:`~hiss.Icon`, ``None`` for no
-                           icon or :data:`~hiss.USE_REGISTERED` 
+        :type text:        str, None for no text or
+                           :data:`~hiss.notifier.USE_REGISTERED` (default)
+                           to use text provided during registration
+        :param icon:       Icon to display
+        :type icon:        str, :class:`~hiss.resource.Icon`, None for no
+                           icon or
+                           :data:`~hiss.notifier.USE_REGISTERED` (default)
                            to use icon provided during registration
         :param sound:      Sound to play when showing notification
-        :type sound:       string, ``None`` for no sound or
-                           :data:`~hiss.USE_REGISTERED` 
+        :type sound:       str, None for no sound or
+                           :data:`~hiss.notifier.USE_REGISTERED` (default)
                            to use sound provided during registration
         """
 
@@ -151,7 +158,8 @@ class Notifier(object):
         elif name != '':
             info = self.find_notification(name)
         else:
-            raise NotifierError('hiss.Notifier: Either a class id or name must be specified.')
+            raise NotifierError('Either a class id or name must be specified.',
+                                'hiss.notifier.Notifier')
 
         if title is USE_REGISTERED:
             title = info.title
@@ -186,11 +194,12 @@ class Notifier(object):
 
     @asyncio.coroutine
     def add_target(self, targets):
-        """Add a single target or list of targets to the known targets and connects to them
+        """Add a single target or list of targets to the known targets
+        and connects to them
 
         :param targets: The Target or list of Targets to add.
         :type targets:  :class:`~hiss.target.Target`
-        :returns:       dict or [dict] if more than one target added.
+        :returns:       Result dict or list of dict if more than one target added.
         """
 
         if isinstance(targets, Target):
