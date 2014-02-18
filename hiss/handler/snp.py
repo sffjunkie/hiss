@@ -152,6 +152,15 @@ class SNPBaseProtocol(asyncio.Protocol):
             self.use_hash = True
 
     @asyncio.coroutine
+    def get_version(self):
+        """Get details of the SNP version that the target can handle."""
+
+        request_info = _VersionRequestInfo()
+
+        yield from self.send_request(request_info)
+        return self.response
+
+    @asyncio.coroutine
     def send_request(self, request_info):
         """Send a request to our target
 
@@ -246,15 +255,6 @@ class SNP(SNPBaseProtocol):
             response.version = version
             response.unmarshall(data)
             self.response = response
-
-    @asyncio.coroutine
-    def get_version(self):
-        """Get details of the SNP version that the target can handle."""
-
-        request_info = _VersionRequestInfo()
-
-        yield from self.send_request(request_info)
-        return self.response
 
     @asyncio.coroutine
     def register(self, notifier, **kwargs):
