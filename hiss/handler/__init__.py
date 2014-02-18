@@ -14,9 +14,10 @@
 
 # Part of 'hiss' the asynchronous notification library
 
+import sys
 import asyncio
 import logging
-
+import traceback
 
 class Handler():
     def __init__(self, loop):
@@ -65,8 +66,8 @@ class Handler():
         if 'register' in self.capabilities:
             try:
                 protocol = yield from self.connect(target)
-            except Exception as exc:
-                return self._connect_exception(exc)
+            except:
+                return self._connect_exception(sys.exc_info())
 
             response = yield from protocol.register(notifier, **kwargs)
             response['handler'] = self.__handler__
@@ -86,8 +87,8 @@ class Handler():
 
         try:
             protocol = yield from self.connect(target)
-        except Exception as exc:
-            return self._connect_exception(exc)
+        except:
+            return self._connect_exception(sys.exc_info())
 
         response = yield from protocol.notify(notification, notification.notifier)
         response['handler'] = self.__handler__
@@ -106,8 +107,8 @@ class Handler():
         if 'unregister' in self.capabilities:
             try:
                 protocol = yield from self.connect(target)
-            except Exception as exc:
-                return self._connect_exception(exc)
+            except:
+                return self._connect_exception(sys.exc_info())
 
             response = yield from protocol.unregister(notifier)
             response['handler'] = self.__handler__
@@ -128,8 +129,8 @@ class Handler():
         if 'show' in self.capabilities:
             try:
                 protocol = yield from self.connect(target)
-            except Exception as exc:
-                return self._connect_exception(exc)
+            except:
+                return self._connect_exception(sys.exc_info())
 
             response = yield from protocol.show(uid)
             response['handler'] = self.__handler__
@@ -150,8 +151,8 @@ class Handler():
         if 'hide' in self.capabilities:
             try:
                 protocol = yield from self.connect(target)
-            except Exception as exc:
-                return self._connect_exception(exc)
+            except:
+                return self._connect_exception(sys.exc_info())
 
             response = yield from protocol.hide(uid)
             response['handler'] = self.__handler__
@@ -172,8 +173,8 @@ class Handler():
         if 'isvisible' in self.capabilities:
             try:
                 protocol = yield from self.connect(target)
-            except Exception as exc:
-                return self._connect_exception(exc)
+            except:
+                return self._connect_exception(sys.exc_info())
 
             response = yield from protocol.isvisible(uid)
             response['handler'] = self.__handler__
@@ -188,8 +189,8 @@ class Handler():
         if 'subscribe' in self.capabilities:
             try:
                 protocol = yield from self.connect(target, self.async_factory)
-            except Exception as exc:
-                return self._connect_exception(exc)
+            except:
+                return self._connect_exception(sys.exc_info())
 
             response = yield from protocol.subscribe(notifier, signatures)
             response['handler'] = self.__handler__
@@ -197,14 +198,12 @@ class Handler():
         else:
             return self._unsupported()
 
-    def _connect_exception(self, exc):
-        logging.exception('%s: %s' % (exc.__class__.__qualname__, str(exc)))
+    def _connect_exception(self, exc_info):
         response = {
             'handler': self.__handler__,
             'command': 'connect',
             'status': 'ERROR',
-            'reason': str(exc),
-            'result': exc,
+            'reason': traceback.format_exception(exc_info),
         }
         return response
 
