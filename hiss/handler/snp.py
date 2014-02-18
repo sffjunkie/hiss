@@ -28,7 +28,7 @@ from operator import attrgetter
 
 from hiss.hash import HashInfo, generate_hash, validate_hash
 from hiss.encryption import PY_CRYPTO, encrypt, decrypt
-from hiss.exception import HissError
+from hiss.exception import HissError, MarshallError
 from hiss.handler import Handler, Factory
 from hiss.utility import parse_datetime
 from hiss.resource import Icon
@@ -245,8 +245,6 @@ class SNP(SNPBaseProtocol):
             response.version = version
             response.unmarshall(data)
             self.response = response
-            
-            self._transport.close()
 
     @asyncio.coroutine
     def get_version(self):
@@ -492,7 +490,7 @@ class Request(object):
         elif self.version == '3.0':
             return self._marshall_30()
         elif self.version == '1.0':
-            raise SNPError('SNP protocol version 1.0 is unsupported.')
+            raise MarshallError('SNP protocol version 1.0 is unsupported.')
 
     def unmarshall(self, data):
         """Unmarshall data received over the wire into a valid request"""
@@ -502,7 +500,7 @@ class Request(object):
         elif data.startswith(b'SNP/3.0'):
             self._unmarshall_30(data)
         else:
-            raise SNPError('Invalid SNP Request.')
+            raise MarshallError('Invalid SNP Request.')
 
     def _marshall_20(self):
         data = self._marshall_command(self.commands[0]).encode('UTF-8')
@@ -567,7 +565,7 @@ class Request(object):
 
     def _unmarshall_30(self, data):
         if not data.endswith(b'END\r\n'):
-            raise SNPError('Invalid SNP 3.0 request')
+            raise MarshallError('Request.unmarshall: Invalid SNP 3.0 request')
 
         data = data[:-2]
         lines = data.split(b'\r\n')
@@ -591,7 +589,7 @@ class Request(object):
                     
                 self.use_hash = True
         except ValueError:
-            raise SNPError('Invalid SNP body format: %s' % str(header))
+            raise MarshallError('Request.unmarshall: Invalid SNP body format: %s' % str(header))
 
         self.commands = []
         for line in lines[1:-1]:
@@ -612,8 +610,8 @@ class Request(object):
                 params[name] = value
 
             return SNPCommand(command, params)
-        except:
-            raise SNPError('Invalid command format found: %s', str(data))
+        except ValueError:
+            raise MarshallError('Request.unmarshall: Invalid command format found: %s', str(data))
 
     def _expand_tuple(self, t):
         if isinstance(t, tuple):
@@ -633,34 +631,6 @@ class Request(object):
         data = data.replace(b'&&', b'&')
         data = data.replace(b'\\n', b'\r\n')
         return data
-
-    def _salt(self):
-        # http://stackoverflow.com/a/2257449
-        s = ''.join(random.choice(string.ascii_uppercase + \
-                                         string.digits) for _x in range(8))
-        try:
-            return bytes(s, 'UTF-8')
-        except TypeError:
-            return bytes(s)
-
-    def _password(self):
-        try:
-            return bytes(self.password, 'UTF-8')
-        except TypeError:
-            return bytes(self.password)
-
-    def _hash(self):
-        if self.password == '':
-            raise SNPError('Password not set. Required for _hash generation.')
-
-        salt = self._salt()
-        h = sha256()
-        h.update(self._password())
-        h.update(salt)
-
-        self._hash = ('sha256', h.hexdigest(), salt)
-
-        return '%s:%s.%s' % self._hash
 
     def _encrypt(self, data):
         encryption_algorithm, iv = self._encryption
