@@ -17,6 +17,7 @@
 import asyncio
 import base64
 import logging
+import warnings
 from pprint import pformat
 from collections import namedtuple
 from os import urandom
@@ -257,7 +258,7 @@ class SNP(SNPBaseProtocol):
 
     @asyncio.coroutine
     def register(self, notifier, **kwargs):
-        """Register ``notifier`` with a our target 
+        """Register ``notifier`` with our target 
 
         :param notifier: Notifier to register
         :type notifier:  :class:`hiss.notifier.Notifier`
@@ -274,7 +275,7 @@ class SNP(SNPBaseProtocol):
 
     @asyncio.coroutine
     def unregister(self, notifier):
-        """Unregister a notifier
+        """Unregister notifier with our target
 
         :param notifier: Notifier to unregister
         :type notifier:  hiss.Notifier
@@ -289,13 +290,17 @@ class SNP(SNPBaseProtocol):
 
     @asyncio.coroutine
     def notify(self, notification, notifier):
-        """Send a notification to a target
+        """Send a notification to our target
 
         :param notification: Notification to send
         :type notification:  :class:`hiss.Notification`
         :param notifier: Notifier to use 
         :type notifier:  :class:`hiss.notifier.Notifier`
         """
+
+        if notification.sound is not None:
+            warnings.warn(('Sending notifications using sounds has been '
+                           'deprecated since Snarl 2.3'))
 
         assert self.target.protocol_version != ''
 
@@ -316,7 +321,7 @@ class SNP(SNPBaseProtocol):
 
     @asyncio.coroutine
     def show(self, notification):
-        """Show a hidden notification 
+        """Show a hidden notification on our target 
 
         :param notification: Notification to show
         :type notification:  :class:`hiss.notification.Notification`
