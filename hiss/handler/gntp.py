@@ -76,6 +76,23 @@ class GNTPBaseProtocol(asyncio.Protocol):
         if value.is_remote:
             self.use_hash = True
 
+    def send_request(self, request, target):
+        if target.password is not None and (self.use_hash or self.use_encryption):
+            request.password = target.password.encode('UTF-8')
+            request.use_hash = self.use_hash
+            request.use_encryption = self.use_encryption
+
+        request_data = request.marshall()
+        self._transport.write(request_data)
+
+    @asyncio.coroutine
+    def _wait_for_response(self):
+        while True:
+            if self.response is not None:
+                return
+            else:
+                yield from asyncio.sleep(0.1)
+
 
 class GNTP(GNTPBaseProtocol):
     """Growl Network Transport Protocol."""
@@ -131,7 +148,7 @@ class GNTP(GNTPBaseProtocol):
         """
 
         request = _RegisterRequest(notifier)
-        self._send_request(request, self.target)
+        self.send_request(request, self.target)
         yield from self._wait_for_response()
         logging.debug(pformat(self.response))
         return self.response
@@ -141,7 +158,7 @@ class GNTP(GNTPBaseProtocol):
         """Unregister the notifier from the target"""
 
         request = _UnregisterRequest(notifier)
-        self._send_request(request, self.target)
+        self.send_request(request, self.target)
         yield from self._wait_for_response()
         logging.debug(pformat(self.response))
         return self.response
@@ -155,27 +172,10 @@ class GNTP(GNTPBaseProtocol):
         """
 
         request = _NotifyRequest(notification, notifier)
-        self._send_request(request, self.target)
+        self.send_request(request, self.target)
         yield from self._wait_for_response()
         logging.debug(pformat(self.response))
         return self.response
-
-    def _send_request(self, request, target):
-        if target.password is not None and (self.use_hash or self.use_encryption):
-            request.password = target.password.encode('UTF-8')
-            request.use_hash = self.use_hash
-            request.use_encryption = self.use_encryption
-
-        request_data = request.marshall()
-        self._transport.write(request_data)
-
-    @asyncio.coroutine
-    def _wait_for_response(self):
-        while True:
-            if self.response is not None:
-                return
-            else:
-                yield from asyncio.sleep(0.1)
 
 
 class GNTPAsync(GNTPBaseProtocol):
@@ -200,7 +200,7 @@ class GNTPAsync(GNTPBaseProtocol):
         self._async_handler = notifier._handler
 
         request = _SubscribeRequest(notifier)
-        self._send_request(request, self.target)
+        self.send_request(request, self.target)
         yield from self._wait_for_response()
         logging.debug(pformat(self.response))
         return self.response
