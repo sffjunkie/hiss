@@ -14,18 +14,18 @@
 
 # Part of 'hiss' the asynchronous notification library
 
-__all__ = ['HissError', 'HissValidationError', 'MessageError', 'NotifierError', 'TargetError']
+__all__ = ['HissError', 'HissValidationError', 'NotifierError', 'TargetError']
 
 class HissError(Exception):
     pass
 
 
-class HissValidationError(HissError):
-    pass
+class MarshallError(HissError):
+    """An error which occurred when marshalling/unmarshalling of messages"""
 
 
-class MessageError(HissError):
-    pass
+class ValidationError(HissError):
+    """An error which occurred when validating hashing/encryption"""
 
 
 class NotifierError(HissError):
