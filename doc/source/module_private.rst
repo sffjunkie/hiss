@@ -1,5 +1,12 @@
 Backend Stuff
-===============
+=============
+
+Handler
+~~~~~~~
+
+.. autoclass:: hiss.handler.Handler
+   :members:
+   :member-order: bysource
 
 Snarl
 ~~~~~
@@ -9,13 +16,19 @@ Snarl
    :member-order: bysource
    :show-inheritance:
 
-.. autoclass:: hiss.handler.snp.SNPFactory
+.. autoclass:: hiss.handler.snp.SNPBaseProtocol
    :members:
    :member-order: bysource
 
 .. autoclass:: hiss.handler.snp.SNP
    :members:
    :member-order: bysource
+   :show-inheritance:
+
+.. autoclass:: hiss.handler.snp.SNPAsync
+   :members:
+   :member-order: bysource
+   :show-inheritance:
 
 Growl (GNTP)
 ~~~~~~~~~~~~
@@ -25,13 +38,19 @@ Growl (GNTP)
    :member-order: bysource
    :show-inheritance:
 
-.. autoclass:: hiss.handler.gntp.GNTPFactory
+.. autoclass:: hiss.handler.gntp.GNTPBaseProtocol
    :members:
    :member-order: bysource
-   
+
 .. autoclass:: hiss.handler.gntp.GNTP
    :members:
    :member-order: bysource
+   :show-inheritance:
+
+.. autoclass:: hiss.handler.gntp.GNTPAsync
+   :members:
+   :member-order: bysource
+   :show-inheritance:
    
 XBMC
 ~~~~
