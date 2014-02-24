@@ -23,11 +23,11 @@ Target
 
 Notifier
 ~~~~~~~~
-  
+
 .. py:data:: hiss.USE_REGISTERED
 	
 	Signifies to use the value provided during
-	:meth:`registration <hiss.Notifier.register_notification>`
+	:meth:`addition <hiss.notifier.Notifier.add_notification>`
 	of a notification.
     
 .. autoclass:: hiss.notifier.Notifier
