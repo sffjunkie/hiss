@@ -20,8 +20,8 @@ class HissError(Exception):
     pass
 
 
-class MarshallError(HissError):
-    """An error which occurred when marshalling/unmarshalling of messages"""
+class marshalError(HissError):
+    """An error which occurred when marshaling/unmarshaling of messages"""
 
 
 class ValidationError(HissError):

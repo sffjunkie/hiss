@@ -36,38 +36,38 @@ def test_Request_Append():
 	m.append('add_class', name='sig')
 	assert len(m.commands) == 3
 
-def test_SNP_Request_Marshall2():
+def test_SNP_Request_marshal2():
 	m = Request(version='2.0')
 	m.append('register', signature='application/x-vnd-sffjunkie.hiss', uid='1', title='ww')
 
-	cmd = m.marshall()
+	cmd = m.marshal()
 	assert cmd == b'snp://register?signature=application/x-vnd-sffjunkie.hiss&title=ww&uid=1\r\n'
 
-def test_SNP_Request_Marshall3():
+def test_SNP_Request_marshal3():
 	m = Request(version='3.0')
 	m.append('register', signature='application/x-vnd-sffjunkie.hiss', uid='1', title='ww')
 
-	cmd = m.marshall()
+	cmd = m.marshal()
 	assert cmd == b'SNP/3.0 NONE\r\nregister?signature=application/x-vnd-sffjunkie.hiss&title=ww&uid=1\r\nEND\r\n'
 
-def test_SNP_Request_Unmarshall2():
+def test_SNP_Request_Unmarshal2():
 	cmd = b'snp://register?signature=x-vnd-sffjunkie.hiss&title=ww&uid=1\r\n'
 	request = Request()
-	request.unmarshall(cmd)
+	request.unmarshal(cmd)
 	assert len(request.commands) == 1
 	assert request.commands[0][0] == b'register'
 	assert request.commands[0].name == b'register'
 	assert len(request.commands[0][1]) == 3
 	assert len(request.commands[0].parameters) == 3
 
-def test_SNP_Request_Unmarshall3():
+def test_SNP_Request_Unmarshal3():
 	cmd = (b'SNP/3.0 NONE MD5:b7c903901cab976ee5db15792eb15a03.1A2B3C4D5E6F\r\n'
 		   b'register?signature=x-vnd-sffjunkie.hiss&title=ww&uid=1\r\n'
 		   b'add_class?signature=x-vnd-sffjunkie.hiss\r\n'
 		   b'END\r\n')
 
 	request = Request()
-	request.unmarshall(cmd)
+	request.unmarshal(cmd)
 
 	assert len(request.commands) == 2
 	assert request.commands[0].name == b'register'

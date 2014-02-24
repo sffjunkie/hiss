@@ -77,7 +77,7 @@ class XBMC(asyncio.Protocol):
 
     @asyncio.coroutine
     def send_request(self, request, target):
-        request_data = request.marshall()
+        request_data = request.marshal()
 
         auth = (target.username, target.password)
 

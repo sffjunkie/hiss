@@ -18,7 +18,7 @@ from hiss.handler.gntp import Request
 def test_GNTPRequest_Create():
 	_r = Request()
 
-def test_GNTPRequest_Marshall():
+def test_GNTPRequest_marshal():
 	msg_in = bytearray(("GNTP/1.0 REGISTER NONE\r\n"
 			  "Application-Icon: http://www.site.org/image.jpg\r\n"
 			  "Application-Name: SurfWriter\r\n"
@@ -43,11 +43,11 @@ def test_GNTPRequest_Marshall():
 			  "Length: 16\r\n\r\nFGHIJKLMNOPQRSTU\r\n").encode('UTF-8'))
 
 	r = Request()
-	r.unmarshall(msg_in)
-	msg_out = r.marshall()
+	r.unmarshal(msg_in)
+	msg_out = r.marshal()
 	assert len(msg_out) == len(msg_in)
 
-def test_GNTPRequest_Unmarshall():
+def test_GNTPRequest_Unmarshal():
 	r = Request()
 
 	msg = bytearray(("GNTP/1.0 REGISTER NONE\r\nApplication-Name: SurfWriter\r\n"
@@ -70,7 +70,7 @@ def test_GNTPRequest_Unmarshall():
 		   "Identifier: f082d4e3bdfe15f8f5f2450bff69fb17\r\n"
 		   "Length: 16\r\n\r\nFGHIJKLMNOPQRSTU\r\n").encode('UTF-8'))
 
-	r.unmarshall(msg)
+	r.unmarshal(msg)
 
 	assert r.version == '1.0'
 	assert r.command == 'REGISTER'
@@ -79,14 +79,14 @@ def test_GNTPRequest_Unmarshall():
 
 	assert r.body['Application-Name'] == 'SurfWriter'
 
-def test_GNTPRequest_Unmarshall_WithHash():
+def test_GNTPRequest_Unmarshal_WithHash():
 	password = 'testtest'
 	hash_ = generate_hash(password.encode('UTF-8'))
 
 	r = Request()
 	r.password = password
 	msg = ("GNTP/1.0 REGISTER NONE %s\r\n" % hash_).encode('UTF-8')
-	r.unmarshall(msg)
+	r.unmarshal(msg)
 
 	assert r.version == '1.0'
 	assert r.command == 'REGISTER'
