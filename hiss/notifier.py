@@ -86,13 +86,13 @@ class Notifier(object):
         :param name:          Notification class name
         :type name:           str
         :param title:         Default notification title
-        :type title:          str or None for no default
+        :type title:          str or None
         :param text:          Default notification text
-        :type text:           str or None for no default
+        :type text:           str or None
         :param icon:          Default notification icon
-        :type icon:           str or None for no default
+        :type icon:           str or None
         :param sound:         Default notification sound
-        :type sound:          str or None for no default
+        :type sound:          str or None
         :param enabled:       Whether the notification is enabled or not
         :type enabled:        bool
         :param class_id:      The class id to use. If not provided one will be
