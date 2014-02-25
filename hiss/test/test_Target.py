@@ -62,7 +62,7 @@ def test_Target_String_PasswordIsRemoved():
     t = Target('snp://wally@192.168.1.1:9000')
     assert str(t) == 'snp://192.168.1.1:9000'
 
-def test_Traget_IsRemote():
+def test_Target_IsRemote():
     t = Target('snp://wally@192.168.1.1:9000')
     assert t.is_remote
 
