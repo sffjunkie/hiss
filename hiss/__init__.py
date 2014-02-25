@@ -1,4 +1,4 @@
-# Copyright 2009-2011, Simon Kennedy, code@sffjunkie.co.uk
+# Copyright 2013-2014, Simon Kennedy, code@sffjunkie.co.uk
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,17 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Part of 'hiss' the twisted notification library
+# Part of 'hiss' the asynchronous notification library
 
-from hiss.notifier import Notifier, USE_REGISTERED
-from hiss.notification import Notification, NotificationPriority
+__all__  =['Notifier', 'Target', 'Notification']
+
+from hiss.notifier import Notifier
 from hiss.target import Target
-from hiss.resource import Icon
-from hiss.event import Event, NotificationEvent
-from hiss.exception import *
-
-__all__ = ['Notifier', 'USE_REGISTERED',
-           'Notification', 'NotificationPriority',
-           'Target',  'Icon',
-           'Event', 'NotificationEvent',
-           'HissError']
+from hiss.notification import Notification
+from hiss.event import Event

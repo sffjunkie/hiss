@@ -1,4 +1,4 @@
-# Copyright 2009-2012, Simon Kennedy, code@sffjunkie.co.uk
+# Copyright 2013-2014, Simon Kennedy, code@sffjunkie.co.uk
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,21 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Part of 'hiss' the Python notification library
+# Part of 'hiss' the asynchronous notification library
 
-import urlparse
+import socket
+try:
+    import urllib.parse as urlparse
+except ImportError:
+    import urlparse
 
-from hiss.handler.snp import SNP_SCHEME
-from hiss.handler.gntp import GNTP_SCHEME
+from hiss.exception import TargetError
 
-DEFAULT_PROTOCOL = 'snp'
+SNP_SCHEME = 'snp'
+GNTP_SCHEME = 'gntp'
+XBMC_SCHEME = 'xbmc'
+
+DEFAULT_SCHEME = SNP_SCHEME
 
 __all__ = ['TargetError', 'Target']
 
-for s in [SNP_SCHEME, GNTP_SCHEME]:
+for s in [SNP_SCHEME, GNTP_SCHEME, XBMC_SCHEME]:
     if s not in urlparse.uses_relative:
         urlparse.uses_relative.append(s)
-        
+
     if s not in urlparse.uses_netloc:
         urlparse.uses_netloc.append(s)
 
@@ -37,58 +44,47 @@ for s in [SNP_SCHEME, GNTP_SCHEME]:
         urlparse.uses_query.append(s)
 
 
-class TargetError(Exception):
-    pass
-
-
 class Target(object):
+    """A target for notifications.
+
+    Targets are specified using a URL like string of the form ::
+
+        scheme://[password@]host[:port]
+
+    where scheme is one of ``snp``, ``gntp`` or ``xbmc``.
+
+    If no port number is specified then the default port for the target type will be used
+
+    All values can be specified using named parameters.
+    """
+
     def __init__(self, url='', **kwargs):
-        """Create a new target for notifications.
-        
-        Targets are specified using a URL like string of the form ::
-        
-            scheme://[usernane[:password]@]host:port
-        
-        where scheme is currently one of ``snp`` or ``gntp``.
-        
-        All values can be overridden using named parameters.
-        """ 
-        
         if url == '':
-            url = '%s:///' % DEFAULT_PROTOCOL
-        
+            url = '%s:///' % DEFAULT_SCHEME
+
+        self.password = None
         self.port = -1
-        self.username = ''
-        self.password = ''
-        
+
         result = urlparse.urlparse(url)
         if result.scheme != '':
             self.scheme = result.scheme
-            
+
             host = ''
             if result.netloc != '':
                 try:
-                    userpass, host = result.netloc.split('@')
-                    try:
-                        self.username, self.password = userpass.split(':')
-                    except:
-                        self.username = userpass
-                        self.password = ''
-                        
-                    try:
-                        host, port = host.split(':')
-                    except:
-                        host = host
-                        port = -1
+                    self.password, hostport = result.netloc.split('@')
                 except:
-                    host = result.netloc
+                    hostport = result.netloc
+
+                try:
+                    host, port = hostport.split(':')
+                except:
+                    host = hostport
                     port = -1
-                    
-                host = host
             else:
                 host = '127.0.0.1'
                 port = -1
-                
+
             self.host = host
             self.port = int(port)
         elif url.startswith(SNP_SCHEME):
@@ -97,31 +93,47 @@ class Target(object):
         elif url.startswith(GNTP_SCHEME):
             self.scheme = GNTP_SCHEME
             self.host = url[len(GNTP_SCHEME):].lstrip(':')
+        elif url.startswith(XBMC_SCHEME):
+            self.scheme = XBMC_SCHEME
+            self.host = url[len(XBMC_SCHEME):].lstrip(':')
         else:
             self.scheme = url
-            
-        if self.scheme not in [SNP_SCHEME, GNTP_SCHEME]:
+
+        if self.scheme not in [SNP_SCHEME, GNTP_SCHEME, XBMC_SCHEME]:
             raise TargetError('Unknown protocol %s' % url)
 
         # Override with any parameters passed
         self.host = kwargs.get('host', self.host)
         self.port = kwargs.get('port', self.port)
-        self.username = kwargs.get('username', self.username)
         self.password = kwargs.get('password', self.password)
-        
+
         if self.host == '' or self.host == 'localhost':
             self.host = '127.0.0.1'
-            
+
+        self.enabled = True
         self.handler = None
         self.protocol_version = ''
+
+    address = property(lambda self: (self.host, self.port))
+
+    @property    
+    def is_remote(self):
+        """Return True if host is on a remote machine.
+
+        This is used to determine if the password information needs to be sent with each
+        message.
+        """
+
+        local_hosts = ['127.0.0.1', 'localhost']
+        local_hosts.extend(socket.gethostbyname_ex(socket.gethostname())[2])
+        return self.host not in local_hosts
 
     def __repr__(self):
         return '%s://%s:%d' % (self.scheme, self.host, self.port)
 
     def __eq__(self, other):
-        """Tests that 2 targets are equal when ignoring username and password.""" 
-        
-        return (self.scheme, self.host, self.port,
-                self.username, self.password) == \
-               (other.scheme, other.host, other.port,
-                other.username, other.password)
+        """Tests that 2 targets are equal ignoring the password.
+        """ 
+
+        return (self.scheme, self.host, self.port) == \
+               (other.scheme, other.host, other.port)

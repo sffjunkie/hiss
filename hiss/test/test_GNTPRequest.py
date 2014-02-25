@@ -1,4 +1,4 @@
-# Copyright 2009-2012, Simon Kennedy, code@sffjunkie.co.uk
+# Copyright 2013-2014, Simon Kennedy, code@sffjunkie.co.uk
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,47 +12,82 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from hiss.handler.gntp import GNTPRequest
+from hiss.hash import generate_hash
+from hiss.handler.gntp import Request
 
 def test_GNTPRequest_Create():
-	_r = GNTPRequest()
+	_r = Request()
 
-def test_GNTPRequest_Marshall():
-	msg_in = "GNTP/1.0 REGISTER NONE\r\nApplication-Name: SurfWriter\r\nApplication-Icon: http://www.site.org/image.jpg\r\nX-Creator: Apple Software\r\nX-Application-ID: 08d6c05a21512a79a1dfeb9d2a8f262f\r\nNotifications-Count: 2\r\n\r\nNotification-Name: Download Complete\r\nNotification-Display-Name: Download completed\r\nNotification-Icon: x-growl-resource://cb08ca4a7bb5f9683c19133a84872ca7\r\nNotification-Enabled: True\r\nX-Language: English\r\nX-Timezone: PST\r\n\r\nNotification-Name: Document Published\r\nNotification-Display-Name: Document successfully published\r\nNotification-Icon: http://fake.net/image.png\r\nNotification-Enabled: False\r\nX-Sound: http://fake.net/sound.wav\r\nX-Sound-Alt: x-growl-resource://f082d4e3bdfe15f8f5f2450bff69fb17\r\n\r\nIdentifier: cb08ca4a7bb5f9683c19133a84872ca7\r\nLength: 4\r\n\r\nABCD\r\n\r\nIdentifier: f082d4e3bdfe15f8f5f2450bff69fb17\r\nLength: 16\r\n\r\nFGHIJKLMNOPQRSTU\r\n"
-	r = GNTPRequest()
-	r.unmarshall(msg_in)
-	msg_out = r.marshall()
-	assert msg_out == msg_in
+def test_GNTPRequest_marshal():
+	msg_in = bytearray(("GNTP/1.0 REGISTER NONE\r\n"
+			  "Application-Icon: http://www.site.org/image.jpg\r\n"
+			  "Application-Name: SurfWriter\r\n"
+			  "X-Application-ID: 08d6c05a21512a79a1dfeb9d2a8f262f\r\n"
+			  "Notifications-Count: 2\r\n"
+			  "X-Creator: Apple Software\r\n\r\n"
+			  "Notification-Display-Name: Download completed\r\n"
+			  "Notification-Enabled: True\r\n"
+			  "Notification-Icon: x-growl-resource://cb08ca4a7bb5f9683c19133a84872ca7\r\n"
+			  "Notification-Name: Download Complete\r\n"
+			  "X-Language: English\r\n"
+			  "X-Timezone: PST\r\n\r\n"
+			  "Notification-Display-Name: Document successfully published\r\n"
+			  "Notification-Enabled: False\r\n"
+			  "Notification-Icon: http://fake.net/image.png\r\n"
+			  "Notification-Name: Document Published\r\n"
+			  "X-Sound: http://fake.net/sound.wav\r\n"
+			  "X-Sound-Alt: x-growl-resource://f082d4e3bdfe15f8f5f2450bff69fb17\r\n\r\n"
+			  "Identifier: cb08ca4a7bb5f9683c19133a84872ca7\r\n"
+			  "Length: 4\r\n\r\nABCD\r\n\r\n"
+			  "Identifier: f082d4e3bdfe15f8f5f2450bff69fb17\r\n"
+			  "Length: 16\r\n\r\nFGHIJKLMNOPQRSTU\r\n").encode('UTF-8'))
 
-def test_GNTPRequest_Unmarshall():
-	r = GNTPRequest()
+	r = Request()
+	r.unmarshal(msg_in)
+	msg_out = r.marshal()
+	assert len(msg_out) == len(msg_in)
 
-	msg = "GNTP/1.0 REGISTER NONE\r\nApplication-Name: SurfWriter\r\nApplication-Icon: http://www.site.org/image.jpg\r\nX-Creator: Apple Software\r\nX-Application-ID: 08d6c05a21512a79a1dfeb9d2a8f262f\r\nNotifications-Count: 2\r\n\r\nNotification-Name: Download Complete\r\nNotification-Display-Name: Download completed\r\nNotification-Icon: x-growl-resource://cb08ca4a7bb5f9683c19133a84872ca7\r\nNotification-Enabled: True\r\nX-Language: English\r\nX-Timezone: PST\r\n\r\nNotification-Name: Document Published\r\nNotification-Display-Name: Document successfully published\r\nNotification-Icon: http://fake.net/image.png\r\nNotification-Enabled: False\r\nX-Sound: http://fake.net/sound.wav\r\nX-Sound-Alt: x-growl-resource://f082d4e3bdfe15f8f5f2450bff69fb17\r\n\r\nIdentifier: cb08ca4a7bb5f9683c19133a84872ca7\r\nLength: 4\r\n\r\nABCD\r\n\r\nIdentifier: f082d4e3bdfe15f8f5f2450bff69fb17\r\nLength: 16\r\n\r\nFGHIJKLMNOPQRSTU\r\n"
-	r.unmarshall(msg)
-	
+def test_GNTPRequest_Unmarshal():
+	r = Request()
+
+	msg = bytearray(("GNTP/1.0 REGISTER NONE\r\nApplication-Name: SurfWriter\r\n"
+		   "Application-Icon: http://www.site.org/image.jpg\r\n"
+		   "X-Creator: Apple Software\r\n"
+		   "X-Application-ID: 08d6c05a21512a79a1dfeb9d2a8f262f\r\n"
+		   "Notifications-Count: 2\r\n\r\n"
+		   "Notification-Name: Download Complete\r\n"
+		   "Notification-Display-Name: Download completed\r\n"
+		   "Notification-Icon: x-growl-resource://cb08ca4a7bb5f9683c19133a84872ca7\r\n"
+		   "Notification-Enabled: True\r\nX-Language: English\r\n"
+		   "X-Timezone: PST\r\n\r\nNotification-Name: Document Published\r\n"
+		   "Notification-Display-Name: Document successfully published\r\n"
+		   "Notification-Icon: http://fake.net/image.png\r\n"
+		   "Notification-Enabled: False\r\n"
+		   "X-Sound: http://fake.net/sound.wav\r\n"
+		   "X-Sound-Alt: x-growl-resource://f082d4e3bdfe15f8f5f2450bff69fb17\r\n\r\n"
+		   "Identifier: cb08ca4a7bb5f9683c19133a84872ca7\r\n"
+		   "Length: 4\r\n\r\nABCD\r\n\r\n"
+		   "Identifier: f082d4e3bdfe15f8f5f2450bff69fb17\r\n"
+		   "Length: 16\r\n\r\nFGHIJKLMNOPQRSTU\r\n").encode('UTF-8'))
+
+	r.unmarshal(msg)
+
 	assert r.version == '1.0'
 	assert r.command == 'REGISTER'
-	assert r.encryption is None
-	assert r.hash is None
-	
-	assert r.header['Application-Name'] == 'SurfWriter'
-	
-	msg = "GNTP/1.0 REGISTER sha256:adadad md5:eaeaea.ddd\r\n"
-	r.unmarshall(msg)
-	
+	assert r._encryption is None
+	assert r._hash is None
+
+	assert r.body['Application-Name'] == 'SurfWriter'
+
+def test_GNTPRequest_Unmarshal_WithHash():
+	password = 'testtest'
+	hash_ = generate_hash(password.encode('UTF-8'))
+
+	r = Request()
+	r.password = password
+	msg = ("GNTP/1.0 REGISTER NONE %s\r\n" % hash_).encode('UTF-8')
+	r.unmarshal(msg)
+
 	assert r.version == '1.0'
 	assert r.command == 'REGISTER'
-	assert r.encryption == ('sha256', 'adadad')
-	assert r.hash == ('md5', 'eaeaea', 'ddd')
-
-	msg = "GNTP/1.0 REGISTER NONE md5:eaeaea.ddde\r\n"
-	r.unmarshall(msg)
-
-	assert r.encryption is None
-	assert r.hash == ('md5', 'eaeaea', 'ddde')
-
-if __name__ == '__main__':
-	test_GNTPRequest_Create()
-	test_GNTPRequest_Marshall()
-	test_GNTPRequest_Unmarshall()
-	
+	assert r._hash == hash_

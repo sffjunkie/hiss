@@ -12,26 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Part of 'hiss' the asynchronous notification library
+from hiss.notification import NotificationPriority
 
-__all__ = ['HissError', 'ValidationError', 'NotifierError', 'TargetError']
+def test_NotificationPriority_VeryLow():
+    p = NotificationPriority.very_low
+    assert p.value == -2
 
-class HissError(Exception):
-    pass
+def test_NotificationPriority_Moderate():
+    p = NotificationPriority.moderate
+    assert p.value == -1
 
+def test_NotificationPriority_Normal():
+    p = NotificationPriority.normal
+    assert p.value == 0
 
-class marshalError(HissError):
-    """An error which occurred when marshaling/unmarshaling of messages"""
+def test_NotificationPriority_High():
+    p = NotificationPriority.high
+    assert p.value == 1
 
-
-class ValidationError(HissError):
-    """An error which occurred when validating hashing/encryption"""
-
-
-class NotifierError(HissError):
-    """An error whilst calling notifier methods."""
-
-
-class TargetError(HissError):
-    """An error whilst processing a target specification."""
-
+def test_NotificationPriority_Emergency():
+    p = NotificationPriority.emergency
+    assert p.value == 2
+    

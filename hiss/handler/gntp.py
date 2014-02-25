@@ -1,4 +1,4 @@
-# Copyright 2009-2011, Simon Kennedy, code@sffjunkie.co.uk
+# Copyright 2013-2014, Simon Kennedy, code@sffjunkie.co.uk
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,575 +12,616 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Part of 'hiss' the twisted notification library
+# Part of 'hiss' the asynchronous notification library
 
 import re
+import asyncio
 import logging
+from os import urandom
+from pprint import pformat
+from datetime import datetime
+from urllib.parse import urlparse
+from binascii import unhexlify
 
-from twisted.internet import reactor, defer
-from twisted.internet.protocol import ClientFactory
-from twisted.internet.endpoints import TCP4ClientEndpoint
-from twisted.protocols.basic import LineReceiver
-from twisted.internet.error import ConnectionDone
-
-from hiss.handler import TargetList
+from hiss.handler import Handler, Factory
+from hiss.utility import parse_datetime
 from hiss.resource import Icon
-from hiss.event import NotificationEvent
 
-logging.basicConfig(level=logging.DEBUG, format='%(message)s')
+from hiss.exception import HissError, marshalError
+from hiss.hash import HashInfo, generate_hash, validate_hash
+from hiss.encryption import PY_CRYPTO, encrypt, decrypt
 
 GNTP_SCHEME = 'gntp'
 GNTP_DEFAULT_PORT = 23053
-GNTP_DEFAULT_VERSION = '1.0'
+GNTP_BASE_VERSION = '1.0'
 
-EVENT_MAPPING = {
-    'CLICK': 0,
-    'CLICKED': 0,
-    'TIMEDOUT': 1,
-    'TIMEOUT': 1,
-    'CLOSED': 2,
-    'CLOSE': 2,
-}
+DEFAULT_HASH_ALGORITHM = 'SHA256'
+ENCRYPTION_ALGORITHM = 'AES'
 
-class GNTPError(Exception):
+class GNTPError(HissError):
     pass
-        
 
-class GNTP(object):
-    def __init__(self, event_handler=None):
-        """Growl Network Transfer Protocol handler
-        
-        :param event_handler: A callable which is provided with an
-                              :class:`hiss.NotificationEvent` when an SNP callback
-                              event is received.
-        :type event_handler:  A callable
-        """
-    
-        self._targets = TargetList()
-        self._event_handler = event_handler
-        self._factory = GNTPFactory(self._gtnp_event_handler)
-    
-    def connect(self, target):
-        """Connect to a target
-        
-        :param target: Target to connect to
-        :type target:  :class:`hiss.Target`
-        """
-        
-        def connected(response):
-            self._targets.append(target)
-            return response
-        
-        if target.port == -1:
-            target.port = GNTP_DEFAULT_PORT
-        
-        if target not in self._targets:
-            d = self._factory.connect(target)
-            d.addCallback(connected)
-            return d
+
+class GNTPHandler(Handler):
+    """:class:`~hiss.handler.Handler` sub-class for GNTP messages"""
+
+    __handler__ = 'GNTP'
+
+    def __init__(self, loop=None):
+        super().__init__(loop)
+
+        self.port = GNTP_DEFAULT_PORT
+        self.factory = Factory(GNTP)
+        self.async_factory = Factory(GNTPAsync)
+        self.capabilities = ['register', 'subscribe']
+
+
+class GNTPBaseProtocol(asyncio.Protocol):
+    def __init__(self):
+        self._target = None
+        self._buffer = None
+
+    def connection_made(self, transport):
+        self.response = None
+        self._buffer = bytearray()
+        self._transport = transport
+
+    @property
+    def target(self):
+        return self._target
+
+    @target.setter
+    def target(self, value):
+        self._target = value
+        if value.is_remote:
+            self.use_hash = True
+
+    def send_request(self, request, target):
+        if target.password is not None and (self.use_hash or self.use_encryption):
+            request.password = target.password.encode('UTF-8')
+            request.use_hash = self.use_hash
+            request.use_encryption = self.use_encryption
+
+        request_data = request.marshal()
+        self._transport.write(request_data)
+
+    @asyncio.coroutine
+    def _wait_for_response(self):
+        while True:
+            if self.response is not None:
+                return
+            else:
+                yield from asyncio.sleep(0.1)
+
+
+class GNTP(GNTPBaseProtocol):
+    """Growl Network Transport Protocol."""
+
+    name = 'GNTP'
+
+    def __init__(self):
+        self.use_encryption = False
+        self.use_hash = False
+
+    def data_received(self, data):
+        self._buffer.extend(data)
+
+    def eof_received(self):
+        callback_response = None
+        items = [i for i in self._buffer.split(b'\r\n\r\n') if len(i) > 0]
+        if len(items) > 1:
+            response_data = items[0]
+            callback_data = items[1]
+
+            callback_response = Response()
+            callback_response.unmarshal(callback_data)
         else:
-            return defer.succeed(True)
+            response_data = items[0]
 
-    def disconnect(self, target):
-        """Disconnect from a target
-        
-        :param target: Target to disconnect from
-        :type target:  :class:`hiss.Target`
-        :returns:      A :class:`defer.Deferred` which fires when
-                       disconnected from the target 
+        response = Response()
+        response.unmarshal(response_data)
+
+        result = {}
+        result['command'] = response.command
+        result['handler'] = 'GNTP'
+        result['status'] = response.status
+        result['status_code'] = response.status_code
+        result['timestamp'] = response.timestamp
+        result['target'] = str(self.target)
+        if response.status =='ERROR':
+            result['reason'] = response.reason
+
+        if callback_response is not None:
+            cb_result = {}
+            cb_result['nid'] = callback_response.nid
+            cb_result['status'] = callback_response.callback_status
+            cb_result['timestamp'] = callback_response.callback_timestamp
+            result['callback'] = cb_result
+
+        self.response = result
+
+    @asyncio.coroutine
+    def register(self, notifier):
+        """Register ``notifier`` with a our target 
+
+        :param notifier: The Notifier to register
+        :type notifier:  :class:`~hiss.notifier.Notifier`
         """
-        
-        if target in self._targets:
-            protocol = self._factory.find_protocol(target.host, target.port)
-            if protocol is not None:
-                protocol.loseConnection()
-            
-            target.handler = None
-            del self._targets[target]
-            
-            return defer.succeed(True)
-        else:
-            return defer.fail(False)
-        
-    def register(self, notifier, targets=None):
-        """Register a notifier with a list of targets
-        
-        :param notifier: Notifier to register
-        :type notifier:  :class:`hiss.Notifier`
-        :param targets:  list of targets to register with or None to
-                         register with all targets
-        :type targets:   list of :class:`hiss.Target` or None
-        :returns:        A :class:`defer.Deferred` to wait on
+
+        request = _RegisterRequest(notifier)
+        self.send_request(request, self.target)
+        yield from self._wait_for_response()
+        logging.debug(pformat(self.response))
+        return self.response
+
+    @asyncio.coroutine
+    def unregister(self, notifier):
+        """Unregister the notifier from the target"""
+
+        request = _UnregisterRequest(notifier)
+        self.send_request(request, self.target)
+        yield from self._wait_for_response()
+        logging.debug(pformat(self.response))
+        return self.response
+
+    @asyncio.coroutine
+    def notify(self, notification, notifier):
+        """Send a notification
+
+        :param notification: The notification to send
+        :type notification: :class:`~hiss.notification.Notification`
         """
-        
-        request = RegisterRequest(notifier)
-        targets = self._targets.valid_targets(targets)
-        return self._factory.send_request(request, targets)
-        
-    def notify(self, notifier, notification, targets=None):
-        """Send a notification to a list of targets
-        
-        :param notifier: Notification to send
-        :type notifier:  :class:`hiss.Notification`
-        :param targets:  list of targets to notify or None to
-                         send to all targets
-        :type targets:   list of :class:`hiss.Target` or None
-        :returns:        A :class:`defer.Deferred` which fires when a response
-                         has been received.
-        """
-        
-        request = NotifyRequest(notifier, notification)
-        targets = self._targets.valid_targets(targets)
-        return self._factory.send_request(request, targets)
-    
-    def subscribe(self, notifier, signatures=[], targets=None):
-        """Subscribe to notifications from a list of signatures
-        
-        :param notifier:   Notifier to use.
-        :type notifier:    :class:`hiss.Notifier`
-        :param signatures: Application signatures to receive messages from
-        :type signatures:  List of string or [] for all
-                           applications
-        :param targets:    list of targets to notify or None to
-                           send to all targets
-        :type targets:     list of :class:`hiss.Target` or None
-        """
-                           
-        request = SubscribeRequest(notifier)
-        targets = self._targets.valid_targets(targets)
-        return self._factory.send_request(request, targets)
-    
-    def unregister(self, notifier, targets=None):
-        """Unregister a notifier with a list of targets
-        
-        :param notifier: Notifier to unregister
-        :type notifier:  hiss.Notifier
-        :param targets:  list of targets to unregister with or None to
-                         unregister with all targets
-        :type targets:   list of :class:`hiss.Target` or None
-        :returns:        A :class:`defer.Deferred` which fires when a response
-                         has been received.
-        """
-        
-        return defer.succeed(True)
-        
-    def _gtnp_event_handler(self, response):
-        event = NotificationEvent()
-        event.nid = response.nid
-        event.code = EVENT_MAPPING[response.status_name]
-        event.data = response.data
-            
-        self._event_handler(event)
+
+        request = _NotifyRequest(notification, notifier)
+        self.send_request(request, self.target)
+        yield from self._wait_for_response()
+        logging.debug(pformat(self.response))
+        return self.response
 
 
-class GNTPRequest(object):
-    def __init__(self, version=GNTP_DEFAULT_VERSION, password=''):
+class GNTPAsync(GNTPBaseProtocol):
+    """Growl Network Transport Protocol."""
+
+    name = 'GNTPAsync'
+
+    def data_received(self, data):
+        self._buffer.extend(data)
+
+    @asyncio.coroutine
+    def subscribe(self, notifier, signatures):
+        """Register ``notifier`` with a our target 
+
+        :param notifier: The Notifier to register
+        :type notifier:  :class:`~hiss.notifier.Notifier`
+        :param signatures:    Application signatures to receive messages from
+        :type signatures:     List of string or [] for all
+                              applications
+        """
+        
+        self._async_handler = notifier._handler
+
+        request = _SubscribeRequest(notifier)
+        self.send_request(request, self.target)
+        yield from self._wait_for_response()
+        logging.debug(pformat(self.response))
+        return self.response
+
+
+class Request(object):
+    def __init__(self, version=GNTP_BASE_VERSION):
         self.version = version
+        self.password = None
         self.command = ''
-        self.header = {}
+        self.body = {}
         self.sections = []
         self.identifiers = []
-        self.password = password
-        self.hash = None
-        self.encryption = None
-    
-    def marshall(self):
-        """Marshall the request ready to send over the wire."""
-        
-        data = 'GNTP/%s %s' % (self.version, self.command)
-        if self.encryption is not None:
-            data += ' %s:%s' % self.encryption
+
+        self.use_hash = False
+        self.use_encryption = False
+
+        self._hash = None
+        self._encryption = None
+
+    def marshal(self, encoding='UTF-8'):
+        """marshal the request ready to send over the wire."""
+
+        if self.use_hash or self.use_encryption:
+            if self.password is None:
+                raise marshalError('Password required to generate hash for marshaling of request.',
+                                    'Request.marshal')
+
+            self._hash = generate_hash(self.password.encode('UTF-8'))
+
+        if self.use_encryption:
+            if not PY_CRYPTO:
+                raise marshalError('Unable to encrypt message. PyCrypto not available')
+
+            if ENCRYPTION_ALGORITHM == 'AES':
+                iv = urandom(16)
+            else:
+                iv = urandom(8)
+
+            self._encryption = (ENCRYPTION_ALGORITHM, iv)
+
+        header = 'GNTP/%s %s' % (self.version, self.command)
+        if self._encryption is not None:
+            header += ' %s:%s' % self._encryption
         else:
-            data += ' NONE'
-        
-        if self.hash is not None:
-            data += ' %s:%s.%s' % self.hash
-            
-        data += '\r\n'
-        
-        for name, value in self.header.items():
-            data += '%s: %s\r\n' % (name, value)
-        
-        data += '\r\n'
-        
+            header += ' NONE'
+
+        if self._hash is not None:
+            header += ' %s:%s.%s' % self._hash
+
+        header += '\r\n'
+        data = bytearray(header.encode(encoding))
+
+        body_data = bytearray()
+        for name, value in iter(sorted(self.body.items())):
+            body_data.extend(('%s: %s\r\n' % (name, value)).encode(encoding))
+
+        body_data.extend(('\r\n').encode(encoding))
+
+        if self._encryption is not None:
+            body_data = self._encrypt(body_data)
+
+        data.extend(body_data)
+
         for section in self.sections:
+            section_data = bytearray()
             for name, value in section.items():
-                data += '%s: %s\r\n' % (name, value)
-        
-            data += '\r\n'
-            
+                if isinstance(value, self._IdReference):
+                    section_data.extend(('%s: x-growl-resource//%s\r\n' % (name, str(value))).encode(encoding))
+                else:
+                    section_data.extend(('%s: %s\r\n' % (name, value)).encode(encoding))
+
+            section_data.extend(('\r\n').encode(encoding))
+
+            if self._encryption is not None:
+                section_data = self._encrypt(section_data)
+
+            data.extend(section_data)
+
         for identifier in self.identifiers:
-            data += 'Identifier: %s\r\n' % identifier['Identifier']
-            idata = identifier['data'] 
-            data += 'Length: %d\r\n\r\n%s\r\n\r\n' % (len(idata), idata)
-            
+            identifier_data = bytearray()
+            identifier_data.extend(('Identifier: %s\r\n' % identifier['Identifier']).encode(encoding))
+            idata = identifier['Data']
+            identifier_data.extend(('Length: %d\r\n\r\n' % len(idata)).encode(encoding))
+
+            if self._encryption is not None:
+                idata = self._encrypt(idata)
+
+            identifier_data.extend(idata)
+            identifier_data.extend(('\r\n\r\n').encode(encoding))
+
+            data.extend(identifier_data)
+
         return data
-            
-    def unmarshall(self, data):
-        """Unmarshall data received over the wire into a valid request"""
-        
-        sections = data.split('\r\n\r\n')
-        
-        header_re = r'GNTP\/(?P<version>\d\.\d) (?P<command>[A-Z]+)( ((?P<encryptionAlgorithmID>\w+)\:(?P<ivValue>[a-fA-F0-9]+)|NONE)( (?P<keyHashAlgorithmID>\w+)\:(?P<keyHash>[a-fA-F0-9]+)\.(?P<salt>[a-fA-F0-9]+))?)?'
-        header = sections[0]
-        m = re.match(header_re, header)
-            
+
+    def unmarshal(self, data, encoding='UTF-8'):
+        """Unmarshal data received over the wire into a valid request"""
+
+        if self._encryption is not None and not PY_CRYPTO:
+            raise marshalError('PyCrypto required to decrypt message')
+
+        sections = data.split(b'\r\n\r\n')
+
+        header_info_re = b'GNTP\/(?P<version>\d\.\d) (?P<command>[A-Z]+)( ((?P<encryptionAlgorithmID>\w+)\:(?P<ivValue>[a-fA-F0-9]+)|NONE)( (?P<keyHashAlgorithmID>\w+)\:(?P<keyHash>[a-fA-F0-9]+)\.(?P<salt>[a-fA-F0-9]+))?)?'
+        header_section = sections.pop(0)
+        header_info, *headers = header_section.split(b'\r\n')
+        m = re.match(header_info_re, header_info)
+
         if m is not None:
             d = m.groupdict()
-            self.version = d['version']
-            self.command = d['command']
-            
+            self.version = d['version'].decode(encoding)
+            self.command = d['command'].decode(encoding)
+
             if d['encryptionAlgorithmID'] is None:
-                self.encryption = None
+                self.use_encryption = False
+                self._encryption = None
             else:
                 self.use_encryption = True
-                self.encryption = (d['encryptionAlgorithmID'],
-                                   d['ivValue'])
-            
+                self._encryption = (d['encryptionAlgorithmID'].decode(encoding),
+                                    unhexlify(d['ivValue']))
+
             if d['keyHashAlgorithmID'] is None:
-                self.hash = None
+                self.use_hash = False
+                self._hash = None
             else:
+                if self.password is None:
+                    raise marshalError('Password required to validate hash for unmarshal of request.')
+
+                self._hash = HashInfo(d['keyHashAlgorithmID'].decode(encoding),
+                                      unhexlify(d['keyHash']),
+                                      unhexlify(d['salt']))
                 self.use_hash = True
-                self.hash = (d['keyHashAlgorithmID'],
-                             d['keyHash'],
-                             d['salt'])
-                
-            self._unmarshall_section(header.split('\r\n')[1:], self.header)
-            
-            info = None
-            next_is_id = False
-            for section in sections[1:]:
-                if not next_is_id:
-                    info = {}
-                    self._unmarshall_section(section.split('\r\n'), info)
-                    
-                    if 'Identifier' in info:
-                        next_is_id = True
-                        self.identifiers.append(info)
-                    else:
-                        self.sections.append(info)
-                elif info is not None:
-                    info['data'] = section
-                    next_is_id = False
+                validate_hash(self.password, self._hash)
 
-            #for section in self.sections:
-            #    for name, value in section.items():
-            #        if value.startswith('x-growl-resource://'):
-            #            value = value[19:]
-            #            d = self.identifier_data(value)
-            #            raise GNTPError('unmarshall: Unable to find data for identifier %s' % value)
-            #            section[name] = d
+            if len(headers[0]) > 0:
+                self._unmarshal_section(headers, self.body)
+
+            if len(sections) > 0:
+                info = None
+                next_section_is_data = False
+                for section in sections:
+                    if not next_section_is_data:
+                        info = {}
+                        self._unmarshal_section(section.split(b'\r\n'), info)
+
+                        if 'Identifier' in info:
+                            next_section_is_data = True
+                            self.identifiers.append(info)
+                        else:
+                            self.sections.append(info)
+                    elif info is not None:
+                        length = int(info['Length'])
+                        info['Data'] = section[:length]
+                        next_section_is_data = False
         else:
-            raise GNTPError('unmarshall: Invalid GNTP message')
+            raise marshalError('Response.unmarshal: Invalid GNTP message')
 
-    def _unmarshall_section(self, lines, info):
+    def _add_resource(self, key, resource):
+        uid = resource.uid
+        data = resource.data
+        self.body[key] = 'x-growl-resource://%s' % uid
+
+        identifier = {}
+        identifier['Identifier'] = uid
+        identifier['Data'] = data
+        self.identifiers.append(identifier)
+
+    def _unmarshal_section(self, lines, info):
         for line in lines:
-            try:
-                name, value = line.split(':', 1)
-                info[name] = value.strip()
-            except:
-                pass
-            
+            name, value = line.split(b':', 1)
+            name = name.decode('UTF-8')
+            value = value.decode('UTF-8').strip()
+
+            if value.startswith('x-growl-resource://'):
+                info[name] = self._IdReference(value[19:])
+            else:
+                info[name] = value
+
     def identifier_data(self, identifier):
         for i in self.identifiers:
             if i['Identifier'] == identifier:
-                return i['data']
-        
-        return ''
+                return i['Data']
 
-    def _encrypt(self):
-        pass
+        return None
 
-    def _decrypt(self):
-        pass
+    def _encrypt(self, data):
+        encryption_algorithm, iv = self._encryption
+        return encrypt(encryption_algorithm, iv, self._hash.key_hash, data)
+
+    def _decrypt(self, data):
+        encryption_algorithm, iv = self._encryption
+        return decrypt(encryption_algorithm, iv, self._hash.key_hash, data)
+
+    class _IdReference(object):
+        def __init__(self, reference):
+            self.reference = reference
+
+        def __repr__(self):
+            return self.reference
 
 
-class GNTPResponse(object):
-    """GNTP/1.0 -OK|-ERROR|-CALLBACK <encryptionAlgoritm>
-    <header>: <value>
+class Response(object):
+    """GNTP/1.0 -(OK|ERROR|CALLBACK) <encryptionAlgoritm>
+    <body>: <value>
     """
-    
-    def __init__(self):
-        self.version = '1.0'
-        """The GNTP protocol version number of this response"""
-        
-        self.response_type = ''
-        self.command = ''
-        self.header = {}
-        self.use_encryption = False
-        self.encryption = None
-        self.isevent = False
 
-        self._lines = []
-        
-    def append(self, line):
-        self._lines.append(line)
-    
-    def marshall(self):
-        """Marshall the request ready to send over the wire."""
-        
-        data = 'GNTP/%s -%s' % (self.version, self.response_type)
-        
-        if self.use_encryption:
-            self._encrypt()
-            data += ' %s:%s' % self.encryption
+    def __init__(self, version=GNTP_BASE_VERSION):
+        self.version = version
+        """The GNTP protocol version number of this response"""
+
+        self.status = ''
+        self.command = ''
+        self.body = {}
+
+        self.use_hash = False
+        self.use_encryption = False
+        self._hash = None
+        self._encryption = None
+
+    def marshal(self, custom_headers=None):
+        """marshal the response ready to send over the wire."""
+
+        if self._encryption is not None and not PY_CRYPTO:
+            raise Exception('Unable to encrypt message. PyCrypto not available')
+
+        data = bytearray()
+
+        header = 'GNTP/%s -%s' % (self.version, self.status)
+
+        if self._encryption is not None:
+            header += ' %s:%s' % self._encryption
         else:
-            data += ' NONE\r\n'
-        
+            header += ' NONE\r\n'
+
+        data.extend(header.encode('UTF-8'))
+
         if self.command != '':
-            data += 'Response-Action: %s\r\n' % self.command
-        
-        for name, value in self.header.items():
-            data += '%s: %s\r\n' % (name.strip(), str(value).strip())
-            
+            response_action = 'Response-Action: %s\r\n' % self.command.upper()
+            data.extend(response_action.encode('UTF-8'))
+
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%SZ')
+        data.extend(('X-Timestamp: %s\r\n' % str(timestamp)).encode('UTF-8'))
+
+        if custom_headers is not None:
+            for key, value in custom_headers:
+                data.extend(('%s: %s\r\n' % (key, value)).encode('UTF-8'))
+
+        body_data = bytearray()
+        for name, value in self.body.items():
+            line = '%s: %s\r\n' % (name.strip(), str(value).strip())
+            body_data.extend(line.encode('UTF-8'))
+
+        if self._encryption is not None:
+            body_data = self._encrypt(body_data)
+
+        data.extend(body_data)
         return data
-    
-    def unmarshall(self, data=None):
-        """Unmarshall data received over the wire into a valid request"""
-        
-        if data is not None:
-            lines = data.split('\r\n')
-        else:
-            lines = self._lines
-            
+
+    def unmarshal(self, data):
+        """Unmarshal data received over the wire into a valid response"""
+
+        if self._encryption is not None and not PY_CRYPTO:
+            raise marshalError('Unable to decrypt message. PyCrypto not available')
+
+        header, data = data.split(b'\r\n', maxsplit=1)
+
         header_re = ('GNTP\/(?P<version>\d\.\d) (?P<responsetype>\-?[A-Z]+)'
                      ' ((?P<encryptionAlgorithmID>\w+)\:(?P<ivValue>[a-fA-F0-9]+)|NONE)')
-        m = re.match(header_re, lines[0])
+        m = re.match(header_re, header.decode('UTF-8'))
         if m is not None:
             d = m.groupdict()
             self.version = d['version']
-            self.response_type = d['responsetype'].lstrip('-')
-            
-            if self.response_type == 'ERROR':
-                self.status_code = 1
-            
-            self.isevent = (self.response_type == 'CALLBACK')
-            
+            self.status = d['responsetype'].lstrip('-')
+
+            if self.status == 'OK':
+                self.status_code = 0
+
             if d['encryptionAlgorithmID'] is None:
-                self.encryption = None
+                self.use_encryption = False
+                self._encryption = None
             else:
                 self.use_encryption = True
-                self.encryption = (d['encryptionAlgorithmID'],
+                self._encryption = (d['encryptionAlgorithmID'],
                                    d['ivValue'])
-            
-            for line in lines[1:]:
-                if line != '':
-                    try:
-                        name, value = line.split(':', 1)
-                        
-                        value = str(value).strip()
-                        if name == 'Response-Action':
-                            self.command = value
-                        elif name == 'Notification-ID':
-                            self.nid = value
-                        elif name == 'Notification-Callback-Result':
-                            self.status_name = value
-                        elif name == 'Notification-Callback-Context':
-                            self.data = value
-                        elif name == 'X-Timestamp':
-                            self.timestamp = value
-                        elif name == 'X-Message-Daemon':
-                            self.daemon = value
-                        elif name == 'Origin-Machine-Name':
-                            self.host = value
-                        elif name == 'Error-Code':
-                            self.status_code = int(value)
-                        elif name == 'Error-Description':
-                            self.status_name = value
+                data = self._decrypt(data)
+
+            for line in [l for l in data.split(b'\r\n') if len(l) != 0]:
+                try:
+                    name, value = line.split(b':', 1)
+                    name = name.decode('UTF-8').strip()
+                    value = value.decode('UTF-8').strip()
+
+                    # All                    
+                    if name == 'Response-Action':
+                        self.command = value.lower()
+
+                    elif name == 'X-Timestamp':
+                        self.timestamp = parse_datetime(value)
+                    elif name == 'X-Message-Daemon':
+                        self.daemon = value
+                    elif name == 'Origin-Machine-Name':
+                        self.origin = value
+                    elif name == 'Origin-Software-Name':
+                        self.origin_software_name = value
+                    elif name == 'Origin-Software-Version':
+                        self.origin_software_version = value
+                    elif name == 'Origin-Platform-Name':
+                        self.origin_platform_name = value
+                    elif name == 'Origin-Platform-Version':
+                        self.origin_platform_version = value
+
+                    elif name == 'Error-Code':
+                        self.status_code = int(value)
+                    elif name == 'Error-Description':
+                        self.reason = value
+
+                    # Notify
+                    elif name == 'Application-Name':
+                        self.notifier_name = value
+                    elif name == 'Notification-ID':
+                        self.nid = value
+                    elif name == 'Notification-Callback-Result':
+                        self.callback_status = value
+                    elif name == 'Notification-Callback-Context':
+                        self.callback_context = value
+                    elif name == 'Notification-Callback-Context-Type':
+                        self.callback_context_type = value
+                    elif name == 'Notification-Callback-Timestamp':
+                        self.callback_timestamp = parse_datetime(value)
+
+                    # Subscribe
+                    elif name == 'Subscription-TTL':
+                        self.ttl = int(value)
+
+                    else:
+                        if name not in self.body:
+                            self.body[name] = value
                         else:
-                            if name not in self.header:
-                                self.header[name] = value
-                            else:
-                                if not isinstance(self.header[name], list):
-                                    self.header[name] = [self.header[name]]
-                
-                                self.header[name].append(value)
-                    except ValueError:
-                        logging.debug('GTNP::Unmarshall - Error splitting %s' % line)
+                            if not isinstance(self.body[name], list):
+                                self.body[name] = [self.body[name]]
 
-    def _encrypt(self):
+                            self.body[name].append(value)
+                except ValueError:
+                    logging.debug('hiss.handler.GNTP.Response.unmarshal - Error splitting %s' % line)
+                    raise
+
+    def _encrypt(self, data):
         pass
 
-    def _decrypt(self):
+    def _decrypt(self, lines):
         pass
 
 
-class RegisterRequest(object):
+class _RegisterRequest(Request):
     def __init__(self, notifier):
-        request = GNTPRequest()
-        request.command = 'REGISTER'
-        request.header['Application-Name'] = notifier.name
-        request.header['Notifications-Count'] = len(notifier.notification_classes)
-            
-        if notifier.icon is not None:
-            if isinstance(notifier.icon, Icon):
-                uid = notifier.icon.uid
-                data = notifier.icon.data
-            else:
-                request.header['Application-Icon'] = notifier.icon
-        
+        Request.__init__(self)
+
+        self.command = 'REGISTER'
+        self.body['Application-Name'] = notifier.name
+        self.body['Notifications-Count'] = len(notifier.notification_classes)
+
+        if isinstance(notifier.icon, Icon):
+            self._add_resource('Application-Icon', notifier.icon)
+        else:
+            self.body['Application-Icon'] = notifier.icon
+
         for info in notifier.notification_classes.values():
             section = {}
             section['Notification-Name'] = info.name
             section['Notification-Enabled'] = info.enabled
-                    
-            request.sections.append(section)
-        
-        self.request = request
+
+            self.sections.append(section)
 
 
-class NotifyRequest(object):
-    def __init__(self, notifier, notification):
-        request = GNTPRequest()
-        request.command = 'NOTIFY'
-        request.header['Application-Name'] = notifier.name
-        request.header['Notification-Name'] = notification.name
-        request.header['Notification-ID'] = notification.uid
-        request.header['Notification-Title'] = notification.title
-        
+class _NotifyRequest(Request):
+    def __init__(self, notification, notifier):
+        Request.__init__(self)
+
+        self.command = 'NOTIFY'
+        self.body['Application-Name'] = notifier.name
+        self.body['Notification-Name'] = notification.name
+        self.body['Notification-ID'] = notification.uid
+        self.body['Notification-Title'] = notification.title
+
         if notification.text is not None:
-            request.header['Notification-Text'] = notification.text
-        
-        if notification.callback is not None:
-            request.header['Notification-Callback-Context'] = \
-                notification.callback.command
-            request.header['Notification-Callback-Context-Type'] = \
-                'string'
-        
-        self.request = request
-        
-        
-class SubscribeRequest(object):
-    def __init__(self, notifier):
-        request = GNTPRequest()
-        request.command = 'SUBSCRIBE'
-        request.header['Subscriber-ID'] = notifier.uid
-        request.header['Subscriber-Name'] = notifier.name
-        
-        self.request = request
-        
+            self.body['Notification-Text'] = notification.text
 
-class GNTPFactory(ClientFactory):
-    def __init__(self, event_handler=None):
-        self._protocol_map = []
-        self._event_handler = event_handler
-        
-    def connect(self, target):
-        """Connect to a target.
-        
-        You must use this method to connect to a target otherwise everything
-        else will fail."""
-        
-        protocol = GNTPProtocol(self._event_handler)
-        protocol.factory = self
-        
-        self._protocol_map.append((target, protocol))
-        
-        point = TCP4ClientEndpoint(reactor, target.host, target.port)
-        protocol.endpoint = point
-        d = point.connect(self)
-        return d
-    
-    def send_request(self, request, targets):
-        """Send a request to a list of targets
-        
-        :param request:  Request to send
-        :type request:   :class:`hiss.Request`
-        :param targets:  List of targets to send request to
-        :type targets:   list of :class:`hiss.Target`
-        :returns:        A :class:`defer.Deferred` or
-                         :class:`defer.DeferredList` to wait on
-        """
-        
-        ds = []
-        for target in targets:
-            logging.debug('Sending to %s' % str(target))
-            
-            data = request.request.marshall()
-            logging.debug('%s' % data.replace('\r\n', '\n'))
-            
-            protocol = self._find_protocol_for_target(target)
-            if protocol is not None:
-                deferred = defer.Deferred()
-                protocol.deferred = deferred
-                protocol.send_data(data)
-                
-                ds.append(deferred)
-        
-        if len(ds) == 1:
-            return ds[0]
+        if notification.timeout == 0:
+            self.body['Notification-Sticky'] = 'True'
+
+        if notification.sound is not None:
+            self.body['X-Sound'] = notification.sound
+
+        if isinstance(notification.icon, Icon):
+            self._add_resource('Notification-Icon', notification.icon)
         else:
-            return defer.DeferredList(ds)
+            self.body['Notification-Icon'] = notification.icon
 
-    def buildProtocol(self, address):
-        for target, protocol in self._protocol_map:
-            if target.host == address.host and target.port == address.port:
-                return protocol
+        callback = notification.callback
+        if callback is not None:
+            if urlparse(callback.command).scheme != '':
+                self.body['Notification-Callback-Target'] = callback.command
             else:
-                raise GNTPError(('Unable to build protocol for address %s. '
-                                'Ensure you use the connect method') % address)
-    
-    def _find_protocol_for_target(self, target):
-        for t, protocol in self._protocol_map:
-            if t == target:
-                return protocol
-        
-        return None
-    
-    def clientConnectionLost(self, connector, reason):
-        if issubclass(reason.type, ConnectionDone):
-            connector.connect()
+                self.body['Notification-Callback-Context'] = callback.command
+                self.body['Notification-Callback-Context-Type'] = 'string'
 
 
-class GNTPProtocol(LineReceiver):
-    """GNTPProtocol has 2 responsibilities
-    
-    1. Sends a single GNTPRequest and compiles a GNTPResponse as data arrives.
-       When a complete response is received it executes the callback on the
-       deferred set up when sending the request.
-       
-    2. Compiles any callback data into an GNTPResponse. When a complete response
-       is received it calls the registered event handler 
-    """
-    
-    def __init__(self, event_handler=None):
-        """Initializes the instance and registers an event handler, if provided,
-        called when an GNTP callback response is received.
-        """
-        
-        self._data = ''
-        self.deferred = None
-        self._response = GNTPResponse()
-        self._event_handler = event_handler
-    
-    def lineReceived(self, line):
-        """Receive lines of data"""
-        
-        logging.debug('Received: %s' % line)
-        self._data += ('%s\r\n' % line)
-    
-    def connectionLost(self, reason):
-        if issubclass(reason.type, ConnectionDone):
-            responses = self._data.split('\r\n\r\n')
-            self._data = ''
-            
-            for response in [r for r in responses if len(r)>0]:
-                r = GNTPResponse()
-                r.unmarshall(response)
-            
-                if r.isevent:
-                    if self._event_handler is not None:
-                        self._event_handler(r)
-                else:
-                    if self.deferred is not None:
-                        self.deferred.callback(r)
-                        self.deferred = None
-            
-            # And so it goes around...
-            self.endpoint.connect(self.factory)
-            
-    def send_data(self, data):
-        """Send a single GNTP request."""
-        
-        self.transport.write(data)
-    
+class _SubscribeRequest(Request):
+    def __init__(self, notifier):
+        Request.__init__(self)
+
+        self.command = 'SUBSCRIBE'
+        self.body['Subscriber-ID'] = notifier.uid
+        self.body['Subscriber-Name'] = notifier.name
+
+
+class _UnregisterRequest(Request):
+    def __init__(self, notifier):
+        Request.__init__(self)
+
+        self.command = 'REGISTER'
+        self.body['Application-Name'] = notifier.name
+        self.body['Notifications-Count'] = 0

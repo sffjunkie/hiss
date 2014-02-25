@@ -12,34 +12,35 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 
-The :mod:`hiss` Module
-========================
+Public Parts
+============
 
 Target
-------
+~~~~~~
 
-.. autoclass:: hiss.Target
+.. autoclass:: hiss.target.Target
    :members:
 
 Notifier
---------
-  
+~~~~~~~~
+
 .. py:data:: hiss.USE_REGISTERED
 	
 	Signifies to use the value provided during
-	:meth:`registration <hiss.Notifier.register_notification>`
+	:meth:`addition <hiss.notifier.Notifier.add_notification>`
 	of a notification.
     
-.. autoclass:: hiss.Notifier
+.. autoclass:: hiss.notifier.Notifier
    :members:
+   :member-order: bysource
 
 Notification
-------------
+~~~~~~~~~~~~
 
-.. autoclass:: hiss.NotificationPriority
+.. autoclass:: hiss.notification.NotificationPriority
    :members:
     
-.. autoclass:: hiss.Notification
+.. autoclass:: hiss.notification.Notification
    :members:
    
    .. py:attribute:: uid
@@ -48,18 +49,20 @@ Notification
       notification when showing or hiding via a :class:`~hiss.Notifier`.
 
 Events
-------
-   
-.. autoclass:: hiss.Event
+~~~~~~
+
+Events are generated in response to asynchronous messages arriving.
+
+.. autoclass:: hiss.event.Event
    :members:
    
-.. autoclass:: hiss.NotificationEvent
+.. autoclass:: hiss.event.NotificationEvent
    :members:
    :show-inheritance:
 
    
 Resources
----------
+~~~~~~~~~
 
-.. autoclass:: hiss.Icon
+.. autoclass:: hiss.resource.Icon
 

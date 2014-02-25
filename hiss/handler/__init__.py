@@ -1,4 +1,4 @@
-# Copyright 2009-2011, Simon Kennedy, code@sffjunkie.co.uk
+# Copyright 2013-2014, Simon Kennedy, code@sffjunkie.co.uk
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,44 +12,216 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Part of 'hiss' the twisted notification library
+# Part of 'hiss' the asynchronous notification library
 
-class TargetList():
-    def __init__(self):
-        self._targets = []
-        
-    def append(self, target):
-        self._targets.append(target)
-        
-    def __getitem__(self, s):
-        return self._targets[s]
-    
-    def __setitem__(self, index, value):
-        self._targets[index] = value
-        
-    def __delitem__(self, s):
-        del self._targets[s]
+import sys
+import asyncio
+import logging
+import traceback
 
-    def valid_targets(self, targets):        
-        if targets is None:
-            targets = self._targets
+class Handler():
+    def __init__(self, loop):
+        self._loop = loop
+
+    @asyncio.coroutine
+    def connect(self, target, factory=None):
+        """Connect to a Target and return the protocol handling the connection.
+
+        :param target: The target to connect to
+        :type target:  :class:`~hiss.target.Target`
+        :param factory: The factory to use for the connection or None for the
+                        standard factory
+        :type factory:  :class:`~hiss.handler.Factory`
+
+        The target is added to the protocol instance"""
+        
+        if factory is None:
+            factory = self.factory
+
+        if self._loop is None:
+            self._loop = asyncio.get_event_loop()
+
+        target.handler = self
+        target.port = self.port
+
+        logging.debug('Handler: Connecting to %s' % target)
+
+        (_transport, protocol) = yield from self._loop.create_connection(factory,
+            target.host, target.port)
+
+        protocol.target = target
+
+        return protocol
+
+    @asyncio.coroutine
+    def register(self, notifier, target, **kwargs):
+        """Connect to a target and register the notifier.
+
+        :param notifier: Notifier to register
+        :type notifier:  :class:`~hiss.notifier.Notifier`
+        :param target:   Target to register notifier with
+        :type target:    :class:`~hiss.target.Target`
+        """
+
+        if 'register' in self.capabilities:
+            try:
+                protocol = yield from self.connect(target)
+            except:
+                return self._connect_exception(sys.exc_info())
+
+            response = yield from protocol.register(notifier, **kwargs)
+            response['handler'] = self.__handler__
+            return response
         else:
-            targets = self._known_targets(targets)
-            
-        return targets
+            return self._unsupported()
 
-    def _known_targets(self, targets):
-        """Filter out unknown targets"""  
-        
-        if isinstance(targets, tuple):
-            targets = list(targets)
-        elif not isinstance(targets, list):
-            targets = [targets]
-        
-        _targets = []
-        for target in targets:
-            if target in self._targets:
-                _targets.append(target)
-                
-        return _targets
+    @asyncio.coroutine
+    def notify(self, notification, target):
+        """Send a notification to a target.
 
+        :param notification: Notification to display
+        :type notification:  :class:`~hiss.notifier.Notifier`
+        :param target:       Target to display notification on
+        :type target:        :class:`~hiss.target.Target`
+        """
+
+        try:
+            protocol = yield from self.connect(target)
+        except:
+            return self._connect_exception(sys.exc_info())
+
+        response = yield from protocol.notify(notification, notification.notifier)
+        response['handler'] = self.__handler__
+        return response
+
+    @asyncio.coroutine
+    def unregister(self, notifier, target):
+        """Unregister a notifier with a target.
+
+        :param notifier: Notifier to unregister
+        :type notifier:  :class:`~hiss.notifier.Notifier`
+        :param target:   Target to unregister notifier with
+        :type target:    :class:`~hiss.target.Target`
+        """
+
+        if 'unregister' in self.capabilities:
+            try:
+                protocol = yield from self.connect(target)
+            except:
+                return self._connect_exception(sys.exc_info())
+
+            response = yield from protocol.unregister(notifier)
+            response['handler'] = self.__handler__
+            return response
+        else:
+            return self._unsupported()
+
+    @asyncio.coroutine
+    def show(self, uid, target):
+        """Show a notification
+
+        :param uid:      uid of Notification to show
+        :type uid:       str
+        :param target:   Target to show notification on
+        :type target:    :class:`~hiss.target.Target`
+        """
+
+        if 'show' in self.capabilities:
+            try:
+                protocol = yield from self.connect(target)
+            except:
+                return self._connect_exception(sys.exc_info())
+
+            response = yield from protocol.show(uid)
+            response['handler'] = self.__handler__
+            return response
+        else:
+            return self._unsupported()
+
+    @asyncio.coroutine
+    def hide(self, uid, target):
+        """Hide a notification
+
+        :param uid:      uid of Notification to hide
+        :type uid:       str
+        :param target:   Target to hide notification on
+        :type target:    :class:`~hiss.target.Target`
+        """
+
+        if 'hide' in self.capabilities:
+            try:
+                protocol = yield from self.connect(target)
+            except:
+                return self._connect_exception(sys.exc_info())
+
+            response = yield from protocol.hide(uid)
+            response['handler'] = self.__handler__
+            return response
+        else:
+            return self._unsupported()
+
+    @asyncio.coroutine
+    def isvisible(self, uid, target):
+        """Determine if a notification is visible
+
+        :param uid:      uid of Notification to check
+        :type uid:       str
+        :param target:   Target to ask if notification is visible
+        :type target:    :class:`~hiss.target.Target`
+        """
+
+        if 'isvisible' in self.capabilities:
+            try:
+                protocol = yield from self.connect(target)
+            except:
+                return self._connect_exception(sys.exc_info())
+
+            response = yield from protocol.isvisible(uid)
+            response['handler'] = self.__handler__
+            return response
+        else:
+            return self._unsupported()
+
+    @asyncio.coroutine
+    def subscribe(self, notifier, signatures, target):
+        """Subscribe to notifications from a list of signatures"""
+
+        if 'subscribe' in self.capabilities:
+            try:
+                protocol = yield from self.connect(target, self.async_factory)
+            except:
+                return self._connect_exception(sys.exc_info())
+
+            response = yield from protocol.subscribe(notifier, signatures)
+            response['handler'] = self.__handler__
+            return response
+        else:
+            return self._unsupported()
+
+    def _connect_exception(self, exc_info):
+        response = {
+            'handler': self.__handler__,
+            'command': 'connect',
+            'status': 'ERROR',
+            'reason': traceback.format_exception(exc_info),
+        }
+        return response
+
+    def _unsupported(self):
+        response = {
+            'handler': self.__handler__,
+            'status': 'ERROR',
+            'reason': 'Unsupported',
+        }
+        return response
+
+
+class Factory():
+    def __init__(self, cls):
+        self._protocol_class = cls
+
+    def __call__(self):
+        protocol = self._protocol_class()
+        protocol.factory = self
+        return protocol
+    
