@@ -214,6 +214,7 @@ class SNPBaseProtocol(asyncio.Protocol):
         result['status'] = self.response.status
         result['status_code'] = self.response.status_code
         result['result'] = self.response.result
+        result['target'] = str(self.target)
 
         if hasattr(self.response, 'timestamp'):
             result['timestamp'] = parse_datetime(self.response.timestamp)

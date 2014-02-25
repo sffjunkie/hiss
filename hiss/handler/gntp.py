@@ -127,6 +127,7 @@ class GNTP(GNTPBaseProtocol):
         result['status'] = response.status
         result['status_code'] = response.status_code
         result['timestamp'] = response.timestamp
+        result['target'] = str(self.target)
         if response.status =='ERROR':
             result['reason'] = response.reason
 

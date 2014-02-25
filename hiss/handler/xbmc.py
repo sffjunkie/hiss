@@ -105,6 +105,7 @@ class XBMC(asyncio.Protocol):
             result['status'] = 'ERROR'
             result['reason'] = exc.args[0]
 
+        result['target'] = str(self.target)
         return result
 
 
