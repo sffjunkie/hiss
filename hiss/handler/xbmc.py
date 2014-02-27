@@ -111,8 +111,8 @@ class XBMC(asyncio.Protocol):
 
 class _NotificationRequest(Request):
     def __init__(self, notification):
-        Request.__init__(self, uid=notification.uid,
-                             method='GUI.ShowNotification')
+        super().__init__(self, uid=notification.uid,
+                         method='GUI.ShowNotification')
 
         self.append('title', notification.title)
         self.append('message', notification.text)
