@@ -37,13 +37,17 @@ def notifier():
 
 @pytest.fixture
 def icon():
-    fname = os.path.abspath(os.path.join(os.path.dirname(__file__), 'python-powered-h-50x65.png'))
+    fname = os.path.abspath(os.path.join(os.path.dirname(__file__),
+         'python-powered-h-50x65.png'))
+    
     fname = fname.replace('\\', '/')
     return Icon('file:///%s' % fname)
 
 @pytest.fixture
 def icon_inverted():
-    fname = os.path.abspath(os.path.join(os.path.dirname(__file__), 'python-powered-h-50x65-inverted.png'))
+    fname = os.path.abspath(os.path.join(os.path.dirname(__file__),
+         'python-powered-h-50x65-inverted.png'))
+    
     fname = fname.replace('\\', '/')
     return Icon('file:///%s' % fname)
 
@@ -196,7 +200,8 @@ def test_GNTP_Notification_WithIcon(notifier, icon_inverted):
         logging.debug('GNTP: notify with icon')
         notification = notifier.create_notification(name='Old',
                                              title="A brave new world",
-                                             text="This notification should have an icon",
+                                             text=("This notification should "
+                                             "have an icon"),
                                              icon=icon_inverted)
         response = yield from h.notify(notification, t)
         assert response['status'] == 'OK'
@@ -223,7 +228,8 @@ def test_GNTP_Notification_Multiple(notifier):
                                    text="Say hello to the Time Lords")
 
         logging.debug('GNTP: multiply notify')
-        done, pending = yield from asyncio.wait([h.notify(n1, t), h.notify(n2, t)])
+        done, pending = yield from asyncio.wait([h.notify(n1, t),
+                                                 h.notify(n2, t)])
 
         for task in done:
             response = task.result()
@@ -245,7 +251,8 @@ def test_GNTP_Notification_RemoteHost(notifier, icon_inverted):
 
         notification = notifier.create_notification(name='New',
                                              title="A brave new world",
-                                             text="This notification should have an icon",
+                                             text=("This notification should "
+                                                   "have an icon"),
                                              icon=icon_inverted)
         response = yield from h.notify(notification, t)
         assert response['status'] == 'OK'
