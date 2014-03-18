@@ -42,6 +42,11 @@ def find_hostname():
 def find_local_address():
     return socket.gethostbyname(socket.gethostname())
 
+def local_hosts():
+    local_hosts = ['127.0.0.1', 'localhost']
+    local_hosts.extend(socket.gethostbyname_ex(socket.gethostname())[2])
+    return local_hosts
+
 def find_open_port(from_port, interface='0.0.0.0'):
     UDPSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 

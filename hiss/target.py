@@ -21,6 +21,7 @@ except ImportError:
     import urlparse
 
 from hiss.exception import TargetError
+from hiss.utility import local_hosts
 
 SNP_SCHEME = 'snp'
 GNTP_SCHEME = 'gntp'
@@ -128,9 +129,7 @@ class Target(object):
         message.
         """
 
-        local_hosts = ['127.0.0.1', 'localhost']
-        local_hosts.extend(socket.gethostbyname_ex(socket.gethostname())[2])
-        return self.host not in local_hosts
+        return self.host not in local_hosts()
 
     def __repr__(self):
         return '%s://%s:%d' % (self.scheme, self.host, self.port)
