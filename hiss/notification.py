@@ -155,7 +155,9 @@ class Notification():
         """Determine if the notification is currently being displayed."""
         raise NotImplementedError
 
-    has_callback = property(lambda self: self.callback is not None)
+    @property
+    def has_callback(self):
+        return self.callback is not None
 
     def show(self):
         """Show the notification."""

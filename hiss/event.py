@@ -45,18 +45,14 @@ class Event(object):
         self.daemon = ''
         """The name of the daemon on the host which generated this event."""
 
-    def name():
-        doc="Friendly name for the :attr:`code` (Read only)"
+    @property
+    def name(self):
+        """"Friendly name for the :attr:`code` (Read only)"""
 
-        def fget(self):
-            if self.code in EVENT_CODES:
-                return EVENT_CODES[self.code]
-            else:
-                return 'Unknown'
-
-        return locals()
-
-    name = property(**name())
+        if self.code in EVENT_CODES:
+            return EVENT_CODES[self.code]
+        else:
+            return 'Unknown'
 
 
 class NotificationEvent(Event):

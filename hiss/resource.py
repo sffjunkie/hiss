@@ -38,20 +38,16 @@ class Resource(object):
         self.source = source
         self._data = data
 
-    def data():
-        def fget(self):
-            if self._data is None:
-                if self.source[0] == '!':
-                    self._data = self.source
-                else:
-                    f = urlopen(self.source)
-                    self._data = f.read(-1)
+    @property
+    def data(self):
+        if self._data is None:
+            if self.source[0] == '!':
+                self._data = self.source
+            else:
+                f = urlopen(self.source)
+                self._data = f.read(-1)
 
-            return self._data
-
-        return locals()
-
-    data = property(**data())
+        return self._data
 
     def __len__(self):
         if self._data is not None:
