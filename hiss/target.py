@@ -114,7 +114,11 @@ class Target(object):
         self.handler = None
         self.protocol_version = ''
 
-    address = property(lambda self: (self.host, self.port))
+    @property
+    def address(self):
+        """Return the target address as a (host, port) tuple"""
+        
+        return (self.host, self.port)
 
     @property    
     def is_remote(self):
