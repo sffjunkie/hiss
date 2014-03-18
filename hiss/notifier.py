@@ -194,6 +194,8 @@ class Notifier(object):
         for value in self.notification_classes.values():
             if value.name == name:
                 return value
+            
+        raise NotifierError('Notification name %s not found.' % name)
 
     @asyncio.coroutine
     def add_target(self, targets):
