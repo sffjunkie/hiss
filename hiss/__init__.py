@@ -20,3 +20,7 @@ from hiss.notifier import Notifier
 from hiss.target import Target
 from hiss.notification import Notification
 from hiss.event import Event
+
+
+__version__ = '0.1a'
+__author__ =  "Simon Kennedy <code@sffjunkie.co.uk>"
