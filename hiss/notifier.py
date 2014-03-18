@@ -32,8 +32,8 @@ __all__ = ['Notifier', 'USE_NOTIFIER', 'USE_REGISTERED']
 NotificationInfo = namedtuple('NotificationInfo', ['name', 'title', 'text',
                                                    'icon', 'sound', 'enabled'])
 
-USE_NOTIFIER = -1
-USE_REGISTERED = -2
+USE_NOTIFIER = object()
+USE_REGISTERED = object()
 
 class Notifier(object):
     """Maintains a list of targets to handle notifications for.
@@ -119,7 +119,7 @@ class Notifier(object):
 
     def create_notification(self, class_id=-1, name='',
                             title=USE_REGISTERED, text=USE_REGISTERED,
-                            icon=USE_REGISTERED, sound=USE_REGISTERED):
+                            icon=USE_REGISTERED, sound=None):
         """Create a notification that is ready to send.
 
         Either ``class_id`` or ``name`` can be provided. If ``class_id`` is
@@ -134,7 +134,9 @@ class Notifier(object):
         :param title:      The title of the notification
         :type title:       str, None for no title or
                            :data:`~hiss.notifier.USE_REGISTERED` (default)
-                           to use title provided during registration
+                           to use title provided during registration,
+                           :data:`~hiss.notifier.USE_NOTIFIER` to the use the
+                           Notifier's name 
         :param text:       The text to display in the notification
         :type text:        str, None for no text or
                            :data:`~hiss.notifier.USE_REGISTERED` (default)
@@ -145,8 +147,8 @@ class Notifier(object):
                            :data:`~hiss.notifier.USE_REGISTERED` (default)
                            to use icon provided during registration
         :param sound:      Sound to play when showing notification
-        :type sound:       str, None for no sound or
-                           :data:`~hiss.notifier.USE_REGISTERED` (default)
+        :type sound:       str, None (default) for no sound or
+                           :data:`~hiss.notifier.USE_REGISTERED`
                            to use sound provided during registration
         """
 
@@ -154,35 +156,36 @@ class Notifier(object):
             if class_id not in self.notification_classes:
                 raise NotifierError('%d is not a known notification class id' % \
                                  str(class_id))
-            info = self.notification_classes[class_id]
+            registration_info = self.notification_classes[class_id]
         elif name != '':
-            info = self.find_notification(name)
+            registration_info = self.find_notification(name)
         else:
             raise NotifierError('Either a class id or name must be specified.',
                                 'hiss.notifier.Notifier')
 
         if title is USE_REGISTERED:
-            title = info.title
+            title = registration_info.title
+        elif title is USE_NOTIFIER:
+            title = self.name
 
         if text is USE_REGISTERED:
-            text = info.text
+            text = registration_info.text
 
         if icon is None:
-            if info.icon is not None:
-                icon = info.icon
+            if registration_info.icon is not None:
+                icon = registration_info.icon
             else:
                 icon = self.icon
 
-        if sound is None:
-            if info.sound is not None:
-                sound = info.sound
-            else:
-                sound = self.sound
+        if registration_info.sound is None:
+            sound = None
+        elif sound == USE_REGISTERED:
+            sound = registration_info.sound
 
         uid = self._unique_id()
 
         n =  Notification(title, text, icon, sound, uid=uid)
-        n.name = info.name
+        n.name = registration_info.name
         n.class_id = class_id
         n.notifier = self
         return n
