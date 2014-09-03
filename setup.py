@@ -35,6 +35,7 @@ setup(name='hiss',
     author_email='code@sffjunkie.co.uk',
     url='http://www.sffjunkie.co.uk/python/hiss-0.1.0.zip',
     license='Apache License 2.0',
+    package_dir={'': 'src'},
     packages=['hiss', 'hiss.handler'],
     extras_require={'XBMC': ['mogul.json', 'aiohttp']},
     classifiers=[

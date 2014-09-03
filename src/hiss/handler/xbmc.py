@@ -60,11 +60,11 @@ class XBMC(asyncio.Protocol):
         """
 
         request = _NotificationRequest(notification)
-        response = yield from self.send_request(request, self.target)
+        response = yield from self._send_request(request, self.target)
         return response
 
     @asyncio.coroutine
-    def send_request(self, request, target):
+    def _send_request(self, request, target):
         request_data = request.marshal()
 
         auth = (target.username, target.password)
