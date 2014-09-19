@@ -1,4 +1,4 @@
-# Copyright 2013-2014, Simon Kennedy, code@sffjunkie.co.uk
+# Copyright 2013-2014, Simon Kennedy, sffjunkie+code@gmail.com
 #
 # Part of 'hiss' the asynchronous notification library
 
@@ -333,7 +333,7 @@ class Notifier(object):
             response = yield from target.handler.subscribe(self, signatures,
                                                            target)
 
-            response['handler'] = target.handler.__handler__
+            response['handler'] = target.handler.__name__
             responses.append(response)
 
         if len(responses) == 1:
