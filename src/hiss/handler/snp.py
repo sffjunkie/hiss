@@ -1,4 +1,4 @@
-# Copyright 2013-2014, Simon Kennedy, code@sffjunkie.co.uk
+# Copyright 2013-2014, Simon Kennedy, sffjunkie+code@gmail.com
 #
 # Part of 'hiss' the asynchronous notification library
 
@@ -15,7 +15,7 @@ from operator import attrgetter
 from hiss.hash import HashInfo, generate_hash, validate_hash
 from hiss.encryption import PY_CRYPTO, encrypt, decrypt
 from hiss.exception import HissError, marshalError
-from hiss.handler import Handler, Factory
+from hiss.handler import Handler
 from hiss.utility import parse_datetime
 from hiss.resource import Icon
 from hiss.notification import NotificationPriority
@@ -90,16 +90,16 @@ class SNPError(HissError):
 
 
 class SNPHandler(Handler):
-    """:class:`~hiss.handler.Handler` sub-class for SNP messages"""
+    """:class:`~hiss.handler.Handler` sub-class for SNP notifications"""
 
-    __handler__ = 'SNP'
+    __name__ = 'SNP'
 
     def __init__(self, loop=None):
         super().__init__(loop)
 
         self.port = SNP_DEFAULT_PORT
-        self.factory = Factory(SNP)
-        self.async_factory = Factory(SNPAsync)
+        self.factory = lambda: SNPProtocol()
+        self.async_factory = lambda: SNPAsyncProtocol()
         self.capabilities = ['register', 'unregister', 'subscribe', 'show', 'hide']
 
     @asyncio.coroutine
@@ -213,7 +213,7 @@ class SNPBaseProtocol(asyncio.Protocol):
         return result
 
 
-class SNP(SNPBaseProtocol):
+class SNPProtocol(SNPBaseProtocol):
     """Snarl Network Protocol."""
 
     def __init__(self):
@@ -357,7 +357,7 @@ class SNP(SNPBaseProtocol):
         return result
 
 
-class SNPAsync(SNPBaseProtocol):
+class SNPAsyncProtocol(SNPBaseProtocol):
     """Handling for asynchronous SNP responses."""
 
     def __init__(self):
