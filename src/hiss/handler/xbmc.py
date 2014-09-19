@@ -1,4 +1,4 @@
-# Copyright 2013-2014, Simon Kennedy, code@sffjunkie.co.uk
+# Copyright 2013-2014, Simon Kennedy, sffjunkie+code@gmail.com
 #
 # Part of 'hiss' the asynchronous notification library
 
@@ -6,7 +6,8 @@ import asyncio
 import aiohttp
 import json
 from urllib.parse import quote_plus
-from mogul.json.message import Request
+
+from mogul.jsonrpc.message import RPCRequest
 
 from hiss.resource import Icon
 from hiss.handler import Handler
@@ -20,9 +21,9 @@ class XBMCError(Exception):
 
 
 class XBMCHandler(Handler):
-    """:class:`~hiss.handler.Handler` sub-class for XBMC messages"""
+    """:class:`~hiss.handler.Handler` sub-class for XBMC notifications"""
 
-    __handler__ = 'XBMC'
+    __name__ = 'XBMC'
 
     def __init__(self, username=XBMC_USERNAME, password=XBMC_PASSWORD, loop=None):
         super().__init__(loop)
@@ -34,7 +35,11 @@ class XBMCHandler(Handler):
 
     @asyncio.coroutine
     def connect(self, target):
-        protocol = XBMC()
+        """Connect to a Target and return the protocol handling the connection.
+        
+        Overrides the Handler's version.
+        """
+        protocol = XBMCProtocol()
 
         target.handler = self        
         target.port = self.port
@@ -45,8 +50,10 @@ class XBMCHandler(Handler):
         return protocol
 
 
-class XBMC(asyncio.Protocol):
-    """XBMC JSON Protocol."""
+class XBMCProtocol(asyncio.Protocol):
+    """XBMC JSON Protocol.
+    
+    Uses :mod:`aiohttp` to communicate with XBMC"""
 
     @asyncio.coroutine
     def notify(self, notification, notifier):
@@ -97,12 +104,12 @@ class XBMC(asyncio.Protocol):
         return result
 
 
-class _NotificationRequest(Request):
+class _NotificationRequest(RPCRequest):
     def __init__(self, notification):
-        super().__init__(self, method='GUI.ShowNotification', uid=notification.uid)
-
-        self.append('title', notification.title)
-        self.append('message', notification.text)
+        super().__init__(method='GUI.ShowNotification',
+                         uid=notification.uid,
+                         title=notification.title,
+                         message=notification.text)
 
         if notification.icon is not None:
             if isinstance(notification.icon, Icon):
@@ -115,5 +122,5 @@ class _NotificationRequest(Request):
             self.append('image', image)
 
         if notification.timeout != -1:
-            self.append('displaytime', notification.timeout*1000)
+            self.append('displaytime', notification.timeout * 1000)
             
