@@ -1,4 +1,4 @@
-# Copyright 2013-2014, Simon Kennedy, code@sffjunkie.co.uk
+# Copyright 2013-2014, Simon Kennedy, sffjunkie+code@gmail.com
 #
 # Part of 'hiss' the asynchronous notification library
 
@@ -11,7 +11,7 @@ from datetime import datetime
 from urllib.parse import urlparse
 from binascii import unhexlify
 
-from hiss.handler import Handler, Factory
+from hiss.handler import Handler
 from hiss.utility import parse_datetime
 from hiss.resource import Icon
 
@@ -31,16 +31,16 @@ class GNTPError(HissError):
 
 
 class GNTPHandler(Handler):
-    """:class:`~hiss.handler.Handler` sub-class for GNTP messages"""
+    """:class:`~hiss.handler.Handler` sub-class for GNTP notifications"""
 
-    __handler__ = 'GNTP'
+    __name__ = 'GNTP'
 
     def __init__(self, loop=None):
         super().__init__(loop)
 
         self.port = GNTP_DEFAULT_PORT
-        self.factory = Factory(GNTP)
-        self.async_factory = Factory(GNTPAsync)
+        self.factory = lambda: GNTPProtocol()
+        self.async_factory = lambda: GNTPAsyncProtocol()
         self.capabilities = ['register', 'subscribe']
 
 
@@ -82,7 +82,7 @@ class GNTPBaseProtocol(asyncio.Protocol):
                 yield from asyncio.sleep(0.1)
 
 
-class GNTP(GNTPBaseProtocol):
+class GNTPProtocol(GNTPBaseProtocol):
     """Growl Network Transport Protocol."""
 
     name = 'GNTP'
@@ -167,7 +167,7 @@ class GNTP(GNTPBaseProtocol):
         return self.response
 
 
-class GNTPAsync(GNTPBaseProtocol):
+class GNTPAsyncProtocol(GNTPBaseProtocol):
     """Growl Network Transport Protocol."""
 
     name = 'GNTPAsync'
