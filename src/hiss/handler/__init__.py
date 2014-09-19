@@ -1,4 +1,4 @@
-# Copyright 2013-2014, Simon Kennedy, code@sffjunkie.co.uk
+# Copyright 2013-2014, Simon Kennedy, sffjunkie+code@gmail.com
 #
 # Part of 'hiss' the asynchronous notification library
 
@@ -8,7 +8,9 @@ import logging
 import traceback
 
 class Handler():
-    def __init__(self, loop):
+    """Notification handler base class."""
+    
+    def __init__(self, loop=None):
         self._loop = loop
 
     @asyncio.coroutine
@@ -58,7 +60,7 @@ class Handler():
                 return self._connect_exception(sys.exc_info())
 
             response = yield from protocol.register(notifier, **kwargs)
-            response['handler'] = self.__handler__
+            response['handler'] = self.__name__
             return response
         else:
             return self._unsupported()
@@ -79,7 +81,7 @@ class Handler():
             return self._connect_exception(sys.exc_info())
 
         response = yield from protocol.notify(notification, notification.notifier)
-        response['handler'] = self.__handler__
+        response['handler'] = self.__name__
         return response
 
     @asyncio.coroutine
@@ -99,7 +101,7 @@ class Handler():
                 return self._connect_exception(sys.exc_info())
 
             response = yield from protocol.unregister(notifier)
-            response['handler'] = self.__handler__
+            response['handler'] = self.__name__
             return response
         else:
             return self._unsupported()
@@ -121,7 +123,7 @@ class Handler():
                 return self._connect_exception(sys.exc_info())
 
             response = yield from protocol.show(uid)
-            response['handler'] = self.__handler__
+            response['handler'] = self.__name__
             return response
         else:
             return self._unsupported()
@@ -143,7 +145,7 @@ class Handler():
                 return self._connect_exception(sys.exc_info())
 
             response = yield from protocol.hide(uid)
-            response['handler'] = self.__handler__
+            response['handler'] = self.__name__
             return response
         else:
             return self._unsupported()
@@ -165,7 +167,7 @@ class Handler():
                 return self._connect_exception(sys.exc_info())
 
             response = yield from protocol.isvisible(uid)
-            response['handler'] = self.__handler__
+            response['handler'] = self.__name__
             return response
         else:
             return self._unsupported()
@@ -181,14 +183,14 @@ class Handler():
                 return self._connect_exception(sys.exc_info())
 
             response = yield from protocol.subscribe(notifier, signatures)
-            response['handler'] = self.__handler__
+            response['handler'] = self.__name__
             return response
         else:
             return self._unsupported()
 
     def _connect_exception(self, exc_info):
         response = {
-            'handler': self.__handler__,
+            'handler': self.__name__,
             'command': 'connect',
             'status': 'ERROR',
             'reason': traceback.format_exception(exc_info),
@@ -197,19 +199,8 @@ class Handler():
 
     def _unsupported(self):
         response = {
-            'handler': self.__handler__,
+            'handler': self.__name__,
             'status': 'ERROR',
             'reason': 'Unsupported',
         }
         return response
-
-
-class Factory():
-    def __init__(self, cls):
-        self._protocol_class = cls
-
-    def __call__(self):
-        protocol = self._protocol_class()
-        protocol.factory = self
-        return protocol
-    
