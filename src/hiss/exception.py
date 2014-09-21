@@ -8,7 +8,7 @@ class HissError(Exception):
     pass
 
 
-class marshalError(HissError):
+class MarshalError(HissError):
     """An error which occurred when marshaling/unmarshaling of messages"""
 
 
