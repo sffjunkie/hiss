@@ -14,7 +14,7 @@ from operator import attrgetter
 
 from hiss.hash import HashInfo, generate_hash, validate_hash
 from hiss.encryption import PY_CRYPTO, encrypt, decrypt
-from hiss.exception import HissError, marshalError
+from hiss.exception import HissError, MarshalError
 from hiss.handler import Handler
 from hiss.utility import parse_datetime
 from hiss.resource import Icon
@@ -465,14 +465,14 @@ class Request(object):
 
         if self.use_hash or self.use_encryption:
             if self.password is None:
-                raise marshalError('Password required to generate hash for marshal of request.',
+                raise MarshalError('Password required to generate hash for marshal of request.',
                                     'Request.marshal')
 
             self._hash = generate_hash(self.password.encode('UTF-8'))
 
         if self.use_encryption:
             if not PY_CRYPTO:
-                raise marshalError('Unable to encrypt message. PyCrypto not available',
+                raise MarshalError('Unable to encrypt message. PyCrypto not available',
                                     'Request.marshal')
 
             if ENCRYPTION_ALGORITHM == 'AES':
@@ -487,7 +487,7 @@ class Request(object):
         elif self.version == '3.0':
             return self._marshal_30()
         elif self.version == '1.0':
-            raise marshalError('SNP protocol version 1.0 is unsupported.',
+            raise MarshalError('SNP protocol version 1.0 is unsupported.',
                                 'Request.marshal')
 
     def unmarshal(self, data):
@@ -498,7 +498,7 @@ class Request(object):
         elif data.startswith(b'SNP/3.0'):
             self._unmarshal_30(data)
         else:
-            raise marshalError('Invalid SNP Request.',
+            raise MarshalError('Invalid SNP Request.',
                                 'Request.unmarshal')
 
     def _marshal_20(self):
@@ -564,7 +564,7 @@ class Request(object):
 
     def _unmarshal_30(self, data):
         if not data.endswith(b'END\r\n'):
-            raise marshalError('Invalid SNP 3.0 request',
+            raise MarshalError('Invalid SNP 3.0 request',
                                 'Request.unmarshal')
 
         data = data[:-2]
@@ -589,7 +589,7 @@ class Request(object):
                     
                 self.use_hash = True
         except ValueError:
-            raise marshalError('Invalid SNP body format: %s' % str(header),
+            raise MarshalError('Invalid SNP body format: %s' % str(header),
                                 'Request.unmarshal')
 
         self.commands = []
@@ -612,7 +612,7 @@ class Request(object):
 
             return SNPCommand(command, params)
         except ValueError:
-            raise marshalError('Invalid command format found: %s', str(data),
+            raise MarshalError('Invalid command format found: %s', str(data),
                                 'Request.unmarshal')
 
     def _expand_tuple(self, t):
