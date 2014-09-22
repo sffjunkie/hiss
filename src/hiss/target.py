@@ -39,7 +39,11 @@ class Target(object):
 
         scheme://[password@]host[:port]
 
-    where scheme is one of ``snp``, ``gntp`` or ``xbmc``.
+    where scheme is one of
+    
+        * ``snp``
+        * ``gntp``
+        * ``xbmc``
 
     If no port number is specified then the default port for the target type will be used
 
