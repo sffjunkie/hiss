@@ -372,7 +372,7 @@ class Notifier(object):
         if uid in self._notifications:
             for handler in self._handlers.values():
                 if 'hide' in handler.capabilities:
-                    handler.show(self, uid)
+                    handler.hide(self, uid)
 
     def responses_received(self, responses):
         """Event handler for callback events. Default handler does nothing.
