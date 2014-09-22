@@ -13,12 +13,15 @@ from hiss.utility import local_hosts
 SNP_SCHEME = 'snp'
 GNTP_SCHEME = 'gntp'
 XBMC_SCHEME = 'xbmc'
+PROWL_SCHEME = 'prowl'
+NMA_SCHEME = 'nma'
 
 DEFAULT_SCHEME = SNP_SCHEME
+ALL_SCHEMES = [SNP_SCHEME, GNTP_SCHEME, XBMC_SCHEME, PROWL_SCHEME, NMA_SCHEME]
 
 __all__ = ['TargetError', 'Target']
 
-for s in [SNP_SCHEME, GNTP_SCHEME, XBMC_SCHEME]:
+for s in ALL_SCHEMES:
     if s not in urlparse.uses_relative:
         urlparse.uses_relative.append(s)
 
@@ -35,19 +38,18 @@ for s in [SNP_SCHEME, GNTP_SCHEME, XBMC_SCHEME]:
 class Target(object):
     """A target for notifications.
 
-    Targets are specified using a URL like string of the form ::
+    For the ``snp``, ``gntp`` and ``xbmc`` schemes, targets are specified
+    using a URL like string of the form ::
 
         scheme://[password@]host[:port]
 
-    where scheme is one of
+    If no port number is specified then the default port for the target type
+    will be used.
     
-        * ``snp``
-        * ``gntp``
-        * ``xbmc``
-
-    If no port number is specified then the default port for the target type will be used
-
-    All values can be specified using named parameters.
+    For the ``prowl`` and ``nma`` schemes, targets are specified using an
+    API Key
+    
+        scheme://apikey
     """
 
     def __init__(self, url='', **kwargs):
@@ -79,19 +81,16 @@ class Target(object):
 
             self.host = host
             self.port = int(port)
-        elif url.startswith(SNP_SCHEME):
-            self.scheme = SNP_SCHEME
-            self.host = url[len(SNP_SCHEME):].lstrip(':')
-        elif url.startswith(GNTP_SCHEME):
-            self.scheme = GNTP_SCHEME
-            self.host = url[len(GNTP_SCHEME):].lstrip(':')
-        elif url.startswith(XBMC_SCHEME):
-            self.scheme = XBMC_SCHEME
-            self.host = url[len(XBMC_SCHEME):].lstrip(':')
         else:
-            self.scheme = url
+            for scheme in ALL_SCHEMES:
+                if url.startswith(scheme):
+                    self.scheme = scheme
+                    self.host = url[len(scheme):].lstrip(':')
+                    break
+            else:
+                self.scheme = url
 
-        if self.scheme not in [SNP_SCHEME, GNTP_SCHEME, XBMC_SCHEME]:
+        if self.scheme not in ALL_SCHEMES:
             raise TargetError('Unknown protocol %s' % url)
 
         # Override with any parameters passed
