@@ -249,9 +249,10 @@ class Notifier(object):
     def register(self, targets=None):
         """Register this notifier with the target specified.
 
-        :param targets: The target or targets to register with or ``None`` to register
-                        with all known target
-        :type targets:  :class:`~hiss.target.Target` or [:class:`~hiss.target.Target`] or ``None``
+        :param targets: The target or targets to register with or ``None``
+                        to register with all known target
+        :type targets:  :class:`~hiss.target.Target`,
+                        [:class:`~hiss.target.Target`] or ``None``
         """
 
         targets = self.targets.valid_targets(targets)
