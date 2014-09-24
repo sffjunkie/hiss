@@ -37,7 +37,6 @@ class Notifier(object):
     :param loop:      :mod:`asyncio` event loop to use.
     :type loop:       :class:`asyncio.BaseEventLoop`
     """
-
     #TODO: standardised icon and sound handling between handler types
     def __init__(self, name, signature,
                  icon=None, sound=None,
@@ -92,7 +91,6 @@ class Notifier(object):
         Default values will be used when creating a notification with
         :meth:`~hiss.notifier.Notifier.create_notification`
         """
-
         ni = NotificationInfo(name, title, text, icon, sound, enabled)
 
         if class_id is None or class_id in self.notification_classes:
@@ -139,7 +137,6 @@ class Notifier(object):
                            :data:`~hiss.notifier.USE_REGISTERED`
                            to use sound provided during registration
         """
-
         if class_id != -1:
             if class_id not in self.notification_classes:
                 raise NotifierError('%d is not a known notification class id' % \
@@ -194,7 +191,6 @@ class Notifier(object):
         :type targets:  :class:`~hiss.target.Target`
         :returns:       Result dict or list of dict if more than one target added.
         """
-
         if isinstance(targets, Target):
             targets = [targets]
 
@@ -242,8 +238,10 @@ class Notifier(object):
         :param target: The Target to remove.
         :type target:  :class:`~hiss.target.Target`
         """
-
         self.targets.remove(target)
+        
+    def log(self, message):
+        logging.log(logging.DEBUG, message)
 
     @asyncio.coroutine
     def register(self, targets=None):
@@ -254,7 +252,6 @@ class Notifier(object):
         :type targets:  :class:`~hiss.target.Target`,
                         [:class:`~hiss.target.Target`] or ``None``
         """
-
         targets = self.targets.valid_targets(targets)
 
         wait_for = []
@@ -280,14 +277,13 @@ class Notifier(object):
     def notify(self, notifications, targets=None):
         """Send a notification to a specific targets or all targets.
 
-        :param notifications:   A notification or list of notifications to send
-        :type notifications:    :class:`hiss.notification.Notification`
-        :param targets:         The targets to send the notification to. If no
-                                targets is specified then the notification will
-                                be sent to all known targets.
-        :type targets:          :class:`hiss.target.Target` or ``None``
+        :param notifications: A notification or list of notifications to send
+        :type notifications:  :class:`hiss.notification.Notification`
+        :param targets:       The targets to send the notification to. If no
+                              targets is specified then the notification will
+                              be sent to all known targets.
+        :type targets:        :class:`hiss.target.Target` or ``None``
         """
-
         if isinstance(notifications, Notification):
             notifications = [notifications]
 
@@ -326,7 +322,6 @@ class Notifier(object):
                            from all applications.
         :type signatures:  List of strings or empty list.
         """
-
         targets = self.targets.valid_targets(targets)
 
         responses = []
@@ -351,7 +346,6 @@ class Notifier(object):
                         will be registered with all known targets
         :type targets:  :class:`hiss.Target` or ``None``
         """
-
         for handler in self._handlers.values():
             if handler.capabilities['unregister']:
                 handler.unregister(targets, notifier=self)
