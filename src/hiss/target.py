@@ -7,21 +7,13 @@ try:
 except ImportError:
     import urlparse
 
-from hiss.exception import TargetError
-from hiss.utility import local_hosts
+import hiss.schemes
+import hiss.exception
+import hiss.utility
 
-SNP_SCHEME = 'snp'
-GNTP_SCHEME = 'gntp'
-XBMC_SCHEME = 'xbmc'
-PROWL_SCHEME = 'prowl'
-NMA_SCHEME = 'nma'
+__all__ = ['Target']
 
-DEFAULT_SCHEME = SNP_SCHEME
-ALL_SCHEMES = [SNP_SCHEME, GNTP_SCHEME, XBMC_SCHEME, PROWL_SCHEME, NMA_SCHEME]
-
-__all__ = ['TargetError', 'Target']
-
-for s in ALL_SCHEMES:
+for s in hiss.schemes.ALL_SCHEMES:
     if s not in urlparse.uses_relative:
         urlparse.uses_relative.append(s)
 
@@ -37,25 +29,35 @@ for s in ALL_SCHEMES:
 
 class Target(object):
     """A target for notifications.
+    
+    Currently the following target schemes are supported
+    
+    =========  ================================
+    ``snp``    Snarl Network Protocol
+    ``gtnp``   Growl Network Transfer Protocol
+    ``xbmc``   XBMC
+    ``prowl``  Prowl
+    ``po``     Pushover
+    =========  ================================
 
     For the ``snp``, ``gntp`` and ``xbmc`` schemes, targets are specified
     using a URL like string of the form ::
 
-        scheme://[password@]host[:port]
+        scheme://[username:[password@]]host[:port]
 
     If no port number is specified then the default port for the target type
     will be used.
     
-    For the ``prowl`` and ``nma`` schemes, targets are specified using an
-    API Key
+    For the ``prowl`` and ``po`` schemes, targets are specified using
+    an API Key with an optional filter
     
-        scheme://apikey
+        scheme://apikey[:filter]
     """
-
     def __init__(self, url='', **kwargs):
         if url == '':
-            url = '%s:///' % DEFAULT_SCHEME
+            url = '%s:///' % hiss.schemes.DEFAULT_SCHEME
 
+        self.username = None
         self.password = None
         self.port = -1
 
@@ -66,7 +68,13 @@ class Target(object):
             host = ''
             if result.netloc != '':
                 try:
-                    self.password, hostport = result.netloc.split('@')
+                    userpass, hostport = result.netloc.split('@')
+                    
+                    try:
+                        self.username, self.password = userpass.split(':', maxsplit=1)
+                    except:
+                        self.username = None
+                        self.password = userpass
                 except:
                     hostport = result.netloc
 
@@ -82,26 +90,27 @@ class Target(object):
             self.host = host
             self.port = int(port)
         else:
-            for scheme in ALL_SCHEMES:
+            for scheme in hiss.schemes.ALL_SCHEMES:
                 if url.startswith(scheme):
                     self.scheme = scheme
                     self.host = url[len(scheme):].lstrip(':')
                     break
             else:
                 self.scheme = url
+                self.host = ''
 
-        if self.scheme not in ALL_SCHEMES:
-            raise TargetError('Unknown protocol %s' % url)
+        if self.scheme not in hiss.schemes.ALL_SCHEMES:
+            raise hiss.exception.TargetError('Unknown protocol scheme %s' % url)
 
         # Override with any parameters passed
         self.host = kwargs.get('host', self.host)
         self.port = kwargs.get('port', self.port)
+        self.username = kwargs.get('username', self.username)
         self.password = kwargs.get('password', self.password)
 
         if self.host == '' or self.host == 'localhost':
             self.host = '127.0.0.1'
 
-        self.enabled = True
         self.handler = None
         self.protocol_version = ''
 
@@ -111,22 +120,31 @@ class Target(object):
         
         return (self.host, self.port)
 
+    @property
+    def auth(self):
+        """Return the target authorisation info as a
+        (username, password) tuple
+        """
+        return (self.username, self.password)
+
     @property    
     def is_remote(self):
         """Return True if host is on a remote machine.
 
-        This is used to determine if the password information needs to be sent with each
-        message.
+        This is used to determine if the password information needs to be
+        sent with each message.
         """
 
-        return self.host not in local_hosts()
+        return self.host not in hiss.utility.local_hosts()
 
     def __repr__(self):
-        return '%s://%s:%d' % (self.scheme, self.host, self.port)
+        if self.scheme in hiss.schemes.URL_SCHEMES:
+            return '%s://%s:%d' % (self.scheme, self.host, self.port)
+        else:
+            return '%s://%s' % (self.scheme, self.host)
 
     def __eq__(self, other):
-        """Tests that 2 targets are equal ignoring the password.
-        """ 
+        """Tests that 2 targets are equal ignoring the password.""" 
 
         return (self.scheme, self.host, self.port) == \
                (other.scheme, other.host, other.port)
