@@ -115,8 +115,8 @@ class PushoverProtocol(asyncio.Protocol):
         return result
     
     def log(self, notifier, message):
-        text = 'Target {}: {}'.format(self.target, message)
-        notifier.log(text)
+        msg = 'Target {}: {}'.format(self.target, message)
+        notifier.log(msg)
         
 
 class PushoverResponse():
