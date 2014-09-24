@@ -129,11 +129,7 @@ class Target(object):
 
     @property    
     def is_remote(self):
-        """Return True if host is on a remote machine.
-
-        This is used to determine if the password information needs to be
-        sent with each message.
-        """
+        """Return True if host is on a remote machine."""
 
         return self.host not in hiss.utility.local_hosts()
 
@@ -144,7 +140,7 @@ class Target(object):
             return '%s://%s' % (self.scheme, self.host)
 
     def __eq__(self, other):
-        """Tests that 2 targets are equal ignoring the password.""" 
+        """Tests that 2 targets are equal ignoring the username/password.""" 
 
         return (self.scheme, self.host, self.port) == \
                (other.scheme, other.host, other.port)
