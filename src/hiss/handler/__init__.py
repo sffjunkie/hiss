@@ -11,7 +11,7 @@ class Handler():
     """Notification handler base class."""
     
     def __init__(self, loop=None):
-        self._loop = loop
+        self.loop = loop
 
     @asyncio.coroutine
     def connect(self, target, factory=None):
@@ -28,15 +28,15 @@ class Handler():
         if factory is None:
             factory = self.factory
 
-        if self._loop is None:
-            self._loop = asyncio.get_event_loop()
+        if self.loop is None:
+            self.loop = asyncio.get_event_loop()
 
         target.handler = self
         target.port = self.port
 
         logging.debug('Handler: Connecting to %s' % target)
 
-        (_transport, protocol) = yield from self._loop.create_connection(factory,
+        (_transport, protocol) = yield from self.loop.create_connection(factory,
             target.host, target.port)
 
         protocol.target = target
