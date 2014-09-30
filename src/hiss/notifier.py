@@ -20,20 +20,27 @@ __all__ = ['Notifier', 'USE_NOTIFIER', 'USE_REGISTERED']
 NotificationInfo = namedtuple('NotificationInfo', ['name', 'title', 'text',
                                                    'icon', 'sound', 'enabled'])
 
-USE_NOTIFIER = object()
-USE_REGISTERED = object()
+class USE_NOTIFIER:
+    """USE_NOTIFIER"""
+
+    
+class USE_REGISTERED:
+    """USE_REGISTERED"""
+    
 
 class Notifier(object):
     """Maintains a list of targets to handle notifications for.
 
     :param name:      The name of this notifier
-    :type name:       string
+    :type name:       str
     :param signature: The MIME style application signature for this notifier
                       of the form :samp:`application/x-vnd.{vendor}.{app}`
-    :type signature:  string
+    :type signature:  str
     :param icon:      Notifier icon. Used when registering the notifier and
                       as the default icon for notifications.
-    :type icon:       :class:`~hiss.resource.Icon` or string
+    :type icon:       :class:`~hiss.resource.Icon` or str
+    :param sound:     Sound to play when displaying the notification.
+    :type sound:      str
     :param loop:      :mod:`asyncio` event loop to use.
     :type loop:       :class:`asyncio.BaseEventLoop`
     """
@@ -104,8 +111,10 @@ class Notifier(object):
         return class_id
 
     def create_notification(self, class_id=-1, name='',
-                            title=USE_REGISTERED, text=USE_REGISTERED,
-                            icon=USE_REGISTERED, sound=None):
+                            title=USE_REGISTERED,
+                            text=USE_REGISTERED,
+                            icon=USE_REGISTERED,
+                            sound=None):
         """Create a notification that is ready to send.
 
         Either ``class_id`` or ``name`` can be provided. If ``class_id`` is
@@ -210,7 +219,7 @@ class Notifier(object):
 
             wait_for.append(handler.connect(target))
 
-        done, pending = yield from asyncio.wait(wait_for)
+        done, _pending = yield from asyncio.wait(wait_for)
 
         results = []
         for task in done:
@@ -258,7 +267,7 @@ class Notifier(object):
         for target in targets:
             wait_for.append(target.handler.register(self, target))
 
-        done, pending = yield from asyncio.wait(wait_for)
+        done, _pending = yield from asyncio.wait(wait_for)
 
         results = []
         for task in done:
@@ -297,7 +306,7 @@ class Notifier(object):
         for notification, target in combos:
             wait_for.append(target.handler.notify(notification, target))
 
-        done, pending = yield from asyncio.wait(wait_for)
+        done, _pending = yield from asyncio.wait(wait_for)
 
         #TODO: Handling of sticky notifications for show/hide
         responses = []
