@@ -33,11 +33,12 @@ class Target(object):
     Currently the following target schemes are supported
     
     =========  ================================
-    ``snp``    Snarl Network Protocol
     ``gtnp``   Growl Network Transfer Protocol
-    ``xbmc``   XBMC
-    ``prowl``  Prowl
+    ``pb``     Pushbullet
     ``po``     Pushover
+    ``prowl``  Prowl
+    ``snp``    Snarl Network Protocol
+    ``xbmc``   XBMC
     =========  ================================
 
     For the ``snp``, ``gntp`` and ``xbmc`` schemes, targets are specified
@@ -48,8 +49,8 @@ class Target(object):
     If no port number is specified then the default port for the target type
     will be used.
     
-    For the ``prowl`` and ``po`` schemes, targets are specified using
-    an API Key with an optional filter
+    For the Prowl, Pushbullet and Pushover schemes, targets are specified using
+    an API Key with an optional filter to target specific devices ::
     
         scheme://apikey[:filter]
     """
@@ -73,8 +74,8 @@ class Target(object):
                     try:
                         self.username, self.password = userpass.split(':', maxsplit=1)
                     except:
-                        self.username = None
-                        self.password = userpass
+                        self.username = userpass
+                        self.password = None
                 except:
                     hostport = result.netloc
 
@@ -116,14 +117,14 @@ class Target(object):
 
     @property
     def address(self):
-        """Return the target address as a (host, port) tuple"""
+        """Return the target address as a ``(host, port)`` tuple"""
         
         return (self.host, self.port)
 
     @property
     def auth(self):
         """Return the target authorisation info as a
-        (username, password) tuple
+        ``(username, password)`` tuple
         """
         return (self.username, self.password)
 
