@@ -7,7 +7,7 @@ import aiohttp
 import json
 from urllib.parse import quote_plus
 
-from mogul.jsonrpc.message import RPCRequest
+from jsonrpc.message import RPCRequest
 
 from hiss.resource import Icon
 from hiss.handler import Handler
