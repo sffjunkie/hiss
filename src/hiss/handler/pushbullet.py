@@ -21,9 +21,10 @@ class PushbulletHandler(Handler):
 
     @asyncio.coroutine
     def connect(self, target):
-        """Connect to a Target and return the protocol handling the connection.
+        """Connect to a :class:`~hiss.target.Target` and return the protocol handling
+        the connection.
         
-        Overrides the Handler's version.
+        Overrides the :class:`~hiss.handler.Handler`\'s version.
         """
         protocol = PushbulletProtocol()
 
