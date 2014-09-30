@@ -14,7 +14,12 @@
 
 # Part of 'hiss' the Python notification library
 
+import sys
 from setuptools import setup
+
+install_requires = ['aiohttp']
+if sys.version_info.minor == 3:
+    install_requires.append('asyncio')
 
 long_description="""Hiss is a Python interface to various notification
 frameworks. It currently supports sending notifications to
@@ -37,7 +42,7 @@ setup(name='hiss',
     license='Apache License 2.0',
     package_dir={'': 'src'},
     packages=['hiss', 'hiss.handler'],
-    install_requires=['aiohttp'],
+    install_requires=install_requires,
     classifiers=[
       'Development Status :: 3 - Alpha',
       'Programming Language :: Python :: 3.3',
