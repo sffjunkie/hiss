@@ -37,7 +37,7 @@ def test_Pushover_BadAppToken(notifier):
     def coro():
         h = PushoverHandler(apptoken='a23MprXQ5P4weDkKWLXR3swDjGa68', loop=loop)
 
-        t = Target('pushover://uDyCFupvhfxXcC5GSCvYw7ZUwzeoYe')
+        t = Target('po://uDyCFupvhfxXcC5GSCvYw7ZUwzeoYe')
 
         notification = notifier.create_notification(name='New',
                                              title="A brave new world",
@@ -58,7 +58,7 @@ def test_Pushover_BadUserToken(notifier):
     def coro():
         h = PushoverHandler(apptoken='a23MprXQ5P4weDkKWLXR3swDjGa68q', loop=loop)
 
-        t = Target('pushover://uDyCFupvhfxXcC5GSCvYw7ZUwzeoY')
+        t = Target('po://uDyCFupvhfxXcC5GSCvYw7ZUwzeoY')
 
         notification = notifier.create_notification(name='New',
                                              title="A brave new world",
@@ -79,7 +79,7 @@ def test_Pushover_Notification(notifier):
     def coro():
         h = PushoverHandler(apptoken='a23MprXQ5P4weDkKWLXR3swDjGa68q', loop=loop)
 
-        t = Target('pushover://uDyCFupvhfxXcC5GSCvYw7ZUwzeoYe')
+        t = Target('po://uDyCFupvhfxXcC5GSCvYw7ZUwzeoYe')
 
         notification = notifier.create_notification(name='New',
                                              title="A brave new world",
