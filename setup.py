@@ -14,28 +14,26 @@
 
 # Part of 'hiss' the Python notification library
 
+import io
 import sys
+import os.path
 from setuptools import setup
 
 install_requires = ['aiohttp']
 if sys.version_info.minor == 3:
     install_requires.append('asyncio')
 
-long_description="""Hiss is a Python interface to various notification
-frameworks. It currently supports sending notifications to
+def read(*names, **kwargs):
+    return io.open(
+        os.path.join(os.path.dirname(__file__), *names),
+        encoding=kwargs.get("encoding", "utf8")
+    ).read()
 
-* Growl using the Growl Network Transfer Protocol
-* Snarl using the Snarl Network Protocol
-* XBMC using JSON RPC
-
-and uses the asyncio module supplied with Python version 3.4 (or Python 3.3
-with asyncio from PyPi.) 
-"""
 
 setup(name='hiss',
     version='0.1.0',
     description='Hiss: a Python interface to various notification frameworks.',
-    long_description=long_description,
+    long_description=read('README.txt'),
     author='Simon Kennedy',
     author_email='sffjunkie+code@gmail.com',
     url='http://www.sffjunkie.co.uk/python/hiss-0.1.0.zip',
