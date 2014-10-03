@@ -33,7 +33,7 @@ def read(*names, **kwargs):
 setup(name='hiss',
     version='0.1.0',
     description='Hiss: a Python interface to various notification frameworks.',
-    long_description=read('README.txt'),
+    long_description=read('README'),
     author='Simon Kennedy',
     author_email='sffjunkie+code@gmail.com',
     url='http://www.sffjunkie.co.uk/python/hiss-0.1.0.zip',
