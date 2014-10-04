@@ -1,14 +1,10 @@
-.. Hiss documentation master file, created by
-   sphinx-quickstart on Mon May 21 15:12:36 2012.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+.. Copyright 2013-2014, Simon Kennedy, sffjunkie+code@gmail.com
 
 Hiss |version|
 ==============
 
 .. toctree::
-   :hidden:
-   :maxdepth: 4
+   :maxdepth: 2
 
    module_public
    module_private
@@ -64,7 +60,7 @@ The normal order of events to send a notification is to...
 Dependencies
 ~~~~~~~~~~~~
 
-Python 3.3 with the asyncio backport or Python versions > 3.4.
+Python 3.3 with the `asyncio module`_ on PyPi or Python versions >= 3.4
 
 Installation
 ~~~~~~~~~~~~
@@ -102,3 +98,4 @@ Version  Description
 .. _Pushbullet HTTPS API: https://docs.pushbullet.com/
 .. _Pushover: https://pushover.net/
 .. _Pushover HTTPS API: https://pushover.net/api
+.. _asyncio module: https://pypi.python.org/pypi/asyncio

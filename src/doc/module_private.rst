@@ -1,3 +1,5 @@
+.. Copyright 2013-2014, Simon Kennedy, sffjunkie+code@gmail.com
+
 Backend Stuff
 =============
 
