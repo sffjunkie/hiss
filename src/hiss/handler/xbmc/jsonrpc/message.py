@@ -1,9 +1,9 @@
-# Copyright (c) 2014 Simon Kennedy <sffjunkie+code@gmail.com>.
+# Copyright (c) 2013-2014 Simon Kennedy <sffjunkie+code@gmail.com>.
 
 import json
 import uuid
 
-from mogul.jsonrpc import RPCError
+from ..jsonrpc import RPCError
 
 __all__ = ['RPCMessageError', 'RPCRequest', 'RPCResponse']
 
@@ -39,7 +39,8 @@ class RPCRequest(object):
         :type uid: Any JSON encodeable value
         :param version: The version of JSON message to produce
         :type version: str
-        :param notification: True if this is a notification message, False otherwise
+        :param notification: True if this is a notification message,
+                             False otherwise
         :type notification: bool
         
         Any keyword arguments other than those specified above are encoded as
