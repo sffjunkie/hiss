@@ -602,7 +602,7 @@ class _SubscribeRequest(Request):
         Request.__init__(self)
 
         self.command = 'SUBSCRIBE'
-        self.body['Subscriber-ID'] = notifier.uid
+        self.body['Subscriber-ID'] = notifier.signature
         self.body['Subscriber-Name'] = notifier.name
 
 

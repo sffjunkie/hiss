@@ -255,7 +255,7 @@ class SNPProtocol(SNPBaseProtocol):
 
         assert self.target.protocol_version != ''
 
-        request_info = _RegisterRequestInfo(notifier, **kwargs)
+        request_info = _RegisterRequestInfo(notifier, self.target, **kwargs)
         yield from self.send_request(request_info)
 
         result = self._build_result('register')
@@ -270,7 +270,7 @@ class SNPProtocol(SNPBaseProtocol):
         :type notifier:  hiss.Notifier
         """
 
-        request_info = _UnregisterRequestInfo(notifier)
+        request_info = _UnregisterRequestInfo(notifier, self.target)
         yield from self.send_request(request_info)
 
         result = self._build_result('unregister')
@@ -293,7 +293,7 @@ class SNPProtocol(SNPBaseProtocol):
 
         assert self.target.protocol_version != ''
 
-        request_info = _NotifyRequestInfo(notification, notifier)
+        request_info = _NotifyRequestInfo(notification, notifier, self.target)
         yield from self.send_request(request_info)
 
         result = self._build_result('notify')
@@ -316,7 +316,8 @@ class SNPProtocol(SNPBaseProtocol):
         :type notification:  :class:`hiss.notification.Notification`
         """
 
-        request_info = _ShowRequestInfo(notification.uid)
+        request_info = _ShowRequestInfo(notification.notifier, self.target,
+                                        notification.uid)
         yield from self.send_request(request_info)
 
         result = self._build_result('show')
@@ -783,13 +784,13 @@ class _VersionRequestInfo(object):
 
 
 class _RegisterRequestInfo(object):
-    def __init__(self, notifier, **kwargs):
+    def __init__(self, notifier, target, **kwargs):
         self.commands = []
 
         parameters = {}
         parameters['app-sig'] = notifier.signature
         parameters['title'] = notifier.name
-        parameters['password'] = notifier.uid
+        parameters['password'] = target.password
         
         keep_alive = kwargs.get('keep_alive', False)
         if keep_alive:
@@ -811,7 +812,7 @@ class _RegisterRequestInfo(object):
             parameters['id'] = class_id
             parameters['name'] = info.name
             parameters['enabled'] = BOOL_MAPPING[info.enabled]
-            parameters['password'] = notifier.uid
+            parameters['password'] = target.password
 
             if info.icon is not None:
                 if isinstance(info.icon, Icon):
@@ -824,34 +825,34 @@ class _RegisterRequestInfo(object):
 
 
 class _ClearClassesRequestInfo(object):
-    def __init__(self, notifier):
+    def __init__(self, notifier, target):
         self.commands = []
 
         parameters = {}
         parameters['app-sig'] = notifier.signature
-        parameters['password'] = notifier.uid
+        parameters['password'] = target.password
 
         self.commands.append(('clearclasses', parameters))
 
 
 class _UnregisterRequestInfo(object):
-    def __init__(self, notifier):
+    def __init__(self, notifier, target):
         self.commands = []
 
         parameters = {}
         parameters['app-sig'] = notifier.signature
-        parameters['password'] = notifier.uid
+        parameters['password'] = target.password
 
         self.commands.append(('unregister', parameters))
 
 
 class _NotifyRequestInfo(object):
-    def __init__(self, notification, notifier):
+    def __init__(self, notification, notifier, target):
         self.commands = []
 
         parameters = {}
         parameters['app-sig'] = notifier.signature
-        parameters['password'] = notifier.uid
+        parameters['password'] = target.password
 
         if notification.class_id != '':
             parameters['id'] = notification.class_id
@@ -910,13 +911,13 @@ class _NotifyRequestInfo(object):
 
 
 class _AddActionRequestInfo(object):
-    def __init__(self, notifier, notification, command, label):
+    def __init__(self, notifier, target, notification, command, label):
         self.commands = []
 
         parameters = {}
         parameters['app-sig'] = notifier.signature
         parameters['uid'] = notification.uid
-        parameters['password'] = notifier.uid
+        parameters['password'] = target.password
         parameters['cmd'] = command
         parameters['label'] = label
 
@@ -924,60 +925,60 @@ class _AddActionRequestInfo(object):
 
 
 class _ClearActionsRequestInfo(object):
-    def __init__(self, notifier, notification):
+    def __init__(self, notifier, target, notification):
         self.commands = []
 
         parameters = {}
         parameters['app-sig'] = notifier.signature
         parameters['uid'] = notification.uid
-        parameters['password'] = notifier.uid
+        parameters['password'] = target.password
 
         self.commands.append(('clearactions', parameters))
 
 
 class _IsVisibleRequestInfo(object):
-    def __init__(self, notifier, notification):
+    def __init__(self, notifier, target, notification):
         self.commands = []
 
         parameters = {}
         parameters['app-sig'] = notifier.signature
+        parameters['password'] = target.password
         parameters['uid'] = notification.uid
-        parameters['password'] = notifier.uid
 
         self.commands.append(('isvisible', parameters))
 
 
 class _ShowRequestInfo(object):
-    def __init__(self, notifier, uid):
+    def __init__(self, notifier, target, uid):
         self.commands = []
 
         parameters = {}
         parameters['app-sig'] = notifier.signature
-        parameters['password'] = notifier.uid
+        parameters['password'] = target.password
         parameters['uid'] = uid
 
         self.commands.append(('show', parameters))
 
 
 class _HideRequestInfo(object):
-    def __init__(self, notifier, uid):
+    def __init__(self, notifier, target, uid):
         self.commands = []
 
         parameters = {}
         parameters['app-sig'] = notifier.signature
-        parameters['password'] = notifier.uid
+        parameters['password'] = target.password
         parameters['uid'] = uid
 
         self.commands.append(('hide', parameters))
 
 
 class _SubscribeRequestInfo(object):
-    def __init__(self, notifier, signatures):
+    def __init__(self, notifier, target, signatures):
         self.commands = []
 
         parameters = {}
         parameters['app-sig'] = signatures
-        parameters['password'] = notifier.uid
+        parameters['password'] = target.password
 
         self.commands.append(('subscribe', parameters))
 

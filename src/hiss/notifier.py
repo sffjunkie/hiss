@@ -33,22 +33,22 @@ class Notifier(object):
 
     :param name:      The name of this notifier
     :type name:       str
-    :param signature: The MIME style application signature for this notifier
-                      of the form :samp:`application/x-vnd.{vendor}.{app}`
+    :param signature: Application signature for this notifier.
     :type signature:  str
     :param icon:      Notifier icon. Used when registering the notifier and
                       as the default icon for notifications.
     :type icon:       :class:`~hiss.resource.Icon` or str
     :param sound:     Sound to play when displaying the notification.
     :type sound:      str
+    :param event_handler: Called whenever an asynchronous event arrives.
+    :type event_handler:  A callable
     :param loop:      :mod:`asyncio` event loop to use.
     :type loop:       :class:`asyncio.BaseEventLoop`
     """
     #TODO: standardised icon and sound handling between handler types
     def __init__(self, name, signature,
                  icon=None, sound=None,
-                 event_handler=None,
-                 uid=None, loop=None):
+                 event_handler=None, loop=None):
         self.name = name
         self.signature = signature
         self.icon = icon
@@ -56,13 +56,8 @@ class Notifier(object):
         
         self.notification_classes = {}
         self.targets = TargetList()
-
+        
         self._event_handler = event_handler
-
-        if uid is None:
-            self.uid = self._unique_id()
-        else:
-            self.uid = uid
 
         if loop is None:
             self.loop = asyncio.get_event_loop()
