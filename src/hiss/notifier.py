@@ -57,6 +57,9 @@ class Notifier(object):
         self.notification_classes = {}
         self.targets = TargetList()
         
+        if not event_handler and not callable(event_handler):
+            raise ValueError('event_handler must be a callable')
+
         self._event_handler = event_handler
 
         if loop is None:
