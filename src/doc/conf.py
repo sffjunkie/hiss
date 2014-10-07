@@ -30,7 +30,6 @@ theme_root = os.path.abspath(os.path.join(doc_root,
 
 project_root = os.path.abspath(os.path.join(doc_root, '..'))
 sys.path.insert(0, project_root)
-print(project_root)
 
 # -- General configuration ------------------------------------------------
 
