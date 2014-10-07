@@ -40,7 +40,8 @@ class Notifier(object):
     :type icon:       :class:`~hiss.resource.Icon` or str
     :param sound:     Sound to play when displaying the notification.
     :type sound:      str
-    :param event_handler: Called whenever an asynchronous event arrives.
+    :param event_handler: Coroutine that is called whenever an asynchronous
+                          event arrives.
     :type event_handler:  A callable
     :param loop:      :mod:`asyncio` event loop to use.
     :type loop:       :class:`asyncio.BaseEventLoop`
