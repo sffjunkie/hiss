@@ -20,12 +20,8 @@ __all__ = ['Notifier', 'USE_NOTIFIER', 'USE_REGISTERED']
 NotificationInfo = namedtuple('NotificationInfo', ['name', 'title', 'text',
                                                    'icon', 'sound', 'enabled'])
 
-class USE_NOTIFIER:
-    """USE_NOTIFIER"""
-
-    
-class USE_REGISTERED:
-    """USE_REGISTERED"""
+USE_NOTIFIER = object()
+USE_REGISTERED = object()
     
 
 class Notifier(object):
@@ -40,16 +36,21 @@ class Notifier(object):
     :type icon:       :class:`~hiss.resource.Icon` or str
     :param sound:     Sound to play when displaying the notification.
     :type sound:      str
+    :param response_handler: Coroutine that is called whenever a response
+                             is received.
+    :type response_handler:  asyncio coroutine
     :param event_handler: Coroutine that is called whenever an asynchronous
                           event arrives.
-    :type event_handler:  A callable
+    :type event_handler:  asyncio coroutine
     :param loop:      :mod:`asyncio` event loop to use.
     :type loop:       :class:`asyncio.BaseEventLoop`
     """
     #TODO: standardised icon and sound handling between handler types
     def __init__(self, name, signature,
                  icon=None, sound=None,
-                 event_handler=None, loop=None):
+                 response_handler=None,
+                 event_handler=None,
+                 loop=None):
         self.name = name
         self.signature = signature
         self.icon = icon
@@ -58,9 +59,12 @@ class Notifier(object):
         self.notification_classes = {}
         self.targets = TargetList()
         
-        if not event_handler and not callable(event_handler):
-            raise ValueError('event_handler must be a callable')
-
+        if response_handler and not asyncio.iscoroutinefunction(response_handler):
+            raise ValueError('response_handler must be an asyncio coroutine')
+        self._response_handler = response_handler
+        
+        if event_handler and not asyncio.iscoroutinefunction(event_handler):
+            raise ValueError('event_handler must be an asyncio coroutine')
         self._event_handler = event_handler
 
         if loop is None:
@@ -113,7 +117,7 @@ class Notifier(object):
                             title=USE_REGISTERED,
                             text=USE_REGISTERED,
                             icon=USE_REGISTERED,
-                            sound=None):
+                            sound=USE_REGISTERED):
         """Create a notification that is ready to send.
 
         Either ``class_id`` or ``name`` can be provided. If ``class_id`` is
@@ -376,12 +380,29 @@ class Notifier(object):
                 if 'hide' in handler.capabilities:
                     handler.hide(self, uid)
 
+    @asyncio.coroutine
     def responses_received(self, responses):
-        """Event handler for callback events. Default handler does nothing.
+        """Event handler for callback events.
+        
+        Default handler calls the response handler provided to `init`.
 
         :param responses: The event
         :type responses:  :class:`hiss.NotificationEvent`
         """
+        if self._response_handler:
+            yield from self._response_handler(responses)
+
+    @asyncio.coroutine
+    def events_received(self, events):
+        """Event handler for callback events.
+        
+        Default handler calls the event handler provided to `init`.
+
+        :param responses: The event
+        :type responses:  :class:`hiss.NotificationEvent`
+        """
+        if self._event_handler:
+            yield from self._event_handler(events)
 
     @asyncio.coroutine
     def _handler(self, responses):
