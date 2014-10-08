@@ -2,6 +2,10 @@
 #
 # Part of 'hiss' the asynchronous notification library
 
+"""Handler for the XBMC JSON RPC API
+(http://wiki.xbmc.org/index.php?title=JSON_RPC)
+"""
+
 import asyncio
 import aiohttp
 import json
@@ -37,7 +41,7 @@ class XBMCHandler(Handler):
     def connect(self, target):
         """Connect to a Target and return the protocol handling the connection.
         
-        Overrides the Handler's version.
+        Overrides the :class:`~hiss.handler.Handler`\'s version.
         """
         protocol = XBMCProtocol()
 
