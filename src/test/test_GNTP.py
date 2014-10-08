@@ -19,8 +19,7 @@ asyncio.log.logger.setLevel(asyncio.log.logging.INFO)
 
 @pytest.fixture
 def notifier():
-    n = Notifier('GNTP Notifier', 'application/x-vnd.sffjunkie.hiss',
-                 uid='0b57469a-c9dd-451b-8d86-f82ce11ad09g')
+    n = Notifier('GNTP Notifier', '0b57469a-c9dd-451b-8d86-f82ce11ad09g')
     n.add_notification('New', 'New email received.')
     n.add_notification('Old', 'Old as an old thing.')
     return n

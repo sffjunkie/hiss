@@ -18,21 +18,22 @@ asyncio.log.logger.setLevel(asyncio.log.logging.INFO)
 
 @pytest.fixture
 def notifier():
-    n = Notifier('SNP Notifier', 'application/x-vnd.sffjunkie.hiss',
-                 uid='0b57469a-c9dd-451b-8d86-f82ce11ad09f')
+    n = Notifier('SNP Notifier', '0b57469a-c9dd-451b-8d86-f82ce11ad09f')
     n.add_notification('New', 'New email received.')
     n.add_notification('Old', 'Old as an old thing.')
     return n
 
 @pytest.fixture
 def icon():
-    fname = os.path.abspath(os.path.join(os.path.dirname(__file__), 'python-powered-h-50x65.png'))
+    fname = os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                         'python-powered-h-50x65.png'))
     fname = fname.replace('\\', '/')
     return Icon('file:///%s' % fname)
 
 @pytest.fixture
 def icon_inverted():
-    fname = os.path.abspath(os.path.join(os.path.dirname(__file__), 'python-powered-h-50x65-inverted.png'))
+    fname = os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                         'python-powered-h-50x65-inverted.png'))
     fname = fname.replace('\\', '/')
     return Icon('file:///%s' % fname)
 
