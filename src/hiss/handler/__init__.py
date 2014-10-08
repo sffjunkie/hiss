@@ -2,6 +2,10 @@
 #
 # Part of 'hiss' the asynchronous notification library
 
+"""Provides a Handler class which is a base for the other handlers supported
+by Hiss
+"""
+
 import sys
 import asyncio
 import logging
@@ -22,9 +26,7 @@ class Handler():
         :param factory: The factory to use for the connection or None for the
                         standard factory
         :type factory:  :class:`~hiss.handler.Factory`
-
-        The target is added to the protocol instance"""
-        
+        """
         if factory is None:
             factory = self.factory
 
