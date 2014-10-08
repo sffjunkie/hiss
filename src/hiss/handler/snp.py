@@ -397,13 +397,13 @@ class SNPAsyncProtocol(SNPBaseProtocol):
             asyncio.async(self._async_handler(responses))
 
     @asyncio.coroutine
-    def subscribe(self, notifier, signatures):
+    def subscribe(self, notifier, signatures=None):
         """Subscribe to notifications from a list of signatures
 
         :param notifier:      Notifier to use.
         :type notifier:       :class:`hiss.Notifier`
         :param signatures:    Application signatures to receive messages from
-        :type signatures:     List of string or [] for all
+        :type signatures:     List of string or None for all
                               applications
         :returns:             The Response received.
         """
@@ -414,7 +414,7 @@ class SNPAsyncProtocol(SNPBaseProtocol):
         
         self._async_handler = notifier._handler
 
-        request_info = _SubscribeRequestInfo(notifier, signatures)
+        request_info = _SubscribeRequestInfo(notifier, self.target, signatures)
         yield from self.send_request(request_info)
 
         result = self._build_result('subscribe')
@@ -660,12 +660,8 @@ class Response(object):
         200-299 = Application errors
         300-399 = Events
         """
-
-        self.data = b''
+        
         self.body = {}
-
-    def clear(self):
-        self.data = b''
 
     @property
     def is_ok(self):
@@ -977,7 +973,8 @@ class _SubscribeRequestInfo(object):
         self.commands = []
 
         parameters = {}
-        parameters['app-sig'] = signatures
+        if signatures:
+            parameters['app-sig'] = signatures
         parameters['password'] = target.password
 
         self.commands.append(('subscribe', parameters))
