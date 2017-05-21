@@ -46,10 +46,11 @@ URL_SCHEMES = [SNP_SCHEME, GNTP_SCHEME, KODI_SCHEME]
 TOKEN_SCHEMES = [PROWL_SCHEME, PUSHOVER_SCHEME, PUSHBULLET_SCHEME]
 ALL_SCHEMES = URL_SCHEMES + TOKEN_SCHEMES
 
+
 def add_urlparse_schemes():
     """Allow urlparse to understand our protocol schemes"""
 
-    for s in hiss.schemes.ALL_SCHEMES:
+    for s in ALL_SCHEMES:
         if s not in urlparse.uses_relative:
             urlparse.uses_relative.append(s)
 

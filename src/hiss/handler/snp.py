@@ -14,7 +14,7 @@ from operator import attrgetter
 
 from hiss.encryption import PY_CRYPTO, encrypt, decrypt
 from hiss.exception import HissError, MarshalError
-from hiss.handler.aio import Handler
+from hiss.handler.aio import AIOHandler
 from hiss.hash import HashInfo, generate_hash, validate_hash
 from hiss.notification import NotificationPriority
 from hiss.resource import Icon
@@ -60,7 +60,7 @@ SNARL_STATUS = {
     308: 'ActionSelected',
 }
 
-# The following error codes do not constitute a failed response  
+# The following error codes do not constitute a failed response
 ACCEPTABLE_ERRORS = [203, 204]
 
 EVENT_MAPPING = {
@@ -93,7 +93,7 @@ class SNPError(HissError):
     pass
 
 
-class SNPHandler(Handler):
+class SNPHandler(AIOHandler):
     """:class:`~hiss.handler.Handler` sub-class for SNP notifications"""
 
     __name__ = 'SNP'
@@ -198,7 +198,7 @@ class SNPBaseProtocol(asyncio.Protocol):
             else:
                 yield from asyncio.sleep(0.1)
 
-    def _build_result(self, command):        
+    def _build_result(self, command):
         result = {}
         result['handler'] = 'SNP'
         result['command'] = command
@@ -222,7 +222,7 @@ class SNPProtocol(SNPBaseProtocol):
     def __init__(self):
         self.use_encryption = False
         self.use_hash = False
-        
+
         super().__init__()
 
     def data_received(self, data):
@@ -250,7 +250,7 @@ class SNPProtocol(SNPBaseProtocol):
 
     @asyncio.coroutine
     def register(self, async_notifier, **kwargs):
-        """Register ``async_notifier`` with our target 
+        """Register ``async_notifier`` with our target
 
         :param async_notifier: Notifier to register
         :type async_notifier:  :class:`hiss.async_notifier.Notifier`
@@ -286,7 +286,7 @@ class SNPProtocol(SNPBaseProtocol):
 
         :param notification: Notification to send
         :type notification:  :class:`hiss.Notification`
-        :param async_notifier: Notifier to use 
+        :param async_notifier: Notifier to use
         :type async_notifier:  :class:`hiss.async_notifier.Notifier`
         """
 
@@ -313,7 +313,7 @@ class SNPProtocol(SNPBaseProtocol):
 
     @asyncio.coroutine
     def show(self, notification):
-        """Show a hidden notification on our target 
+        """Show a hidden notification on our target
 
         :param notification: Notification to show
         :type notification:  :class:`hiss.notification.Notification`
@@ -329,7 +329,7 @@ class SNPProtocol(SNPBaseProtocol):
 
     @asyncio.coroutine
     def hide(self, uid, targets=None):
-        """Hide a notification 
+        """Hide a notification
 
         :param notification: Notification to show
         :type notification:  :class:`hiss.notification.Notification`
@@ -404,11 +404,11 @@ class SNPSubscriptionProtocol(SNPBaseProtocol):
         :type signatures:     List of string or None for all applications
         :returns:             The :class:`Response` received.
         """
-        
+
         if not callable(async_notifier._handler):
-            raise ValueError('%s: async_handler must be a callable' % 
+            raise ValueError('%s: async_handler must be a callable' %
                              self.__class__.__qualname__)
-        
+
         self._async_handler = async_notifier._async_handler
 
         request_info = _SubscribeRequestInfo(async_notifier, self.target, signatures)
@@ -437,7 +437,7 @@ class Request(object):
         :param command:  The command to append
         :type command:   A 2 element tuple containing a name and a dictionary
                          of parameters or
-                         A separate command name as a string and keyword 
+                         A separate command name as a string and keyword
                          arguments
         """
 
@@ -497,7 +497,7 @@ class Request(object):
 
     def _marshal_20(self):
         data = self._marshal_command(self.commands[0]).encode('UTF-8')
-        data = b'snp://' + data + b'\r\n' 
+        data = b'snp://' + data + b'\r\n'
         return data
 
     def _marshal_30(self):
@@ -512,14 +512,14 @@ class Request(object):
                 data += ' %s' % str(self._hash)
         else:
             data += 'NONE'
-            
+
         data += '\r\n'
 
         for command in self.commands:
             data += '%s\r\n' % self._marshal_command(command)
 
         data += 'END\r\n'
-        return data.encode('UTF-8') 
+        return data.encode('UTF-8')
 
     def _marshal_command(self, command):
         if len(command.parameters) == 0:
@@ -552,7 +552,7 @@ class Request(object):
 
     def _unmarshal_20(self, data):
         data = data[6:].strip(b'\r\n')
-        command = self._extract_command(data)           
+        command = self._extract_command(data)
         self.commands = [command]
         self.version = '2.0'
 
@@ -577,10 +577,10 @@ class Request(object):
                 htype, rest = hash_and_salt.split(b':')
                 hkey, hsalt = rest.split(b'.')
                 self._hash = HashInfo(htype.upper(), unhexlify(hkey), unhexlify(hsalt))
-                
+
                 if self.password is not None:
                     validate_hash(self.password, self._hash)
-                    
+
                 self.use_hash = True
         except ValueError:
             raise MarshalError('Invalid SNP body format: %s' % str(header),
@@ -653,7 +653,7 @@ class Response(object):
         200-299 = Application errors
         300-399 = Events
         """
-        
+
         self.body = {}
 
     @property
@@ -780,7 +780,7 @@ class _RegisterRequestInfo(object):
         parameters['app-sig'] = async_notifier.signature
         parameters['title'] = async_notifier.name
         parameters['password'] = target.password
-        
+
         keep_alive = kwargs.get('keep_alive', False)
         if keep_alive:
             parameters['keep-alive'] = '1'
@@ -878,7 +878,7 @@ class _NotifyRequestInfo(object):
             if notification.callback[1] != '':
                 parameters['callback-label'] = notification.callback[1]
 
-        # Clamp priority to +-1        
+        # Clamp priority to +-1
         if notification.priority == NotificationPriority.very_low:
             priority = NotificationPriority.moderate
         elif notification.priority == NotificationPriority.emergency:
@@ -984,4 +984,3 @@ def snp64(data):
         pos -= 1
 
     return data
-    
