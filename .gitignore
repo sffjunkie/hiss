@@ -4,4 +4,6 @@
 build
 dist
 venv
-
+.tox
+.settings
+.cache
