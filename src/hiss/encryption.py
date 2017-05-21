@@ -31,7 +31,7 @@ class EncryptionInfo():
     @property
     def algorithm(self):
         return self._algorithm
-    
+
     @algorithm.setter
     def algorithm(self, value):
         if isinstance(value, (bytes, bytearray)):
@@ -46,7 +46,7 @@ class EncryptionInfo():
     @property
     def iv(self):
         return self._iv
-    
+
     @iv.setter
     def iv(self, value):
         if isinstance(value, str):
@@ -61,6 +61,7 @@ class EncryptionInfo():
         return '%s:%s' % (self.algorithm,
                           hexlify(self.iv).decode('UTF-8'))
 
+
 def encrypt(encryption_algorithm, iv, key, data):
     def _pkcs7_pad(self, data, block_length):
         padding = block_length - (len(data) % block_length)
@@ -71,12 +72,14 @@ def encrypt(encryption_algorithm, iv, key, data):
     encrypted_data = cipher.encrypt(data)
     return encrypted_data
 
+
 def decrypt(encryption_algorithm, iv, key, data):
     cipher, _ = _create_cipher(encryption_algorithm, iv, key)
     decrypted_data = cipher.decrypt(data)
     padding_length = ord(decrypted_data[-1])
     decrypted_data = decrypted_data[:-padding_length]
     return decrypted_data
+
 
 def _create_cipher(self, encryption_algorithm, iv, key):
     # AES = AES192 = key length=24, block length=16, iv length=16
@@ -104,4 +107,3 @@ def _create_cipher(self, encryption_algorithm, iv, key):
         cipher = crypto.Cipher.DES3.new(key, mode, IV=iv)
 
     return (cipher, block_length)
-

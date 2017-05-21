@@ -13,47 +13,12 @@ import hiss.utility
 
 __all__ = ['Target']
 
-for s in hiss.schemes.ALL_SCHEMES:
-    if s not in urlparse.uses_relative:
-        urlparse.uses_relative.append(s)
 
-    if s not in urlparse.uses_netloc:
-        urlparse.uses_netloc.append(s)
-
-    if s not in urlparse.uses_params:
-        urlparse.uses_params.append(s)
-
-    if s not in urlparse.uses_query:
-        urlparse.uses_query.append(s)
+hiss.schemes.add_urlparse_schemes()
 
 
 class Target(object):
-    """A target for notifications.
-    
-    Currently the following target schemes are supported
-    
-    =========  ================================
-    ``gtnp``   Growl Network Transfer Protocol
-    ``pb``     Pushbullet
-    ``po``     Pushover
-    ``prowl``  Prowl
-    ``snp``    Snarl Network Protocol
-    ``xbmc``   XBMC
-    =========  ================================
-
-    For the ``snp``, ``gntp`` and ``xbmc`` schemes, targets are specified
-    using a URL like string of the form ::
-
-        scheme://[username:[password@]]host[:port]
-
-    If no port number is specified then the default port for the target type
-    will be used.
-    
-    For the Prowl, Pushbullet and Pushover schemes, targets are specified using
-    an API Key with an optional filter to target specific devices ::
-    
-        scheme://apikey[:filter]
-    """
+    """A target for notifications."""
     def __init__(self, url='', **kwargs):
         if url == '':
             url = '%s:///' % hiss.schemes.DEFAULT_SCHEME
@@ -70,7 +35,7 @@ class Target(object):
             if result.netloc != '':
                 try:
                     userpass, hostport = result.netloc.split('@')
-                    
+
                     try:
                         self.username, self.password = userpass.split(':', maxsplit=1)
                     except:
@@ -118,7 +83,7 @@ class Target(object):
     @property
     def address(self):
         """Return the target address as a ``(host, port)`` tuple"""
-        
+
         return (self.host, self.port)
 
     @property
@@ -128,7 +93,7 @@ class Target(object):
         """
         return (self.username, self.password)
 
-    @property    
+    @property
     def is_remote(self):
         """Return True if host is on a remote machine."""
 
@@ -141,7 +106,7 @@ class Target(object):
             return '%s://%s' % (self.scheme, self.host)
 
     def __eq__(self, other):
-        """Tests that 2 targets are equal ignoring the username/password.""" 
+        """Tests that 2 targets are equal ignoring the username/password."""
 
         return (self.scheme, self.host, self.port) == \
                (other.scheme, other.host, other.port)

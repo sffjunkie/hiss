@@ -72,9 +72,9 @@ class Notification():
         self.callback = None
         self.actions = []
 
-        self.uid = self._unique_id()
+        self.uid = uid or self._unique_id()
         self.class_id = ''
-        self.notifier = None
+        self.async_notifier = None
 
     def __repr__(self):
         return self.uid
@@ -150,20 +150,20 @@ class Notification():
     def show(self):
         """Show the notification."""
 
-        if self.notifier is not None:
-            self.notifier.show(self.uid)
+        if self.async_notifier is not None:
+            self.async_notifier.show(self.uid)
         else:
             raise HissError(('Unable to show notification. '
-                             'Notification has not been sent to a notifier'))
+                             'Notification has not been sent to a async_notifier'))
 
     def hide(self):
         """Hide the notification"""
 
-        if self.notifier is not None:
-            self.notifier.hide(self.uid)
+        if self.async_notifier is not None:
+            self.async_notifier.hide(self.uid)
         else:
             raise HissError(('Unable to hide notification. '
-                             'Notification has not been sent to a notifier'))
+                             'Notification has not been sent to a async_notifier'))
 
     def update(self):
         """Update the title and text of an existing notification."""

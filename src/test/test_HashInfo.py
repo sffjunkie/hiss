@@ -13,6 +13,7 @@ def test_HashInfo_Init():
 
     _h = HashInfo('SHA256', key_hash, salt)
 
+
 def test_HashInfo_Str():
     key_hash = b'aabbccdd'
     salt = b'11223344'
@@ -21,6 +22,7 @@ def test_HashInfo_Str():
 
     expected = 'SHA256:%s.%s' % (hexlify(key_hash).decode('UTF-8'), hexlify(salt).decode('UTF-8'))
     assert str(h) == expected
+
 
 def test_HashInfo_HashCalculation():
     password = 'testtest'

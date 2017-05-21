@@ -20,7 +20,11 @@ Notifier
     
 .. autoclass:: hiss.notifier.Notifier
    :members:
-   :member-order: bysource
+   :exclude-members: add_notification, create_notification
+
+   .. automethod:: hiss.notifier.Notifier.add_notification
+      
+   .. automethod:: hiss.notifier.Notifier.create_notification(class_id=-1, name='', title=USE_REGISTERED, text=USE_REGISTERED, icon=USE_REGISTERED, sound=USE_REGISTERED)
 
 Notification
 ~~~~~~~~~~~~

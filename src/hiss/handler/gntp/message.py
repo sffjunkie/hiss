@@ -1,199 +1,16 @@
-# Copyright 2013-2014, Simon Kennedy, sffjunkie+code@gmail.com
-#
-# Part of 'hiss' the asynchronous notification library
-
-import re
-import asyncio
 import logging
-from os import urandom
-from pprint import pformat
-from datetime import datetime
-from urllib.parse import urlparse
+import re
 from binascii import unhexlify
+from datetime import datetime
+from os import urandom
+from urllib.parse import urlparse
 
-from hiss.handler import Handler
-from hiss.utility import parse_datetime
-from hiss.resource import Icon
-
-from hiss.exception import HissError, MarshalError
-from hiss.hash import HashInfo, generate_hash, validate_hash
 from hiss.encryption import PY_CRYPTO, encrypt, decrypt
-
-GNTP_SCHEME = 'gntp'
-GNTP_DEFAULT_PORT = 23053
-GNTP_BASE_VERSION = '1.0'
-
-DEFAULT_HASH_ALGORITHM = 'SHA256'
-ENCRYPTION_ALGORITHM = 'AES'
-
-class GNTPError(HissError):
-    pass
-
-
-class GNTPHandler(Handler):
-    """:class:`~hiss.handler.Handler` sub-class for GNTP notifications"""
-
-    __name__ = 'GNTP'
-
-    def __init__(self, loop=None):
-        super().__init__(loop)
-
-        self.port = GNTP_DEFAULT_PORT
-        self.factory = lambda: GNTPProtocol()
-        self.async_factory = lambda: GNTPAsyncProtocol()
-        self.capabilities = ['register', 'subscribe']
-
-
-class GNTPBaseProtocol(asyncio.Protocol):
-    def __init__(self):
-        self._target = None
-        self._buffer = None
-
-    def connection_made(self, transport):
-        self.response = None
-        self._buffer = bytearray()
-        self._transport = transport
-
-    @property
-    def target(self):
-        return self._target
-
-    @target.setter
-    def target(self, value):
-        self._target = value
-        if value.is_remote:
-            self.use_hash = True
-
-    def send_request(self, request, target):
-        if target.password is not None and (self.use_hash or self.use_encryption):
-            request.password = target.password.encode('UTF-8')
-            request.use_hash = self.use_hash
-            request.use_encryption = self.use_encryption
-
-        request_data = request.marshal()
-        self._transport.write(request_data)
-
-    @asyncio.coroutine
-    def _wait_for_response(self):
-        while True:
-            if self.response is not None:
-                return
-            else:
-                yield from asyncio.sleep(0.1)
-
-
-class GNTPProtocol(GNTPBaseProtocol):
-    """Growl Network Transport Protocol."""
-
-    name = 'GNTP'
-
-    def __init__(self):
-        self.use_encryption = False
-        self.use_hash = False
-
-    def data_received(self, data):
-        self._buffer.extend(data)
-
-    def eof_received(self):
-        callback_response = None
-        items = [i for i in self._buffer.split(b'\r\n\r\n') if len(i) > 0]
-        if len(items) > 1:
-            response_data = items[0]
-            callback_data = items[1]
-
-            callback_response = Response()
-            callback_response.unmarshal(callback_data)
-        else:
-            response_data = items[0]
-
-        response = Response()
-        response.unmarshal(response_data)
-
-        result = {}
-        result['command'] = response.command
-        result['handler'] = 'GNTP'
-        result['status'] = response.status
-        result['status_code'] = response.status_code
-        result['timestamp'] = response.timestamp
-        result['target'] = str(self.target)
-        if response.status =='ERROR':
-            result['reason'] = response.reason
-
-        if callback_response is not None:
-            cb_result = {}
-            cb_result['nid'] = callback_response.nid
-            cb_result['status'] = callback_response.callback_status
-            cb_result['timestamp'] = callback_response.callback_timestamp
-            result['callback'] = cb_result
-
-        self.response = result
-
-    @asyncio.coroutine
-    def register(self, notifier):
-        """Register ``notifier`` with a our target 
-
-        :param notifier: The Notifier to register
-        :type notifier:  :class:`~hiss.notifier.Notifier`
-        """
-
-        request = _RegisterRequest(notifier)
-        self.send_request(request, self.target)
-        yield from self._wait_for_response()
-        logging.debug(pformat(self.response))
-        return self.response
-
-    @asyncio.coroutine
-    def unregister(self, notifier):
-        """Unregister the notifier from the target"""
-
-        request = _UnregisterRequest(notifier)
-        self.send_request(request, self.target)
-        yield from self._wait_for_response()
-        logging.debug(pformat(self.response))
-        return self.response
-
-    @asyncio.coroutine
-    def notify(self, notification, notifier):
-        """Send a notification
-
-        :param notification: The notification to send
-        :type notification: :class:`~hiss.notification.Notification`
-        """
-
-        request = _NotifyRequest(notification, notifier)
-        self.send_request(request, self.target)
-        yield from self._wait_for_response()
-        logging.debug(pformat(self.response))
-        return self.response
-
-
-class GNTPAsyncProtocol(GNTPBaseProtocol):
-    """Growl Network Transport Protocol."""
-
-    name = 'GNTPAsync'
-
-    def data_received(self, data):
-        self._buffer.extend(data)
-
-    @asyncio.coroutine
-    def subscribe(self, notifier, signatures):
-        """Register ``notifier`` with a our target 
-
-        :param notifier: The Notifier to register
-        :type notifier:  :class:`~hiss.notifier.Notifier`
-        :param signatures:    Application signatures to receive messages from
-        :type signatures:     List of string or [] for all
-                              applications
-        """
-        
-        self._async_handler = notifier._handler
-
-        request = _SubscribeRequest(notifier)
-        self.send_request(request, self.target)
-        yield from self._wait_for_response()
-        logging.debug(pformat(self.response))
-        return self.response
-
+from hiss.exception import MarshalError
+from hiss.handler.gntp import GNTP_BASE_VERSION, ENCRYPTION_ALGORITHM
+from hiss.hash import HashInfo, generate_hash, validate_hash
+from hiss.resource import Icon
+from hiss.utility import parse_datetime
 
 class Request(object):
     def __init__(self, version=GNTP_BASE_VERSION):
@@ -543,20 +360,20 @@ class Response(object):
         pass
 
 
-class _RegisterRequest(Request):
-    def __init__(self, notifier):
+class RegisterRequest(Request):
+    def __init__(self, async_notifier):
         Request.__init__(self)
 
         self.command = 'REGISTER'
-        self.body['Application-Name'] = notifier.name
-        self.body['Notifications-Count'] = len(notifier.notification_classes)
+        self.body['Application-Name'] = async_notifier.name
+        self.body['Notifications-Count'] = len(async_notifier.notification_classes)
 
-        if isinstance(notifier.icon, Icon):
-            self._add_resource('Application-Icon', notifier.icon)
+        if isinstance(async_notifier.icon, Icon):
+            self._add_resource('Application-Icon', async_notifier.icon)
         else:
-            self.body['Application-Icon'] = notifier.icon
+            self.body['Application-Icon'] = async_notifier.icon
 
-        for info in notifier.notification_classes.values():
+        for info in async_notifier.notification_classes.values():
             section = {}
             section['Notification-Name'] = info.name
             section['Notification-Enabled'] = info.enabled
@@ -564,12 +381,12 @@ class _RegisterRequest(Request):
             self.sections.append(section)
 
 
-class _NotifyRequest(Request):
-    def __init__(self, notification, notifier):
+class NotifyRequest(Request):
+    def __init__(self, notification, async_notifier):
         Request.__init__(self)
 
         self.command = 'NOTIFY'
-        self.body['Application-Name'] = notifier.name
+        self.body['Application-Name'] = async_notifier.name
         self.body['Notification-Name'] = notification.name
         self.body['Notification-ID'] = notification.uid
         self.body['Notification-Title'] = notification.title
@@ -597,19 +414,19 @@ class _NotifyRequest(Request):
                 self.body['Notification-Callback-Context-Type'] = 'string'
 
 
-class _SubscribeRequest(Request):
-    def __init__(self, notifier):
+class SubscribeRequest(Request):
+    def __init__(self, async_notifier):
         Request.__init__(self)
 
         self.command = 'SUBSCRIBE'
-        self.body['Subscriber-ID'] = notifier.signature
-        self.body['Subscriber-Name'] = notifier.name
+        self.body['Subscriber-ID'] = async_notifier.signature
+        self.body['Subscriber-Name'] = async_notifier.name
 
 
-class _UnregisterRequest(Request):
-    def __init__(self, notifier):
+class UnregisterRequest(Request):
+    def __init__(self, async_notifier):
         Request.__init__(self)
 
         self.command = 'REGISTER'
-        self.body['Application-Name'] = notifier.name
+        self.body['Application-Name'] = async_notifier.name
         self.body['Notifications-Count'] = 0

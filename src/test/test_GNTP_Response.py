@@ -2,10 +2,12 @@
 #
 # Part of 'hiss' the asynchronous notification library
 
-from hiss.handler.gntp import Response
+from hiss.handler.gntp.message import Response
+
 
 def test_GNTPResponse_Create():
     _r = Response()
+
 
 def test_GNTPResponse_marshal():
     r = Response()
@@ -17,6 +19,7 @@ def test_GNTPResponse_marshal():
     msg = r.marshal()
     # Unable to compare bytes as Response has a variable timestamp
     assert len(msg) == len('GNTP/1.0 -OK NONE\r\nResponse-Action: REGISTER\r\nOrigin-Machine-Name: OURAGAN\r\n') + len('X-Timestamp: YYYY-mm-dd hh:mm:ssZ\r\n')
+
 
 def test_GNTPResponse_Unmarshal():
     r = Response()

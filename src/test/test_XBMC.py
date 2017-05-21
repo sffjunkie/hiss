@@ -3,6 +3,8 @@
 # Part of 'hiss' the asynchronous notification library
 
 import pytest
+pytestmark = pytest.mark.skipif(True, reason='XBMC not installed')
+
 import asyncio
 from hiss.target import Target
 from hiss.notifier import Notifier
@@ -19,6 +21,7 @@ def notifier():
     n.add_notification('New', 'New email received.')
     n.add_notification('Old', 'Old as an old thing.')
     return n
+
 
 def test_XBMC_Notification(notifier):
     loop = asyncio.get_event_loop()

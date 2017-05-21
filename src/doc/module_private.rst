@@ -6,6 +6,8 @@ Backend Stuff
 Handler
 ~~~~~~~
 
+.. automodule:: hiss.handler
+
 .. autoclass:: hiss.handler.Handler
    :members:
    :member-order: bysource
@@ -13,10 +15,11 @@ Handler
 Snarl
 ~~~~~
 
+.. automodule:: hiss.handler.snp
+
 .. autoclass:: hiss.handler.snp.SNPHandler
    :members:
    :member-order: bysource
-   :show-inheritance:
 
 .. autoclass:: hiss.handler.snp.SNPBaseProtocol
    :members:
@@ -25,20 +28,19 @@ Snarl
 .. autoclass:: hiss.handler.snp.SNPProtocol
    :members:
    :member-order: bysource
-   :show-inheritance:
 
 .. autoclass:: hiss.handler.snp.SNPAsyncProtocol
    :members:
    :member-order: bysource
-   :show-inheritance:
 
-Growl (GNTP)
-~~~~~~~~~~~~
+Growl
+~~~~~
    
+.. automodule:: hiss.handler.gntp
+
 .. autoclass:: hiss.handler.gntp.GNTPHandler
    :members:
    :member-order: bysource
-   :show-inheritance:
 
 .. autoclass:: hiss.handler.gntp.GNTPBaseProtocol
    :members:
@@ -47,20 +49,19 @@ Growl (GNTP)
 .. autoclass:: hiss.handler.gntp.GNTPProtocol
    :members:
    :member-order: bysource
-   :show-inheritance:
 
 .. autoclass:: hiss.handler.gntp.GNTPAsyncProtocol
    :members:
    :member-order: bysource
-   :show-inheritance:
    
 XBMC
 ~~~~
    
+.. automodule:: hiss.handler.xbmc
+
 .. autoclass:: hiss.handler.xbmc.XBMCHandler
    :members:
    :member-order: bysource
-   :show-inheritance:
    
 .. autoclass:: hiss.handler.xbmc.XBMCProtocol
    :members:
@@ -69,10 +70,11 @@ XBMC
 Pushbullet
 ~~~~~~~~~~
    
+.. automodule:: hiss.handler.pushbullet
+
 .. autoclass:: hiss.handler.pushbullet.PushbulletHandler
    :members:
    :member-order: bysource
-   :show-inheritance:
    
 .. autoclass:: hiss.handler.pushbullet.PushbulletProtocol
    :members:
@@ -81,10 +83,11 @@ Pushbullet
 Prowl
 ~~~~~
    
+.. automodule:: hiss.handler.prowl
+
 .. autoclass:: hiss.handler.prowl.ProwlHandler
    :members:
    :member-order: bysource
-   :show-inheritance:
    
 .. autoclass:: hiss.handler.prowl.ProwlProtocol
    :members:
@@ -93,10 +96,11 @@ Prowl
 Pushover
 ~~~~~~~~
    
+.. automodule:: hiss.handler.pushover
+
 .. autoclass:: hiss.handler.pushover.PushoverHandler
    :members:
    :member-order: bysource
-   :show-inheritance:
    
 .. autoclass:: hiss.handler.pushover.PushoverProtocol
    :members:

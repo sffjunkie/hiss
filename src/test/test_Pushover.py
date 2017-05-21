@@ -3,6 +3,8 @@
 # Part of 'hiss' the asynchronous notification library
 
 import pytest
+pytestmark = pytest.mark.skipif(True, reason='pushover not available')
+
 import asyncio
 import os.path
 import logging
@@ -15,11 +17,19 @@ asyncio.log.logger.setLevel(asyncio.log.logging.INFO)
 
 @pytest.fixture
 def notifier():
-    n = Notifier('GNTP Notifier', 'application/x-vnd.sffjunkie.hiss',
-                 uid='0b57469a-c9dd-451b-8d86-f82ce11ad09g')
+    n = Notifier('GNTP Notifier', 'a23MprXQ5P4weDkKWLXR3swDjGa68q')
     n.add_notification('New', 'New email received.')
     n.add_notification('Old', 'Old as an old thing.')
     return n
+
+
+@pytest.fixture
+def bad_notifier():
+    n = Notifier('GNTP Notifier', 'a23MprXQ5P4weDkKWLXR3swDjGa6aa')
+    n.add_notification('New', 'New email received.')
+    n.add_notification('Old', 'Old as an old thing.')
+    return n
+
 
 @pytest.fixture
 def icon():
@@ -30,12 +40,12 @@ def icon():
     return Icon('file:///%s' % fname)
 
 
-def test_Pushover_BadAppToken(notifier):
+def test_Pushover_BadAppToken(bad_notifier):
     loop = asyncio.get_event_loop()
 
     @asyncio.coroutine
     def coro():
-        h = PushoverHandler(apptoken='a23MprXQ5P4weDkKWLXR3swDjGa68', loop=loop)
+        h = PushoverHandler(loop=loop)
 
         t = Target('po://uDyCFupvhfxXcC5GSCvYw7ZUwzeoYe')
 
@@ -58,7 +68,7 @@ def test_Pushover_BadUserToken(notifier):
     def coro():
         h = PushoverHandler(apptoken='a23MprXQ5P4weDkKWLXR3swDjGa68q', loop=loop)
 
-        t = Target('po://uDyCFupvhfxXcC5GSCvYw7ZUwzeoY')
+        t = Target('po://uDyCFupvhfxXcC5GSCvYw7ZUwzeoYa')
 
         notification = notifier.create_notification(name='New',
                                              title="A brave new world",

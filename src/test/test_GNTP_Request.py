@@ -3,10 +3,12 @@
 # Part of 'hiss' the asynchronous notification library
 
 from hiss.hash import generate_hash
-from hiss.handler.gntp import Request
+from hiss.handler.gntp.message import Request
+
 
 def test_GNTPRequest_Create():
 	_r = Request()
+
 
 def test_GNTPRequest_marshal():
 	msg_in = bytearray(("GNTP/1.0 REGISTER NONE\r\n"
@@ -36,6 +38,7 @@ def test_GNTPRequest_marshal():
 	r.unmarshal(msg_in)
 	msg_out = r.marshal()
 	assert len(msg_out) == len(msg_in)
+
 
 def test_GNTPRequest_Unmarshal():
 	r = Request()
@@ -68,6 +71,7 @@ def test_GNTPRequest_Unmarshal():
 	assert r._hash is None
 
 	assert r.body['Application-Name'] == 'SurfWriter'
+
 
 def test_GNTPRequest_Unmarshal_WithHash():
 	password = 'testtest'

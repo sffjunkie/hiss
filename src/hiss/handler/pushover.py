@@ -2,11 +2,14 @@
 #
 # Part of 'hiss' the asynchronous notification library
 
+"""Handler for the Pushover API (https://pushover.net/api)
+"""
+
 import asyncio
 import aiohttp
 import json
 
-from hiss.handler import Handler
+from hiss.handler.aio import Handler
 
 
 class PushoverHandler(Handler):
@@ -14,26 +17,24 @@ class PushoverHandler(Handler):
 
     __name__ = 'Pushover'
 
-    def __init__(self, apptoken=None, loop=None):
+    def __init__(self, loop=None):
         super().__init__(loop)
 
-        self.token = apptoken
         self.capabilities = ['notify']
 
     @asyncio.coroutine
-    def connect(self, target):
-        """Connect to a :class:`~hiss.target.Target` and return the protocol handling
-        the connection.
+    def connect(self, local_target):
+        """Connect to a :class:`~hiss.local_target.Target` and return the protocol
+        handling the connection.
         
         Overrides the :class:`~hiss.handler.Handler`\'s version.
         """
         protocol = PushoverProtocol()
 
-        target.handler = self
+        local_target.handler = self
 
-        protocol.target = target
+        protocol.local_target = local_target
         protocol.loop = self.loop
-        protocol.token = self.token
         return protocol
 
 
@@ -41,32 +42,35 @@ class PushoverProtocol(asyncio.Protocol):
     """Pushover HTTP Protocol."""
 
     @asyncio.coroutine
-    def notify(self, notification, notifier):
+    def notify(self, notification, async_notifier):
         """Send a notification
 
         :param notification: The notification to send
         :type notification: :class:`~hiss.notification.Notification`
-        :param notifier: The notifier to send the notification for or None for
-                         the default notifier.
-        :type notifier:  :class:`~hiss.notifier.Notifier`
+        :param async_notifier: The async_notifier to send the notification for or None for
+                         the default async_notifier.
+        :type async_notifier:  :class:`~hiss.async_notifier.Notifier`
         """
         if notification.actions:
-            self.log(notifier, 'Pushover does not handle notification actions')
+            self.log(async_notifier, 'Pushover does not handle notification actions')
+        
+        if notification.callback:
+            self.log(async_notifier, 'Pushover does not handle notification callbacks')
         
         title = notification.title
         if len(title) > 100:
             title = title[:100]
-            self.log(notifier, ('Pushover maximum title length (100) '
+            self.log(async_notifier, ('Pushover maximum title length (100) '
                                 'exceeded - Truncating'))
             
         message = notification.text
         if len(message) > 512:
             message = message[:512]
-            self.log(notifier, ('Pushover maximum message length (512) '
+            self.log(async_notifier, ('Pushover maximum message length (512) '
                                 'exceeded - Truncating'))
 
-        if self.target.port != -1:
-            host = ('api.pushover.net', self.target.port)
+        if self.local_target.port != -1:
+            host = ('api.pushover.net', self.local_target.port)
         else:
             host = 'api.pushover.net'
             
@@ -75,8 +79,8 @@ class PushoverProtocol(asyncio.Protocol):
                                     loop=self.loop)
 
         fields = {
-            'token': self.token,
-            'user': self.target.host,
+            'token': async_notifier.signature,
+            'user': self.local_target.host,
             'title': title.encode('UTF-8'),
             'message': notification.text.encode("utf-8"),
             'priority': notification.priority
@@ -112,12 +116,12 @@ class PushoverProtocol(asyncio.Protocol):
             result['status'] = 'ERROR'
             result['reason'] = exc.args[0]
 
-        result['target'] = str(self.target)
+        result['local_target'] = str(self.local_target)
         return result
     
-    def log(self, notifier, message):
-        msg = 'Target {}: {}'.format(self.target, message)
-        notifier.log(msg)
+    def log(self, async_notifier, message):
+        msg = 'Target {}: {}'.format(self.local_target, message)
+        async_notifier.log(msg)
         
 
 class PushoverResponse():

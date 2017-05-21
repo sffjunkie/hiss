@@ -3,6 +3,8 @@
 # Part of 'hiss' the asynchronous notification library
 
 import pytest
+pytestmark = pytest.mark.skipif(True, reason='SNP not installed')
+
 import asyncio
 import os.path
 from hiss.target import Target
@@ -23,6 +25,7 @@ def notifier():
     n.add_notification('Old', 'Old as an old thing.')
     return n
 
+
 @pytest.fixture
 def icon():
     fname = os.path.abspath(os.path.join(os.path.dirname(__file__),
@@ -30,12 +33,14 @@ def icon():
     fname = fname.replace('\\', '/')
     return Icon('file:///%s' % fname)
 
+
 @pytest.fixture
 def icon_inverted():
     fname = os.path.abspath(os.path.join(os.path.dirname(__file__),
                                          'python-powered-h-50x65-inverted.png'))
     fname = fname.replace('\\', '/')
     return Icon('file:///%s' % fname)
+
 
 def test_SNP_Connect_InvalidHost():
     loop = asyncio.get_event_loop()
@@ -50,6 +55,7 @@ def test_SNP_Connect_InvalidHost():
 
     loop.run_until_complete(coro())
 
+
 def test_SNP_Connect():
     loop = asyncio.get_event_loop()
 
@@ -61,6 +67,7 @@ def test_SNP_Connect():
         assert t.handler == h
 
     loop.run_until_complete(coro())
+
 
 def test_SNP_Register(notifier):
     loop = asyncio.get_event_loop()
@@ -77,6 +84,7 @@ def test_SNP_Register(notifier):
     c = coro()
     loop.run_until_complete(c)
 
+
 def test_SNP_Unregister(notifier):
     loop = asyncio.get_event_loop()
 
@@ -92,6 +100,7 @@ def test_SNP_Unregister(notifier):
 
     c = coro()
     loop.run_until_complete(c)
+
 
 def test_SNP_Register_WithIcon(notifier, icon):
     loop = asyncio.get_event_loop()
@@ -110,6 +119,7 @@ def test_SNP_Register_WithIcon(notifier, icon):
     c = coro()
     loop.run_until_complete(c)
 
+
 def test_SNP_Notification(notifier):
     loop = asyncio.get_event_loop()
 
@@ -127,6 +137,7 @@ def test_SNP_Notification(notifier):
 
     c = coro()
     loop.run_until_complete(c)
+
 
 def test_SNP_Notification_WithStringCallback(notifier):
     loop = asyncio.get_event_loop()
@@ -147,6 +158,7 @@ def test_SNP_Notification_WithStringCallback(notifier):
     c = coro()
     loop.run_until_complete(c)
 
+
 def test_SNP_Notification_WithUrlCallback(notifier):
     loop = asyncio.get_event_loop()
 
@@ -166,6 +178,7 @@ def test_SNP_Notification_WithUrlCallback(notifier):
     c = coro()
     loop.run_until_complete(c)
 
+
 def test_SNP_Notification_WithIcon(notifier, icon_inverted):
     loop = asyncio.get_event_loop()
 
@@ -184,6 +197,7 @@ def test_SNP_Notification_WithIcon(notifier, icon_inverted):
 
     c = coro()
     loop.run_until_complete(c)
+
 
 def test_SNP_Subscribe(notifier):
     loop = asyncio.get_event_loop()

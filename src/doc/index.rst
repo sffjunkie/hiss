@@ -1,6 +1,6 @@
 .. Copyright 2013-2014, Simon Kennedy, sffjunkie+code@gmail.com
 
-Hiss |version|
+Hiss |release|
 ==============
 
 .. toctree::
@@ -13,7 +13,7 @@ Hiss |version|
 Introduction
 ~~~~~~~~~~~~
    
-Hiss is a Python 3 asyncio based notification library which allows you to send
+Hiss is a Python 3 `asyncio`_ based notification library which allows you to send
 notifications to multiple targets using multiple protocols.
 
 The following protocols are supported...

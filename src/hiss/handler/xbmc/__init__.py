@@ -14,7 +14,7 @@ from urllib.parse import quote_plus
 from .jsonrpc.message import RPCRequest
 
 from hiss.resource import Icon
-from hiss.handler import Handler
+from hiss.handler.aio import Handler
 
 XBMC_DEFAULT_PORT = 8080
 XBMC_USERNAME = 'xbmc'
@@ -38,19 +38,19 @@ class XBMCHandler(Handler):
         self.capabilities = ['notify']
 
     @asyncio.coroutine
-    def connect(self, target):
+    def connect(self, local_target):
         """Connect to a Target and return the protocol handling the connection.
         
         Overrides the :class:`~hiss.handler.Handler`\'s version.
         """
         protocol = XBMCProtocol()
 
-        target.handler = self        
-        target.port = self.port
-        target.username = self.username
-        target.password = self.password
+        local_target.handler = self        
+        local_target.port = self.port
+        local_target.username = self.username
+        local_target.password = self.password
 
-        protocol.target = target
+        protocol.local_target = local_target
         return protocol
 
 
@@ -60,27 +60,27 @@ class XBMCProtocol(asyncio.Protocol):
     Uses :mod:`aiohttp` to communicate with XBMC"""
 
     @asyncio.coroutine
-    def notify(self, notification, notifier):
+    def notify(self, notification, async_notifier):
         """Send a notification
 
         :param notification: The notification to send
         :type notification: :class:`~hiss.notification.Notification`
-        :param notifier: The notifier to send the notification for or None for
-                         the default notifier.
-        :type notifier:  :class:`~hiss.notifier.Notifier`
+        :param async_notifier: The async_notifier to send the notification for or None for
+                         the default async_notifier.
+        :type async_notifier:  :class:`~hiss.async_notifier.Notifier`
         """
 
         request = _NotificationRequest(notification)
-        response = yield from self._send_request(request, self.target)
+        response = yield from self._send_request(request, self.local_target)
         return response
 
     @asyncio.coroutine
-    def _send_request(self, request, target):
+    def _send_request(self, request, local_target):
         request_data = request.marshal()
 
-        auth = (target.username, target.password)
+        auth = (local_target.username, local_target.password)
 
-        client = aiohttp.HttpClient([(target.host, target.port)], method='POST',
+        client = aiohttp.HttpClient([(local_target.host, local_target.port)], method='POST',
                                     path='/jsonrpc')
         headers = {'Content-Type': 'application/json'}
 
@@ -104,7 +104,7 @@ class XBMCProtocol(asyncio.Protocol):
             result['status'] = 'ERROR'
             result['reason'] = exc.args[0]
 
-        result['target'] = str(self.target)
+        result['local_target'] = str(self.local_target)
         return result
 
 

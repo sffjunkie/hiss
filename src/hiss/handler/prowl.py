@@ -2,11 +2,14 @@
 #
 # Part of 'hiss' the asynchronous notification library
 
+"""Handler for the Prowl API (http://www.prowlapp.com/api.php)
+"""
+
 import asyncio
 import aiohttp
 import xml.dom.minidom
 
-from hiss.handler import Handler
+from hiss.handler.aio import Handler
 
 
 class ProwlHandler(Handler):
@@ -14,27 +17,25 @@ class ProwlHandler(Handler):
 
     __name__ = 'Prowl'
 
-    def __init__(self, apptoken=None, loop=None):
+    def __init__(self, loop=None):
         super().__init__(loop)
 
-        self.token = apptoken
         self.port = 443
         self.capabilities = ['notify']
 
     @asyncio.coroutine
-    def connect(self, target):
-        """Connect to a :class:`~hiss.target.Target` and return the protocol handling
+    def connect(self, local_target):
+        """Connect to a :class:`~hiss.local_target.Target` and return the protocol handling
         the connection.
         
         Overrides the :class:`~hiss.handler.Handler`\'s version.
         """
         protocol = ProwlProtocol()
 
-        target.handler = self
+        local_target.handler = self
 
-        protocol.target = target
+        protocol.local_target = local_target
         protocol.loop = self.loop
-        protocol.token = self.token
         return protocol
 
 
@@ -42,18 +43,18 @@ class ProwlProtocol(asyncio.Protocol):
     """Prowl HTTP Protocol."""
 
     @asyncio.coroutine
-    def notify(self, notification, notifier):
+    def notify(self, notification, async_notifier):
         """Send a notification
 
         :param notification: The notification to send
         :type notification: :class:`~hiss.notification.Notification`
-        :param notifier: The notifier to send the notification for or None for
-                         the default notifier.
-        :type notifier:  :class:`~hiss.notifier.Notifier`
+        :param async_notifier: The async_notifier to send the notification for or None for
+                         the default async_notifier.
+        :type async_notifier:  :class:`~hiss.async_notifier.Notifier`
         """
 
-        if self.target.port != -1:
-            host = ('api.prowlapp.com', self.target.port)
+        if self.local_target.port != -1:
+            host = ('api.prowlapp.com', self.local_target.port)
         else:
             host = 'api.prowlapp.com'
             
@@ -62,7 +63,7 @@ class ProwlProtocol(asyncio.Protocol):
                                     loop=self.loop)
 
         data = {
-            'apikey': self.target.host,
+            'apikey': async_notifier.signature,
             'application': 'Hiss',
             'event': notification.title,
             'description': notification.text.encode("utf-8"),
@@ -96,7 +97,7 @@ class ProwlProtocol(asyncio.Protocol):
             result['status'] = 'ERROR'
             result['reason'] = exc.args[0]
 
-        result['target'] = str(self.target)
+        result['local_target'] = str(self.local_target)
         return result
 
 
@@ -118,5 +119,4 @@ class ProwlResponse():
             self.reason = error_node.childNodes[0].nodeValue
             self.remaining = None
             self.resetdate = None
-            
             

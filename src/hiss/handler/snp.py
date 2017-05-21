@@ -12,13 +12,13 @@ from os import urandom
 from binascii import unhexlify
 from operator import attrgetter
 
-from hiss.hash import HashInfo, generate_hash, validate_hash
 from hiss.encryption import PY_CRYPTO, encrypt, decrypt
 from hiss.exception import HissError, MarshalError
-from hiss.handler import Handler
-from hiss.utility import parse_datetime
-from hiss.resource import Icon
+from hiss.handler.aio import Handler
+from hiss.hash import HashInfo, generate_hash, validate_hash
 from hiss.notification import NotificationPriority
+from hiss.resource import Icon
+from hiss.utility import parse_datetime
 
 SNP_SCHEME = 'snp'
 SNP_DEFAULT_PORT = 9887
@@ -85,6 +85,10 @@ BOOL_MAPPING = {
     0: '0', False: '0', 'false': '0', 'no': '0',
 }
 
+
+SNPCommand = namedtuple('SNPCommand', 'name parameters')
+SNPResult = namedtuple('SNPResult', 'command status_code reason')
+
 class SNPError(HissError):
     pass
 
@@ -99,7 +103,7 @@ class SNPHandler(Handler):
 
         self.port = SNP_DEFAULT_PORT
         self.factory = lambda: SNPProtocol()
-        self.async_factory = lambda: SNPAsyncProtocol()
+        self.async_factory = lambda: SNPSubscriptionProtocol()
         self.capabilities = ['register', 'unregister', 'subscribe', 'show', 'hide']
 
     @asyncio.coroutine
@@ -129,8 +133,7 @@ class SNPBaseProtocol(asyncio.Protocol):
 
     @property
     def target(self):
-        """The :class:`hiss.target.Target` to send notifications to."""
-        
+        """The :class:`hiss.target.Target` to send/receive notifications."""
         return self._target
 
     @target.setter
@@ -246,16 +249,16 @@ class SNPProtocol(SNPBaseProtocol):
             self.response = response
 
     @asyncio.coroutine
-    def register(self, notifier, **kwargs):
-        """Register ``notifier`` with our target 
+    def register(self, async_notifier, **kwargs):
+        """Register ``async_notifier`` with our target 
 
-        :param notifier: Notifier to register
-        :type notifier:  :class:`hiss.notifier.Notifier`
+        :param async_notifier: Notifier to register
+        :type async_notifier:  :class:`hiss.async_notifier.Notifier`
         """
 
         assert self.target.protocol_version != ''
 
-        request_info = _RegisterRequestInfo(notifier, self.target, **kwargs)
+        request_info = _RegisterRequestInfo(async_notifier, self.target, **kwargs)
         yield from self.send_request(request_info)
 
         result = self._build_result('register')
@@ -263,14 +266,14 @@ class SNPProtocol(SNPBaseProtocol):
         return result
 
     @asyncio.coroutine
-    def unregister(self, notifier):
-        """Unregister notifier with our target
+    def unregister(self, async_notifier):
+        """Unregister async_notifier with our target
 
-        :param notifier: Notifier to unregister
-        :type notifier:  hiss.Notifier
+        :param async_notifier: Notifier to unregister
+        :type async_notifier:  hiss.Notifier
         """
 
-        request_info = _UnregisterRequestInfo(notifier, self.target)
+        request_info = _UnregisterRequestInfo(async_notifier, self.target)
         yield from self.send_request(request_info)
 
         result = self._build_result('unregister')
@@ -278,13 +281,13 @@ class SNPProtocol(SNPBaseProtocol):
         return result
 
     @asyncio.coroutine
-    def notify(self, notification, notifier):
+    def notify(self, notification, async_notifier):
         """Send a notification to our target
 
         :param notification: Notification to send
         :type notification:  :class:`hiss.Notification`
-        :param notifier: Notifier to use 
-        :type notifier:  :class:`hiss.notifier.Notifier`
+        :param async_notifier: Notifier to use 
+        :type async_notifier:  :class:`hiss.async_notifier.Notifier`
         """
 
         if notification.sound is not None:
@@ -293,7 +296,7 @@ class SNPProtocol(SNPBaseProtocol):
 
         assert self.target.protocol_version != ''
 
-        request_info = _NotifyRequestInfo(notification, notifier, self.target)
+        request_info = _NotifyRequestInfo(notification, async_notifier, self.target)
         yield from self.send_request(request_info)
 
         result = self._build_result('notify')
@@ -316,7 +319,7 @@ class SNPProtocol(SNPBaseProtocol):
         :type notification:  :class:`hiss.notification.Notification`
         """
 
-        request_info = _ShowRequestInfo(notification.notifier, self.target,
+        request_info = _ShowRequestInfo(notification.async_notifier, self.target,
                                         notification.uid)
         yield from self.send_request(request_info)
 
@@ -340,17 +343,17 @@ class SNPProtocol(SNPBaseProtocol):
         return result
 
     @asyncio.coroutine
-    def isvisible(self, notification, notifier=None, targets=None):
+    def isvisible(self, notification, async_notifier=None, targets=None):
         def response():
             return True
 
-        if notifier is None:
-            if notification.notifier is not None:
-                notifier = notification.notifier
+        if async_notifier is None:
+            if notification.async_notifier is not None:
+                async_notifier = notification.async_notifier
             else:
-                raise ValueError('No valid notifier instance available.')
+                raise ValueError('No valid async_notifier instance available.')
 
-        request_info = _IsVisibleRequestInfo(notifier, notification)
+        request_info = _IsVisibleRequestInfo(async_notifier, notification)
         yield from self.send_request(request_info)
 
         result = self._build_result('isvisible')
@@ -358,7 +361,7 @@ class SNPProtocol(SNPBaseProtocol):
         return result
 
 
-class SNPAsyncProtocol(SNPBaseProtocol):
+class SNPSubscriptionProtocol(SNPBaseProtocol):
     """Handling for asynchronous SNP responses."""
 
     def __init__(self):
@@ -371,59 +374,49 @@ class SNPAsyncProtocol(SNPBaseProtocol):
         version = self.target.protocol_version
         if version == '2.0':
             end_of_response_marker = b'\r\n'
+            end_of_response_marker_len = 2
         else:
             end_of_response_marker = b'END\r\n'
+            end_of_response_marker_len = 5
 
         responses = []
         end = self._buffer.find(end_of_response_marker)
         while end != -1:
-            if version == '2.0':
-                data = self._buffer[:end]
-                del self._buffer[:end + 2]
-            else:
-                data = self._buffer[:end + 3]
-                del self._buffer[:end + 5]
+            data = self._buffer[:end + (end_of_response_marker_len - 2)]
+            del self._buffer[:end + end_of_response_marker_len]
 
-            response = Response()
-            response.version = version
+            response = Response(version)
             response.unmarshal(data)
             responses.append(response)
 
             end = self._buffer.find(end_of_response_marker)
 
-        if self.response is None:
-            self.response = responses.pop(0)
-        else:
-            asyncio.async(self._async_handler(responses))
+        # Deliver the responses
+        asyncio.async(self._async_handler(responses))
 
     @asyncio.coroutine
-    def subscribe(self, notifier, signatures=None):
+    def subscribe(self, async_notifier, signatures=None):
         """Subscribe to notifications from a list of signatures
 
-        :param notifier:      Notifier to use.
-        :type notifier:       :class:`hiss.Notifier`
-        :param signatures:    Application signatures to receive messages from
-        :type signatures:     List of string or None for all
-                              applications
-        :returns:             The Response received.
+        :param async_notifier:      Notifier to use.
+        :type async_notifier:       :class:`hiss.Notifier`
+        :param signatures:    Application signatures from which to process messages
+        :type signatures:     List of string or None for all applications
+        :returns:             The :class:`Response` received.
         """
         
-        if not callable(notifier._handler):
-            raise ValueError('%s: async_handler must be callable' % 
+        if not callable(async_notifier._handler):
+            raise ValueError('%s: async_handler must be a callable' % 
                              self.__class__.__qualname__)
         
-        self._async_handler = notifier._handler
+        self._async_handler = async_notifier._async_handler
 
-        request_info = _SubscribeRequestInfo(notifier, self.target, signatures)
+        request_info = _SubscribeRequestInfo(async_notifier, self.target, signatures)
         yield from self.send_request(request_info)
 
         result = self._build_result('subscribe')
         logging.debug(pformat(result))
         return result
-
-
-SNPCommand = namedtuple('SNPCommand', 'name parameters')
-SNPResult = namedtuple('SNPResult', 'command status_code reason')
 
 
 class Request(object):
@@ -780,19 +773,19 @@ class _VersionRequestInfo(object):
 
 
 class _RegisterRequestInfo(object):
-    def __init__(self, notifier, target, **kwargs):
+    def __init__(self, async_notifier, target, **kwargs):
         self.commands = []
 
         parameters = {}
-        parameters['app-sig'] = notifier.signature
-        parameters['title'] = notifier.name
+        parameters['app-sig'] = async_notifier.signature
+        parameters['title'] = async_notifier.name
         parameters['password'] = target.password
         
         keep_alive = kwargs.get('keep_alive', False)
         if keep_alive:
             parameters['keep-alive'] = '1'
 
-        icon = notifier.icon
+        icon = async_notifier.icon
         if icon is not None:
             if isinstance(icon, Icon):
                 data = snp64(icon.data)
@@ -802,9 +795,9 @@ class _RegisterRequestInfo(object):
 
         self.commands.append(('register', parameters))
 
-        for class_id, info in notifier.notification_classes.items():
+        for class_id, info in async_notifier.notification_classes.items():
             parameters = {}
-            parameters['app-sig'] = notifier.signature
+            parameters['app-sig'] = async_notifier.signature
             parameters['id'] = class_id
             parameters['name'] = info.name
             parameters['enabled'] = BOOL_MAPPING[info.enabled]
@@ -821,33 +814,33 @@ class _RegisterRequestInfo(object):
 
 
 class _ClearClassesRequestInfo(object):
-    def __init__(self, notifier, target):
+    def __init__(self, async_notifier, target):
         self.commands = []
 
         parameters = {}
-        parameters['app-sig'] = notifier.signature
+        parameters['app-sig'] = async_notifier.signature
         parameters['password'] = target.password
 
         self.commands.append(('clearclasses', parameters))
 
 
 class _UnregisterRequestInfo(object):
-    def __init__(self, notifier, target):
+    def __init__(self, async_notifier, target):
         self.commands = []
 
         parameters = {}
-        parameters['app-sig'] = notifier.signature
+        parameters['app-sig'] = async_notifier.signature
         parameters['password'] = target.password
 
         self.commands.append(('unregister', parameters))
 
 
 class _NotifyRequestInfo(object):
-    def __init__(self, notification, notifier, target):
+    def __init__(self, notification, async_notifier, target):
         self.commands = []
 
         parameters = {}
-        parameters['app-sig'] = notifier.signature
+        parameters['app-sig'] = async_notifier.signature
         parameters['password'] = target.password
 
         if notification.class_id != '':
@@ -865,7 +858,7 @@ class _NotifyRequestInfo(object):
                 parameters['icon-base64'] = data
             else:
                 if notification.icon == '':
-                    icon = notifier.icon
+                    icon = async_notifier.icon
                 else:
                     icon = notification.icon
 
@@ -907,11 +900,11 @@ class _NotifyRequestInfo(object):
 
 
 class _AddActionRequestInfo(object):
-    def __init__(self, notifier, target, notification, command, label):
+    def __init__(self, async_notifier, target, notification, command, label):
         self.commands = []
 
         parameters = {}
-        parameters['app-sig'] = notifier.signature
+        parameters['app-sig'] = async_notifier.signature
         parameters['uid'] = notification.uid
         parameters['password'] = target.password
         parameters['cmd'] = command
@@ -921,11 +914,11 @@ class _AddActionRequestInfo(object):
 
 
 class _ClearActionsRequestInfo(object):
-    def __init__(self, notifier, target, notification):
+    def __init__(self, async_notifier, target, notification):
         self.commands = []
 
         parameters = {}
-        parameters['app-sig'] = notifier.signature
+        parameters['app-sig'] = async_notifier.signature
         parameters['uid'] = notification.uid
         parameters['password'] = target.password
 
@@ -933,11 +926,11 @@ class _ClearActionsRequestInfo(object):
 
 
 class _IsVisibleRequestInfo(object):
-    def __init__(self, notifier, target, notification):
+    def __init__(self, async_notifier, target, notification):
         self.commands = []
 
         parameters = {}
-        parameters['app-sig'] = notifier.signature
+        parameters['app-sig'] = async_notifier.signature
         parameters['password'] = target.password
         parameters['uid'] = notification.uid
 
@@ -945,11 +938,11 @@ class _IsVisibleRequestInfo(object):
 
 
 class _ShowRequestInfo(object):
-    def __init__(self, notifier, target, uid):
+    def __init__(self, async_notifier, target, uid):
         self.commands = []
 
         parameters = {}
-        parameters['app-sig'] = notifier.signature
+        parameters['app-sig'] = async_notifier.signature
         parameters['password'] = target.password
         parameters['uid'] = uid
 
@@ -957,11 +950,11 @@ class _ShowRequestInfo(object):
 
 
 class _HideRequestInfo(object):
-    def __init__(self, notifier, target, uid):
+    def __init__(self, async_notifier, target, uid):
         self.commands = []
 
         parameters = {}
-        parameters['app-sig'] = notifier.signature
+        parameters['app-sig'] = async_notifier.signature
         parameters['password'] = target.password
         parameters['uid'] = uid
 
@@ -969,7 +962,7 @@ class _HideRequestInfo(object):
 
 
 class _SubscribeRequestInfo(object):
-    def __init__(self, notifier, target, signatures):
+    def __init__(self, async_notifier, target, signatures):
         self.commands = []
 
         parameters = {}

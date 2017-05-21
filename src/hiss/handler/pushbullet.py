@@ -2,11 +2,14 @@
 #
 # Part of 'hiss' the asynchronous notification library
 
+"""Handler for the Pushbullet API (https://docs.pushbullet.com/http/).
+"""
+
 import asyncio
 import aiohttp
 import json
 
-from hiss.handler import Handler
+from hiss.handler.aio import Handler
 
 
 class PushbulletHandler(Handler):
@@ -20,17 +23,17 @@ class PushbulletHandler(Handler):
         self.capabilities = ['notify']
 
     @asyncio.coroutine
-    def connect(self, target):
-        """Connect to a :class:`~hiss.target.Target` and return the protocol handling
-        the connection.
+    def connect(self, local_target):
+        """Connect to a :class:`~hiss.local_target.Target` and return the protocol
+        handling the connection.
         
         Overrides the :class:`~hiss.handler.Handler`\'s version.
         """
         protocol = PushbulletProtocol()
 
-        target.handler = self
+        local_target.handler = self
 
-        protocol.target = target
+        protocol.local_target = local_target
         protocol.loop = self.loop
         return protocol
 
@@ -39,20 +42,20 @@ class PushbulletProtocol(asyncio.Protocol):
     """Pushbullet HTTP Protocol."""
 
     @asyncio.coroutine
-    def notify(self, notification, notifier):
+    def notify(self, notification, async_notifier):
         """Send a notification
 
         :param notification: The notification to send
         :type notification: :class:`~hiss.notification.Notification`
-        :param notifier: The notifier to send the notification for or None for
-                         the default notifier.
-        :type notifier:  :class:`~hiss.notifier.Notifier`
+        :param async_notifier: The async_notifier to send the notification for or None for
+                         the default async_notifier.
+        :type async_notifier:  :class:`~hiss.async_notifier.Notifier`
         """
         if notification.actions:
-            self.log(notifier, 'Pushover does not handle notification actions')
+            self.log(async_notifier, 'Pushbullet does not handle notification actions')
 
-        if self.target.port != -1:
-            host = ('api.pushbullet.com', self.target.port)
+        if self.local_target.port != -1:
+            host = ('api.pushbullet.com', self.local_target.port)
         else:
             host = 'api.pushbullet.com'
             
@@ -60,7 +63,7 @@ class PushbulletProtocol(asyncio.Protocol):
                                     ssl=True,
                                     loop=self.loop)
         
-        auth = aiohttp.BasicAuth(self.target.host, '')
+        auth = aiohttp.BasicAuth(self.local_target.host, '')
 
         headers = {
             'Accept': 'application/json',
@@ -106,12 +109,12 @@ class PushbulletProtocol(asyncio.Protocol):
             result['status'] = 'ERROR'
             result['reason'] = exc.args[0]
 
-        result['target'] = str(self.target)
+        result['local_target'] = str(self.local_target)
         return result
     
-    def log(self, notifier, message):
-        text = 'Target {}: {}'.format(self.target, message)
-        notifier.log(text)
+    def log(self, async_notifier, message):
+        text = 'Target {}: {}'.format(self.local_target, message)
+        async_notifier.log(text)
         
 
 class PushbulletResponse():
