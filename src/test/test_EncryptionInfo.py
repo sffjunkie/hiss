@@ -1,6 +1,12 @@
+# -*- coding: utf-8 -*-
 # Copyright 2013-2014, Simon Kennedy, sffjunkie+code@gmail.com
 #
 # Part of 'hiss' the asynchronous notification library
+
+import os
+import sys
+sys.path.insert(0,
+                os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import pytest
 
@@ -38,4 +44,3 @@ def test_EncryptionInfo_Init_ivBytes():
 def test_EncryptionInfo_Init_ivStr():
     ei = EncryptionInfo('aEs', '1111111111')
     assert ei.iv == b'\x11\x11\x11\x11\x11'
-    

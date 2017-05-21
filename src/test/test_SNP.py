@@ -1,6 +1,12 @@
+# -*- coding: utf-8 -*-
 # Copyright 2013-2014, Simon Kennedy, sffjunkie+code@gmail.com
 #
 # Part of 'hiss' the asynchronous notification library
+
+import os
+import sys
+sys.path.insert(0,
+                os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import pytest
 pytestmark = pytest.mark.skipif(True, reason='SNP not installed')
@@ -49,7 +55,7 @@ def test_SNP_Connect_InvalidHost():
     def coro():
         h = SNPHandler(loop=loop)
         t = Target('snp://%s' % INVALID_HOST)
-        
+
         with pytest.raises(ConnectionError):
             _protocol = yield from h.connect(t)
 
@@ -214,7 +220,7 @@ def test_SNP_Subscribe(notifier):
 
     c = coro()
     loop.run_until_complete(c)
-   
+
 
 @pytest.mark.skipif(True, reason='Need a second machine')
 def test_SNP_Notification_RemoteHost(notifier, icon_inverted):

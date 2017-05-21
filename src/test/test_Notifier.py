@@ -1,6 +1,12 @@
+# -*- coding: utf-8 -*-
 # Copyright 2013-2014, Simon Kennedy, sffjunkie+code@gmail.com
 #
 # Part of 'hiss' the asynchronous notification library
+
+import os
+import sys
+sys.path.insert(0,
+                os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import asyncio
 
@@ -117,4 +123,3 @@ def test_Notifier_Subscribe(async_notifier):
 
     c = coro()
     loop.run_until_complete(c)
-        

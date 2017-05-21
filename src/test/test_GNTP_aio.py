@@ -1,6 +1,12 @@
+# -*- coding: utf-8 -*-
 # Copyright 2013-2014, Simon Kennedy, sffjunkie+code@gmail.com
 #
 # Part of 'hiss' the asynchronous notification library
+
+import os
+import sys
+sys.path.insert(0,
+                os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import pytest
 import asyncio
@@ -41,7 +47,7 @@ def notifier():
 def icon():
     fname = os.path.abspath(os.path.join(os.path.dirname(__file__),
          'python-powered-h-50x65.png'))
-    
+
     fname = fname.replace('\\', '/')
     return Icon('file:///%s' % fname)
 
@@ -50,7 +56,7 @@ def icon():
 def icon_inverted():
     fname = os.path.abspath(os.path.join(os.path.dirname(__file__),
          'python-powered-h-50x65-inverted.png'))
-    
+
     fname = fname.replace('\\', '/')
     return Icon('file:///%s' % fname)
 
@@ -62,7 +68,7 @@ def test_GNTP_Aio_Connect_InvalidHost():
     def coro():
         h = GNTPHandler(loop=loop)
         t = Target('gntp://%s' % INVALID_HOST)
-        
+
         with pytest.raises(ConnectionError):
             _protocol = yield from h.connect(t)
 

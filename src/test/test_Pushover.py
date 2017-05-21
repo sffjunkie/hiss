@@ -1,6 +1,12 @@
+# -*- coding: utf-8 -*-
 # Copyright 2013-2014, Simon Kennedy, sffjunkie+code@gmail.com
 #
 # Part of 'hiss' the asynchronous notification library
+
+import os
+import sys
+sys.path.insert(0,
+                os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import pytest
 pytestmark = pytest.mark.skipif(True, reason='pushover not available')
@@ -35,7 +41,7 @@ def bad_notifier():
 def icon():
     fname = os.path.abspath(os.path.join(os.path.dirname(__file__),
          'python-powered-h-50x65.png'))
-    
+
     fname = fname.replace('\\', '/')
     return Icon('file:///%s' % fname)
 

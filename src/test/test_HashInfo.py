@@ -1,6 +1,12 @@
+# -*- coding: utf-8 -*-
 # Copyright 2013-2014, Simon Kennedy, sffjunkie+code@gmail.com
 #
 # Part of 'hiss' the asynchronous notification library
+
+import os
+import sys
+sys.path.insert(0,
+                os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import hashlib
 from binascii import hexlify
@@ -33,4 +39,3 @@ def test_HashInfo_HashCalculation():
     key_hash = hashlib.sha256(key).digest()
 
     assert key_hash == h.key_hash
-    
