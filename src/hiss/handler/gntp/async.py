@@ -67,7 +67,7 @@ class GNTPProtocol(asyncio.Protocol):
 
     def data_received(self, data):
         self._buffer.extend(data)
-        
+
         callback_response = None
         items = [i for i in self._buffer.split(b'\r\n\r\n') if len(i) > 0]
         if len(items) > 1:
@@ -102,59 +102,58 @@ class GNTPProtocol(asyncio.Protocol):
         self.response = result
 
     @asyncio.coroutine
-    def register(self, async_notifier):
-        """Register ``async_notifier`` with a our target 
+    def register(self, notifier):
+        """Register ``notifier`` with a our target
 
-        :param async_notifier: The Notifier to register
-        :type async_notifier:  :class:`~hiss.async_notifier.Notifier`
+        :param notifier: The Notifier to register
+        :type notifier:  :class:`~hiss.notifier.Notifier`
         """
 
-        request = RegisterRequest(async_notifier)
+        request = RegisterRequest(notifier)
         self.send_request(request, self.target)
         yield from self._wait_for_response()
         logging.debug(pformat(self.response))
         return self.response
 
     @asyncio.coroutine
-    def unregister(self, async_notifier):
-        """Unregister the async_notifier from the target"""
+    def unregister(self, notifier):
+        """Unregister the notifier from the target"""
 
-        request = UnregisterRequest(async_notifier)
+        request = UnregisterRequest(notifier)
         self.send_request(request, self.target)
         yield from self._wait_for_response()
         logging.debug(pformat(self.response))
         return self.response
 
     @asyncio.coroutine
-    def notify(self, notification, async_notifier):
+    def notify(self, notification, notifier):
         """Send a notification
 
         :param notification: The notification to send
         :type notification: :class:`~hiss.notification.Notification`
         """
 
-        request = NotifyRequest(notification, async_notifier)
+        request = NotifyRequest(notification, notifier)
         self.send_request(request, self.target)
         yield from self._wait_for_response()
         logging.debug(pformat(self.response))
         return self.response
 
     @asyncio.coroutine
-    def subscribe(self, async_notifier, signatures):
-        """Register ``async_notifier`` with a our target 
+    def subscribe(self, notifier, signatures):
+        """Register ``notifier`` with a our target
 
-        :param async_notifier: The Notifier to register
-        :type async_notifier:  :class:`~hiss.async_notifier.Notifier`
+        :param notifier: The Notifier to register
+        :type notifier:  :class:`~hiss.notifier.Notifier`
         :param signatures:    Application signatures to receive messages from
         :type signatures:     List of string or [] for all
                               applications
         """
-        
-        self._async_handler = async_notifier._handler
 
-        request = SubscribeRequest(async_notifier)
+        self._async_handler = notifier._handler
+
+        request = SubscribeRequest(notifier)
         self.send_request(request, self.target)
         yield from self._wait_for_response()
         logging.debug(pformat(self.response))
         return self.response
-

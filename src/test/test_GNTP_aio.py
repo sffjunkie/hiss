@@ -145,10 +145,13 @@ def test_GNTP_Aio_Notification(notifier, local_target):
         h = GNTPHandler(loop=loop)
 
         notification = notifier.create_notification(name='New',
-                                             title="A brave new world",
-                                             text="Say hello to Prism")
+                                                    title="A brave new world",
+                                                    text="Say hello to Prism")
         logging.debug('GNTP: notify')
+        response = yield from h.register(notifier, local_target)
+        print(response)
         response = yield from h.notify(notification, local_target)
+        print(response)
         assert response['status'] == 'OK'
         assert response['status_code'] == 0
 
@@ -261,3 +264,9 @@ def test_GNTP_Aio_Notification_RemoteHost(notifier, icon_inverted, remote_target
 
     c = coro()
     loop.run_until_complete(c)
+
+
+if __name__ == '__main__':
+    loop = asyncio.new_event_loop()
+
+    test_GNTP_Aio_Notification(notifier(), local_target())

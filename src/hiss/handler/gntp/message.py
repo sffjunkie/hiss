@@ -299,7 +299,7 @@ class Response(object):
                     name = name.decode('UTF-8').strip()
                     value = value.decode('UTF-8').strip()
 
-                    # All                    
+                    # All
                     if name == 'Response-Action':
                         self.command = value.lower()
 
@@ -361,19 +361,19 @@ class Response(object):
 
 
 class RegisterRequest(Request):
-    def __init__(self, async_notifier):
+    def __init__(self, notifier):
         Request.__init__(self)
 
         self.command = 'REGISTER'
-        self.body['Application-Name'] = async_notifier.name
-        self.body['Notifications-Count'] = len(async_notifier.notification_classes)
+        self.body['Application-Name'] = notifier.name
+        self.body['Notifications-Count'] = len(notifier.notification_classes)
 
-        if isinstance(async_notifier.icon, Icon):
-            self._add_resource('Application-Icon', async_notifier.icon)
+        if isinstance(notifier.icon, Icon):
+            self._add_resource('Application-Icon', notifier.icon)
         else:
-            self.body['Application-Icon'] = async_notifier.icon
+            self.body['Application-Icon'] = notifier.icon
 
-        for info in async_notifier.notification_classes.values():
+        for info in notifier.notification_classes.values():
             section = {}
             section['Notification-Name'] = info.name
             section['Notification-Enabled'] = info.enabled
@@ -382,11 +382,11 @@ class RegisterRequest(Request):
 
 
 class NotifyRequest(Request):
-    def __init__(self, notification, async_notifier):
+    def __init__(self, notification, notifier):
         Request.__init__(self)
 
         self.command = 'NOTIFY'
-        self.body['Application-Name'] = async_notifier.name
+        self.body['Application-Name'] = notifier.name
         self.body['Notification-Name'] = notification.name
         self.body['Notification-ID'] = notification.uid
         self.body['Notification-Title'] = notification.title
@@ -415,18 +415,18 @@ class NotifyRequest(Request):
 
 
 class SubscribeRequest(Request):
-    def __init__(self, async_notifier):
+    def __init__(self, notifier):
         Request.__init__(self)
 
         self.command = 'SUBSCRIBE'
-        self.body['Subscriber-ID'] = async_notifier.signature
-        self.body['Subscriber-Name'] = async_notifier.name
+        self.body['Subscriber-ID'] = notifier.signature
+        self.body['Subscriber-Name'] = notifier.name
 
 
 class UnregisterRequest(Request):
-    def __init__(self, async_notifier):
+    def __init__(self, notifier):
         Request.__init__(self)
 
         self.command = 'REGISTER'
-        self.body['Application-Name'] = async_notifier.name
+        self.body['Application-Name'] = notifier.name
         self.body['Notifications-Count'] = 0

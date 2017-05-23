@@ -23,16 +23,16 @@ NotificationInfo = namedtuple('NotificationInfo', ['name', 'title', 'text',
 
 USE_NOTIFIER = object()
 USE_REGISTERED = object()
-    
+
 
 class Notifier(object):
     """Maintains a list of targets to handle notifications for.
 
-    :param name:      The name of this async_notifier
+    :param name:      The name of this notifier
     :type name:       str
-    :param signature: Application signature for this async_notifier.
+    :param signature: Application signature for this notifier.
     :type signature:  str
-    :param icon:      Notifier icon. Used when registering the async_notifier and
+    :param icon:      Notifier icon. Used when registering the notifier and
                       as the default icon for notifications.
     :type icon:       :class:`~hiss.resource.Icon` or str
     :param sound:     Sound to play when displaying the notification.
@@ -57,14 +57,14 @@ class Notifier(object):
         self.icon = icon
         self.sound = sound
         self.asynchronous = asynchronous
-        
+
         self.notification_classes = {}
         self.targets = TargetList()
-        
+
         if asynchronous and handlers[0] and not asyncio.iscoroutinefunction(handlers[0]):
             raise ValueError('response_handler must be an asyncio coroutine')
         self._response_handler = handlers[0]
-        
+
         if asynchronous and handlers[1] and not asyncio.iscoroutinefunction(handlers[1]):
             raise ValueError('async_handler must be an asyncio coroutine')
         self._async_handler = handlers[1]
@@ -101,9 +101,9 @@ class Notifier(object):
         :type class_id:       int
         :returns:             The class id of the newly added notification
         :rtype:               int
-        
+
         Default values will be used when creating a notification with
-        :meth:`~hiss.async_notifier.Notifier.create_notification`
+        :meth:`~hiss.notifier.Notifier.create_notification`
         """
         ni = NotificationInfo(name, title, text, icon, sound, enabled)
 
@@ -127,7 +127,7 @@ class Notifier(object):
         Either ``class_id`` or ``name`` can be provided. If ``class_id`` is
         provided it will be used instead of ``name`` to
         lookup the defaults registered in
-        :meth:`~hiss.async_notifier.Notifier.add_notification`
+        :meth:`~hiss.notifier.Notifier.add_notification`
 
         :param class_id:   The notification class id
         :type class_id:    int
@@ -135,22 +135,22 @@ class Notifier(object):
         :type name:        str
         :param title:      The title of the notification
         :type title:       str, None for no title or
-                           :data:`~hiss.async_notifier.USE_REGISTERED` (default)
+                           :data:`~hiss.notifier.USE_REGISTERED` (default)
                            to use title provided during registration,
-                           :data:`~hiss.async_notifier.USE_NOTIFIER` to the use the
-                           Notifier's name 
+                           :data:`~hiss.notifier.USE_NOTIFIER` to the use the
+                           Notifier's name
         :param text:       The text to display in the notification
         :type text:        str, None for no text or
-                           :data:`~hiss.async_notifier.USE_REGISTERED` (default)
+                           :data:`~hiss.notifier.USE_REGISTERED` (default)
                            to use text provided during registration
         :param icon:       Icon to display
         :type icon:        str, :class:`~hiss.resource.Icon`, None for no
                            icon or
-                           :data:`~hiss.async_notifier.USE_REGISTERED` (default)
+                           :data:`~hiss.notifier.USE_REGISTERED` (default)
                            to use icon provided during registration
         :param sound:      Sound to play when showing notification
         :type sound:       str, None (default) for no sound or
-                           :data:`~hiss.async_notifier.USE_REGISTERED`
+                           :data:`~hiss.notifier.USE_REGISTERED`
                            to use sound provided during registration
         """
         if class_id != -1:
@@ -162,7 +162,7 @@ class Notifier(object):
             registration_info = self.find_notification(name)
         else:
             raise NotifierError('Either a class id or name must be specified.',
-                                'hiss.async_notifier.Notifier')
+                                'hiss.notifier.Notifier')
 
         if title is USE_REGISTERED:
             title = registration_info.title
@@ -188,14 +188,14 @@ class Notifier(object):
         n =  Notification(title, text, icon, sound, uid=uid)
         n.name = registration_info.name
         n.class_id = class_id
-        n.async_notifier = self
+        n.notifier = self
         return n
 
     def find_notification(self, name):
         for value in self.notification_classes.values():
             if value.name == name:
                 return value
-            
+
         raise NotifierError('Notification name %s not found.' % name)
 
     @asyncio.coroutine
@@ -224,24 +224,24 @@ class Notifier(object):
                 elif target.scheme == 'xbmc':
                     handler = XBMCHandler()
                     self._handlers[target.scheme] = handler
-    
+
                 wait_for.append(handler.connect(target))
 
             done, _pending = yield from asyncio.wait(wait_for)
-    
+
             results = []
             for task in done:
                 tr = task.result()
-    
+
                 result = {}
                 result['target'] = tr.target
                 if result is None:
                     result['status'] = 'ERROR'
                     result['reason'] = 'Unable to connect to target'
                 else:
-                    result['status'] = 'OK'            
+                    result['status'] = 'OK'
                     self.targets.append(tr.target)
-    
+
                 results.append(result)
         else:
             self.targets.append(target)
@@ -260,13 +260,13 @@ class Notifier(object):
         :type target:  :class:`~hiss.target.Target`
         """
         self.targets.remove(target)
-        
+
     def log(self, message):
         logging.log(logging.DEBUG, message)
 
     @asyncio.coroutine
     def register(self, targets=None):
-        """Register this async_notifier with the target specified.
+        """Register this notifier with the target specified.
 
         :param targets: The target or targets to register with or ``None``
                         to register with all known target
@@ -309,7 +309,7 @@ class Notifier(object):
             notifications = [notifications]
 
         for notification in notifications:
-            notification.async_notifier = self
+            notification.notifier = self
 
         targets = self.targets.valid_targets(targets)
 
@@ -360,16 +360,16 @@ class Notifier(object):
 
     @asyncio.coroutine
     def unregister(self, targets=None):
-        """Unregister this async_notifier with all targets
+        """Unregister this notifier with all targets
 
         :param targets: The targets to register with
-                        If not specified or ``None`` then the async_notifier
+                        If not specified or ``None`` then the
                         will be registered with all known targets
         :type targets:  :class:`hiss.Target` or ``None``
         """
         for handler in self._handlers.values():
             if handler.capabilities['unregister']:
-                handler.unregister(targets, async_notifier=self)
+                handler.unregister(targets, notifier=self)
 
     @asyncio.coroutine
     def show(self, uid):
@@ -392,7 +392,7 @@ class Notifier(object):
     @asyncio.coroutine
     def responses_received(self, responses):
         """Event handler for callback events.
-        
+
         Default handler calls the response handler provided to `init`.
 
         :param responses: The event
@@ -404,7 +404,7 @@ class Notifier(object):
     @asyncio.coroutine
     def events_received(self, events):
         """Event handler for callback events.
-        
+
         Default handler calls the event handler provided to `init`.
 
         :param responses: The event
@@ -449,7 +449,7 @@ class TargetList(object):
         if index_to_delete != -1:
             del self.targets[index_to_delete]
 
-    def valid_targets(self, target_or_targets):        
+    def valid_targets(self, target_or_targets):
         if target_or_targets is None:
             target_or_targets = self.targets
         else:
@@ -458,7 +458,7 @@ class TargetList(object):
         return target_or_targets
 
     def _known_targets(self, target_or_targets):
-        """Filter out unknown target_or_targets"""  
+        """Filter out unknown target_or_targets"""
 
         if isinstance(target_or_targets, Target) and target_or_targets in self.targets:
             return [target_or_targets]
@@ -469,5 +469,3 @@ class TargetList(object):
                 _targets.append(target)
 
         return _targets
-
-    
