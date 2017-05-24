@@ -2,7 +2,7 @@
 #
 # Part of 'hiss' the asynchronous notification library
 
-"""Handler for the XBMC JSON RPC API
+"""Handler for the Kodi JSON RPC API
 (http://kodi.wiki/index.php?title=JSON_RPC)
 """
 
@@ -27,7 +27,7 @@ class KodiError(Exception):
 class KodiHandler(AIOHandler):
     """:class:`~hiss.handler.Handler` sub-class for Kodi notifications"""
 
-    __name__ = 'XBMC'
+    __name__ = 'Kodi'
 
     def __init__(self, username=KODI_USERNAME, password=KODI_PASSWORD, loop=None):
         super().__init__(loop)
