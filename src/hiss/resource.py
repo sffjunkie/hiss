@@ -5,7 +5,7 @@
 import uuid
 
 try:
-    from urllib.request import urlopen    
+    from urllib.request import urlopen
 except ImportError:
     from urllib2 import urlopen
 
@@ -34,6 +34,7 @@ class Resource(object):
             else:
                 f = urlopen(self.source)
                 self._data = f.read(-1)
+                f.close()
 
         return self._data
 
