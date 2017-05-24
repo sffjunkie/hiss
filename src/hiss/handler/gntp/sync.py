@@ -25,9 +25,8 @@ def send_request(request, target, wait_for_response=True):
             response_data.extend(data)
         response = Response()
         response.unmarshal(response_data)
-        return response
     else:
         response = None
-        
+
     s.close()
     return response
