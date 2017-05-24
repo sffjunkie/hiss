@@ -16,23 +16,23 @@ from .jsonrpc.message import RPCRequest
 from hiss.resource import Icon
 from hiss.handler.aio import AIOHandler
 
-XBMC_DEFAULT_PORT = 8080
-XBMC_USERNAME = 'xbmc'
-XBMC_PASSWORD = 'xbmc'
+KODI_DEFAULT_PORT = 8080
+KODI_USERNAME = 'xbmc'
+KODI_PASSWORD = 'xbmc'
 
-class XBMCError(Exception):
+class KodiError(Exception):
     pass
 
 
-class XBMCHandler(AIOHandler):
-    """:class:`~hiss.handler.Handler` sub-class for XBMC notifications"""
+class KodiHandler(AIOHandler):
+    """:class:`~hiss.handler.Handler` sub-class for Kodi notifications"""
 
     __name__ = 'XBMC'
 
-    def __init__(self, username=XBMC_USERNAME, password=XBMC_PASSWORD, loop=None):
+    def __init__(self, username=KODI_USERNAME, password=KODI_PASSWORD, loop=None):
         super().__init__(loop)
 
-        self.port = XBMC_DEFAULT_PORT
+        self.port = KODI_DEFAULT_PORT
         self.username = username
         self.password = password
         self.capabilities = ['notify']
