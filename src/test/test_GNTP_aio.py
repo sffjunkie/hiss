@@ -255,18 +255,12 @@ def test_GNTP_Aio_Notification_RemoteHost(notifier, icon_inverted, remote_target
         h = GNTPHandler(loop=loop)
 
         notification = notifier.create_notification(name='New',
-                                             title="A brave new world",
-                                             text=("This notification should "
-                                                   "have an icon"),
-                                             icon=icon_inverted)
+                                                    title="A brave new world",
+                                                    text=("This notification should "
+                                                    "have an icon"),
+                                                    icon=icon_inverted)
         response = yield from h.notify(notification, local_target)
         assert response['status'] == 'OK'
 
     c = coro()
     loop.run_until_complete(c)
-
-
-if __name__ == '__main__':
-    loop = asyncio.new_event_loop()
-
-    test_GNTP_Aio_Notification(notifier(), local_target())
