@@ -24,17 +24,17 @@ class ProwlHandler(Handler):
         self.capabilities = ['notify']
 
     @asyncio.coroutine
-    def connect(self, local_target):
-        """Connect to a :class:`~hiss.local_target.Target` and return the protocol handling
+    def connect(self, target):
+        """Connect to a :class:`~hiss.target.Target` and return the protocol handling
         the connection.
         
         Overrides the :class:`~hiss.handler.Handler`\'s version.
         """
         protocol = ProwlProtocol()
 
-        local_target.handler = self
+        target.handler = self
 
-        protocol.local_target = local_target
+        protocol.target = target
         protocol.loop = self.loop
         return protocol
 
@@ -53,11 +53,11 @@ class ProwlProtocol(asyncio.Protocol):
         :type async_notifier:  :class:`~hiss.async_notifier.Notifier`
         """
 
-        if self.local_target.port != -1:
-            host = ('api.prowlapp.com', self.local_target.port)
+        if self.target.port != -1:
+            host = ('api.prowlapp.com', self.target.port)
         else:
             host = 'api.prowlapp.com'
-            
+
         client = aiohttp.HttpClient(host,
                                     ssl=True,
                                     loop=self.loop)
@@ -69,16 +69,16 @@ class ProwlProtocol(asyncio.Protocol):
             'description': notification.text.encode("utf-8"),
             'priority': notification.priority
         }
-        
+
         if self.token:
             data['developerkey'] = self.token
-        
+
         result = {}
         try:
             http_response = yield from client.request(method='POST',
                                                       path='/publicapi/add',
                                                       params=data)
-            
+
             response_data = yield from http_response.read()
             http_response.close()
 
@@ -97,7 +97,7 @@ class ProwlProtocol(asyncio.Protocol):
             result['status'] = 'ERROR'
             result['reason'] = exc.args[0]
 
-        result['local_target'] = str(self.local_target)
+        result['target'] = str(self.target)
         return result
 
 
@@ -119,4 +119,3 @@ class ProwlResponse():
             self.reason = error_node.childNodes[0].nodeValue
             self.remaining = None
             self.resetdate = None
-            

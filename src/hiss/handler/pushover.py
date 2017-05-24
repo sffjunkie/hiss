@@ -23,17 +23,17 @@ class PushoverHandler(Handler):
         self.capabilities = ['notify']
 
     @asyncio.coroutine
-    def connect(self, local_target):
-        """Connect to a :class:`~hiss.local_target.Target` and return the protocol
+    def connect(self, target):
+        """Connect to a :class:`~hiss.target.Target` and return the protocol
         handling the connection.
-        
+
         Overrides the :class:`~hiss.handler.Handler`\'s version.
         """
         protocol = PushoverProtocol()
 
-        local_target.handler = self
+        target.handler = self
 
-        protocol.local_target = local_target
+        protocol.target = target
         protocol.loop = self.loop
         return protocol
 
@@ -53,51 +53,51 @@ class PushoverProtocol(asyncio.Protocol):
         """
         if notification.actions:
             self.log(async_notifier, 'Pushover does not handle notification actions')
-        
+
         if notification.callback:
             self.log(async_notifier, 'Pushover does not handle notification callbacks')
-        
+
         title = notification.title
         if len(title) > 100:
             title = title[:100]
             self.log(async_notifier, ('Pushover maximum title length (100) '
                                 'exceeded - Truncating'))
-            
+
         message = notification.text
         if len(message) > 512:
             message = message[:512]
             self.log(async_notifier, ('Pushover maximum message length (512) '
                                 'exceeded - Truncating'))
 
-        if self.local_target.port != -1:
-            host = ('api.pushover.net', self.local_target.port)
+        if self.target.port != -1:
+            host = ('api.pushover.net', self.target.port)
         else:
             host = 'api.pushover.net'
-            
+
         client = aiohttp.HttpClient(host,
                                     ssl=True,
                                     loop=self.loop)
 
         fields = {
             'token': async_notifier.signature,
-            'user': self.local_target.host,
+            'user': self.target.host,
             'title': title.encode('UTF-8'),
             'message': notification.text.encode("utf-8"),
             'priority': notification.priority
         }
-        
+
         if notification.callback:
             fields['url'] = notification.callback.command
             fields['url_title'] = notification.callback.label
-        
+
         data = aiohttp.helpers.FormData(fields)
-        
+
         result = {}
         try:
             http_response = yield from client.request(method='POST',
                                                       path='/1/messages.json',
                                                       data=data)
-            
+
             response_data = yield from http_response.read()
             http_response.close()
 
@@ -116,13 +116,13 @@ class PushoverProtocol(asyncio.Protocol):
             result['status'] = 'ERROR'
             result['reason'] = exc.args[0]
 
-        result['local_target'] = str(self.local_target)
+        result['target'] = str(self.target)
         return result
-    
+
     def log(self, async_notifier, message):
-        msg = 'Target {}: {}'.format(self.local_target, message)
+        msg = 'Target {}: {}'.format(self.target, message)
         async_notifier.log(msg)
-        
+
 
 class PushoverResponse():
     def __init__(self, response_json):
@@ -135,4 +135,3 @@ class PushoverResponse():
             self.status = 'ERROR'
             self.status_code = -1
             self.reason = data['errors'][0]
-            

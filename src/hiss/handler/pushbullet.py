@@ -23,17 +23,17 @@ class PushbulletHandler(Handler):
         self.capabilities = ['notify']
 
     @asyncio.coroutine
-    def connect(self, local_target):
-        """Connect to a :class:`~hiss.local_target.Target` and return the protocol
+    def connect(self, target):
+        """Connect to a :class:`~hiss.target.Target` and return the protocol
         handling the connection.
-        
+
         Overrides the :class:`~hiss.handler.Handler`\'s version.
         """
         protocol = PushbulletProtocol()
 
-        local_target.handler = self
+        target.handler = self
 
-        protocol.local_target = local_target
+        protocol.target = target
         protocol.loop = self.loop
         return protocol
 
@@ -54,27 +54,27 @@ class PushbulletProtocol(asyncio.Protocol):
         if notification.actions:
             self.log(async_notifier, 'Pushbullet does not handle notification actions')
 
-        if self.local_target.port != -1:
-            host = ('api.pushbullet.com', self.local_target.port)
+        if self.target.port != -1:
+            host = ('api.pushbullet.com', self.target.port)
         else:
             host = 'api.pushbullet.com'
-            
+
         client = aiohttp.HttpClient(host,
                                     ssl=True,
                                     loop=self.loop)
-        
-        auth = aiohttp.BasicAuth(self.local_target.host, '')
+
+        auth = aiohttp.BasicAuth(self.target.host, '')
 
         headers = {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
         }
-        
+
         fields = {
             'title': notification.title,
             'body': notification.text,
         }
-        
+
         if notification.callback:
             fields['type'] = 'link'
             fields['url'] = notification.callback
@@ -82,7 +82,7 @@ class PushbulletProtocol(asyncio.Protocol):
             fields['type'] = 'note'
 
         data = json.dumps(fields).encode('UTF-8')
-        
+
         result = {}
         try:
             http_response = yield from client.request(method='POST',
@@ -90,7 +90,7 @@ class PushbulletProtocol(asyncio.Protocol):
                                                       auth=auth,
                                                       headers=headers,
                                                       data=data)
-            
+
             response_data = yield from http_response.read()
             http_response.close()
 
@@ -109,13 +109,13 @@ class PushbulletProtocol(asyncio.Protocol):
             result['status'] = 'ERROR'
             result['reason'] = exc.args[0]
 
-        result['local_target'] = str(self.local_target)
+        result['target'] = str(self.target)
         return result
-    
+
     def log(self, async_notifier, message):
-        text = 'Target {}: {}'.format(self.local_target, message)
+        text = 'Target {}: {}'.format(self.target, message)
         async_notifier.log(text)
-        
+
 
 class PushbulletResponse():
     def __init__(self, response_json):
@@ -128,4 +128,3 @@ class PushbulletResponse():
             self.status = 'OK'
             self.status_code = 0
             self.reason = None
-            
