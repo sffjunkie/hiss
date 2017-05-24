@@ -54,10 +54,10 @@ class KodiHandler(AIOHandler):
         return protocol
 
 
-class XBMCProtocol(asyncio.Protocol):
-    """XBMC JSON Protocol.
+class KodiProtocol(asyncio.Protocol):
+    """Kodi JSON Protocol.
 
-    Uses :mod:`aiohttp` to communicate with XBMC"""
+    Uses :mod:`aiohttp` to communicate with Kodi"""
 
     @asyncio.coroutine
     def notify(self, notification, async_notifier):
