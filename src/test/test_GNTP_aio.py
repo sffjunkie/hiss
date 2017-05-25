@@ -69,7 +69,7 @@ def test_GNTP_Aio_Connect_InvalidHost():
         h = GNTPHandler(loop=loop)
         t = Target('gntp://%s' % INVALID_HOST)
 
-        with pytest.raises(ConnectionError):
+        with pytest.raises((ConnectionError, TimeoutError)):
             _protocol = yield from h.connect(t)
 
     loop.run_until_complete(coro())
