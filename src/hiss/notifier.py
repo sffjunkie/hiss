@@ -14,7 +14,7 @@ from hiss.notification import Notification
 
 from hiss.handler.gntp.async import GNTPHandler
 from hiss.handler.snp import SNPHandler
-from hiss.handler.xbmc import XBMCHandler
+from hiss.handler.kodi import KodiHandler
 
 __all__ = ['Notifier', 'USE_NOTIFIER', 'USE_REGISTERED']
 
